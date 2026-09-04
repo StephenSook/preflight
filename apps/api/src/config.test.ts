@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applicationPublicKeyPem, loadConfig } from "./config.js";
+import { applicationPublicKeyPem, loadConfig, selfPingTarget } from "./config.js";
 
 const base = { VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", ORIGIN_ANSWER_URL: "https://origin.example/answer" };
 
@@ -27,5 +27,17 @@ describe("applicationPublicKeyPem", () => {
 
   it("is undefined when neither is configured", () => {
     expect(applicationPublicKeyPem(loadConfig(base))).toBeUndefined();
+  });
+});
+
+describe("selfPingTarget", () => {
+  it("pings its own health check when on and the public URL is https", () => {
+    expect(selfPingTarget(loadConfig({ ...base, PUBLIC_BASE_URL: "https://preflight-api.example/" }))).toBe("https://preflight-api.example/health");
+  });
+
+  it("stays quiet for a local or tunnel http URL, when off, or without a public URL", () => {
+    expect(selfPingTarget(loadConfig({ ...base, PUBLIC_BASE_URL: "http://127.0.0.1:3131" }))).toBeUndefined();
+    expect(selfPingTarget(loadConfig({ ...base, PUBLIC_BASE_URL: "https://preflight-api.example", SELF_PING: "off" }))).toBeUndefined();
+    expect(selfPingTarget(loadConfig(base))).toBeUndefined();
   });
 });

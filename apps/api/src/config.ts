@@ -46,6 +46,12 @@ const schema = z.object({
   /** The live endpoint the reference flow connects to: an app user for the browser softphone, or a phone number. */
   REFERENCE_AGENT: z.string().min(1).default("scheduler"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  /**
+   * A free host sleeps after 15 idle minutes and wakes in 30 to 60 s, longer than the answer webhook
+   * budget. When on and PUBLIC_BASE_URL is an https URL, the process fetches its own /health every four
+   * minutes so the host keeps seeing traffic. Off for local runs, where the URL is a tunnel or localhost.
+   */
+  SELF_PING: z.enum(["on", "off"]).default("on"),
 });
 
 export type Config = z.infer<typeof schema>;
@@ -57,6 +63,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Preflight configuration is invalid: ${issues}`);
   }
   return parsed.data;
+}
+
+/** Where the process pings itself to stay warm, or undefined when self-pinging is off or the URL is not public https. */
+export function selfPingTarget(config: Pick<Config, "SELF_PING" | "PUBLIC_BASE_URL">): string | undefined {
+  if (config.SELF_PING !== "on" || !config.PUBLIC_BASE_URL) return undefined;
+  if (!/^https:\/\//.test(config.PUBLIC_BASE_URL)) return undefined;
+  return `${config.PUBLIC_BASE_URL.replace(/\/$/, "")}/health`;
 }
 
 /** The application public key PEM: the inline value first (hosted), else the file at the path (local), else nothing. */

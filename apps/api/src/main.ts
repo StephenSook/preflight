@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import postgres, { type Sql } from "postgres";
 import { NumberFactsResolver } from "@preflight/numfacts";
-import { applicationPublicKeyPem, declarationFrom, loadConfig } from "./config.js";
+import { applicationPublicKeyPem, declarationFrom, loadConfig, selfPingTarget } from "./config.js";
 import { runMigrations } from "./db/migrate.js";
 import { buildServer } from "./server.js";
 import { MemoryDecisionStore, PgDecisionStore, type DecisionStore } from "./store/decisionStore.js";
@@ -43,6 +43,16 @@ async function main(): Promise<void> {
   const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration, applicationPublicKeyPem: publicKeyPem });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
   app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
+
+  const pingTarget = selfPingTarget(config);
+  if (pingTarget) {
+    const everyMs = 4 * 60 * 1000;
+    const timer = setInterval(() => {
+      fetch(pingTarget).catch((err: unknown) => app.log.warn({ err: err instanceof Error ? err.message : String(err) }, "self-ping failed"));
+    }, everyMs);
+    timer.unref();
+    app.log.info({ target: pingTarget, everySeconds: everyMs / 1000 }, "self-ping on: the free host sleeps without traffic");
+  }
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     app.log.info({ signal }, "preflight api shutting down");
