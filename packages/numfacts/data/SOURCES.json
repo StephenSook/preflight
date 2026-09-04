@@ -1,0 +1,22 @@
+{
+  "fetchedAt": "2026-09-04T04:08:25.938Z",
+  "nanpa": {
+    "url": "https://reports.nanpa.com/public/CoCodeAssignment_Utilized_AllStates_Public.zip",
+    "fileUpdated": "09/03/2026",
+    "sha256": "a99e10c725c77525f681c45ead5f4c0601f877b2acd9beb458b37014416313c5",
+    "rows": 204776,
+    "lineClassCounts": {
+      "W": 56888,
+      "V": 39997,
+      "L": 107891
+    },
+    "derived": "co-codes.tsv"
+  },
+  "timezoneMap": {
+    "url": "https://raw.githubusercontent.com/google/libphonenumber/master/resources/timezones/map_data.txt",
+    "license": "Apache-2.0, The Libphonenumber Authors",
+    "sha256": "b117956f9461f8ea3686143cbd3f5ab44e62016e9db37e2391d2cf01004543a6",
+    "nanpEntries": 2046,
+    "derived": "tz-map.txt"
+  }
+}
