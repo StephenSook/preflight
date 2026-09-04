@@ -1,0 +1,50 @@
+# Render blueprint for the Preflight API (free plan, one always-warm service).
+# Secrets are set in the Render dashboard or by the deploy step, never here.
+services:
+  - type: web
+    name: preflight-api
+    runtime: node
+    plan: free
+    region: virginia
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm -r build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PORT
+        value: "3131"
+      - key: POLICY_MODE
+        value: strict
+      - key: REFERENCE_APP
+        value: "on"
+      - key: REFERENCE_MODE
+        value: broken
+      - key: REFERENCE_AGENT
+        value: scheduler
+      - key: ORIGIN_ANSWER_URL
+        value: http://127.0.0.1:3131/reference/answer
+      - key: LOG_LEVEL
+        value: info
+      - key: VONAGE_API_KEY
+        sync: false
+      - key: VONAGE_SIGNATURE_SECRET
+        sync: false
+      - key: VONAGE_APPLICATION_ID
+        sync: false
+      - key: VONAGE_APPLICATION_PUBLIC_KEY_PATH
+        value: /etc/secrets/public.key
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FLOW_DECLARATION_JSON
+        sync: false
+      - key: SEAL_TOKEN
+        sync: false
+      - key: DASHBOARD_TOKEN
+        sync: false
+      - key: REFERENCE_ADMIN_TOKEN
+        sync: false
