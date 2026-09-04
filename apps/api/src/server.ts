@@ -60,6 +60,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     service: "preflight-api",
     version: "0.1.0",
     policy: config.POLICY_MODE,
+    store: store.name,
     events: await store.count(),
   }));
 
