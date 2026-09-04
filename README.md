@@ -72,7 +72,7 @@ a false verdict blocks the call. The formulas are LTL over the atom vocabulary a
 |---|---|---|---|
 | P1 | Calling hours | Every spoken action happens inside 8am to 9pm at the destination, resolved from the number prefix to a timezone against the call timestamp. `G( speaks -> within_hours )` | 47 CFR 64.1200(c)(1) |
 | P2 | Identification present | No synthetic speech with no live human leg occurs strictly before the declared identification beat. `(!(speaks & synthetic & !connects_human)) W identifies` | 47 CFR 64.1200(b)(1) |
-| P3 | Interactive opt-out present | From every synthetic-speech action, an input action declared as the opt-out handler is reachable later on the path. `G( (speaks & synthetic & !connects_human) -> F offers_optout )` | 47 CFR 64.1200(b)(3) |
+| P3 | Interactive opt-out present | From the identification beat, an input declared as the opt-out handler or a connection to a live endpoint is reachable later on the path. `G( identifies -> F (offers_optout \| connects_human) )` | 47 CFR 64.1200(b)(3) |
 | P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. `G( caller_id_present )` | O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c) |
 | P5 | Georgia identification first | Nothing is spoken strictly before the declared identification beat. Position, not presence. `(!speaks) W identifies` | O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b) |
 
@@ -133,9 +133,9 @@ never a network call. And the graph of a real call flow is distributed across yo
 (an `input` or `notify` callback can return a replacement object), so it cannot be known from any
 one document; an open branch is held until it has been observed.
 
-## Three corrections to the specification, found by construction
+## Four corrections to the specification, found by construction
 
-The product specification was written before the code. Building it found three defects, each
+The product specification was written before the code. Building it found four defects, each
 recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
 
 - **Answer-webhook timing.** Vonage fires the answer webhook when a call is answered, so a
@@ -147,6 +147,11 @@ recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-shee
 - **The Georgia subsection letters.** The spec cited O.C.G.A. 46-5-27(b) for identification and (c)
   for caller id. Those are the definitions and the no-call prohibition. The duties are (g)(1) and
   (g)(2), which the citation-enforcement test now asserts against the codified text.
+- **The P3 formula.** As printed it obliged every synthetic utterance to be followed by an opt-out,
+  which flagged a closing sentence after the opt-out and the spec's own declared agent path. The
+  rule anchors the opt-out to the identification, so P3 is
+  `G( identifies -> F (offers_optout | connects_human) )`, and the graph test replays the spec's
+  example with the agent path passing and the untraced branch failing.
 
 ## Repo layout
 
