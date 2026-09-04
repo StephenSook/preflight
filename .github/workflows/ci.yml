@@ -30,6 +30,9 @@ jobs:
         run: pnpm typecheck
       - name: unit tests
         run: pnpm test
+        env:
+          # The Postgres integration suite fails, never skips, when this is missing under CI.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: AI-tone gate (prose surfaces)
         run: bash scripts/ai-tone-gate.sh
 
