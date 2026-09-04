@@ -21,6 +21,7 @@ _not yet generated_
 | Public number | +1 943 244 5023 (Atlanta overlay, on the account since 2026-09-03); +1 201 613 1021 bought 2026-09-04 as the outbound caller id (1.09 USD setup, 1.09 USD per month each) | Vonage dashboard purchase receipt (toast: "has now been added to your account for use"); balance 16.66 to 15.57 USD | 2026-09-04 |
 | Atlanta workshop coupon | `ATLDICHF26`, 15 USD credit | https://developer.vonage.com/en/events/register/dialedin-atlanta-a-createher-fest-tech-series (linked from the Devpost welcome email of 2026-08-14) | 2026-09-04 |
 | Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
+| Deployed API | https://preflight-api-rc34.onrender.com (Render free plan, virginia, service srv-dad5t10n74is73ddjmu0, auto-deploy from main); the signature secret on the host is a placeholder until the real one is set | Render API response at creation, 2026-09-04 06:00 UTC | 2026-09-04 |
 
 ## MEASUREMENTS (each row: what, value, how measured, when)
 
@@ -28,6 +29,8 @@ _not yet generated_
 |---|---|---|---|
 | Identity Insights, first lookup (format, current_carrier, original_carrier) on +1 943 244 5023 | HTTP 200 in about 600 ms; format time_zones [America/New_York], is_valid true; original_carrier network_type LANDLINE; current_carrier NOT_FOUND ("may not be assigned to a mobile network"); request_id b44c2ea3-d16c-4654-aa59-de69bfa64e4b | scripts/vonage/identity-insights.mjs with the application JWT, results/identity-insights-2026-09-04T05-5*.json | 2026-09-04 |
 | Vonage mid-call REST control (earmuff/unearmuff), 50 flips | median 103 ms, p95 183 ms, 0 non-2xx, 0 dropped legs | spike/gate1, tools/analyze.mjs | 2026-09-03 |
+| Live host, first create-call request through the deployed gateway (broken reference flow, about 02:00 EDT) | HTTP 409, x-preflight-decision block, reason P1 Calling hours 47 CFR 64.1200(c)(1); 871 ms on a cold instance, 103 ms warm; ledger seq 203 | gateway probe and scripts/vonage/daily-call.mjs against https://preflight-api-rc34.onrender.com with the application JWT | 2026-09-04 |
+| First Rekor seal of the ledger head | log index 2707849371, entry 108e9186e8c5677a89510687a845024ecc717abf90d6bec4c31f4ccf22b26d840711ef8e527c9afd; rekor-cli verify passed before the ledger recorded the seal entry (06:09:06 UTC) | .github/workflows/seal.yml, run 33843182676 | 2026-09-04 |
 
 ## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)
 
