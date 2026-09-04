@@ -1,0 +1,21 @@
+{
+  "name": "an action the reference does not define, plus malformed fields",
+  "description": "Kept in position as unknown so ordering survives; every defect is an issue with a path.",
+  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "ncco": [
+    { "action": "talk", "text": "This is a message from Preflight Demo Clinic.", "loop": "twice" },
+    { "action": "hangup" },
+    { "action": "connect", "endpoint": [ { "type": "phone" } ] },
+    { "action": "input", "type": ["video"] }
+  ],
+  "expect": {
+    "kinds": ["talk", "unknown", "unknown", "unknown"],
+    "atoms": [
+      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    ],
+    "errors": 4
+  }
+}

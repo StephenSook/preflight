@@ -1,0 +1,17 @@
+{
+  "name": "greeting then live agent",
+  "description": "Identifies, then connects to a person. No synthetic branch after the greeting.",
+  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "ncco": [
+    { "action": "talk", "text": "This is a message from Preflight Demo Clinic. Please hold for a scheduler." },
+    { "action": "connect", "from": "14045550100", "endpoint": [ { "type": "phone", "number": "14045550123" } ] }
+  ],
+  "expect": {
+    "kinds": ["talk", "connect"],
+    "atoms": [
+      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": true }
+    ],
+    "errors": 0
+  }
+}

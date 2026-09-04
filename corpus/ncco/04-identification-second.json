@@ -1,0 +1,19 @@
+{
+  "name": "identification is not the first spoken action",
+  "description": "A prompt speaks before the identification beat. Federal P2 is satisfied at index 1; Georgia P5 is not.",
+  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "ncco": [
+    { "action": "talk", "text": "Please listen carefully, this call contains important information." },
+    { "action": "talk", "text": "This is a message from Preflight Demo Clinic." },
+    { "action": "input", "type": ["dtmf", "speech"], "eventUrl": ["https://origin.example/webhooks/optout?campaign=fall"] }
+  ],
+  "expect": {
+    "kinds": ["talk", "talk", "input"],
+    "atoms": [
+      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": true, "connects_human": false }
+    ],
+    "errors": 0
+  }
+}

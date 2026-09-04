@@ -1,0 +1,19 @@
+{
+  "name": "prerecorded audio identifies by stream URL",
+  "description": "The identification beat is an audio file, declared by URL. A second stream is not the declared one.",
+  "declaration": { "identification": { "streamUrls": ["https://origin.example/audio/ident.mp3"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "ncco": [
+    { "action": "stream", "streamUrl": ["https://origin.example/audio/ident.mp3"], "level": 0.5 },
+    { "action": "stream", "streamUrl": ["https://origin.example/audio/reminder.mp3"], "loop": 2 },
+    { "action": "input", "type": ["dtmf"], "eventUrl": ["https://origin.example/webhooks/menu"] }
+  ],
+  "expect": {
+    "kinds": ["stream", "stream", "input"],
+    "atoms": [
+      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
+      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    ],
+    "errors": 0
+  }
+}

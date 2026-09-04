@@ -1,0 +1,25 @@
+{
+  "name": "record the leg, then connect to an app user",
+  "description": "Every remaining action type in one object: record, notify, conversation, pay and an app endpoint.",
+  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "ncco": [
+    { "action": "record", "format": "mp3", "eventUrl": ["https://origin.example/webhooks/recording"], "beepStart": true },
+    { "action": "notify", "payload": { "step": "greeting" }, "eventUrl": ["https://origin.example/webhooks/notify"] },
+    { "action": "talk", "text": "this is a message from preflight demo clinic" },
+    { "action": "connect", "endpoint": [ { "type": "app", "user": "scheduler" } ], "timeout": 20 },
+    { "action": "conversation", "name": "room-1", "startOnEnter": true },
+    { "action": "pay", "amount": 9.99, "currency": "usd" }
+  ],
+  "expect": {
+    "kinds": ["record", "notify", "talk", "connect", "conversation", "pay"],
+    "atoms": [
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": true },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    ],
+    "errors": 0
+  }
+}

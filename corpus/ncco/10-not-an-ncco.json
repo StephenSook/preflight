@@ -1,0 +1,6 @@
+{
+  "name": "not an NCCO at all",
+  "description": "An object where an array was expected. Zero actions, one error, ok is false.",
+  "ncco": { "action": "talk", "text": "hello" },
+  "expect": { "kinds": [], "atoms": [], "errors": 1 }
+}

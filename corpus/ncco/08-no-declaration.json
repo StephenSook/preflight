@@ -1,0 +1,16 @@
+{
+  "name": "nothing declared",
+  "description": "Without a declaration no talk identifies and no input offers opt-out, however the words read. That is the fail-closed default.",
+  "ncco": [
+    { "action": "talk", "text": "This is a message from Preflight Demo Clinic. Press nine to opt out." },
+    { "action": "input", "type": ["dtmf"], "eventUrl": ["https://origin.example/webhooks/optout"] }
+  ],
+  "expect": {
+    "kinds": ["talk", "input"],
+    "atoms": [
+      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false },
+      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    ],
+    "errors": 0
+  }
+}
