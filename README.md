@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-101%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-133%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -43,15 +43,19 @@ Nothing else changes. Then, on every call:
    anything unsigned with 403 before touching any state.
 2. Preflight forwards the request unchanged to your real answer URL and times that round trip
    separately from its own work, so a slow origin is never blamed on the interlock.
+   Outbound calls go through the create-call gateway instead, because the platform fires the
+   answer webhook only once a call is answered.
 3. Your server responds with its NCCO. Preflight parses it into typed actions and reads the atom
    vocabulary off each one (speaks, synthetic, identifies, offers_optout, connects_human).
 4. Preflight resolves facts about the person on the line: state, rate center and a line-type prior
    from the NANPA central office code file, the timezone from the number prefix, and whether the
    call falls inside 8am to 9pm at their location.
 5. Every armed monitor runs over the path. Verdicts are true, false or inconclusive.
-6. All true: the origin's bytes pass through untouched. Any false: the call is blocked and a safe
-   object is returned that names the rule and the citation. Any inconclusive under strict policy:
-   the call is held, because a monitor that cannot decide does not guess.
+6. All true: the origin's bytes pass through untouched, except that an input or notify callback is
+   rewritten to route through Preflight so the object it returns is observed too. Any false: the
+   call is blocked and a safe object is returned that names the rule and the citation. Any
+   inconclusive under strict policy: the call is held, because a monitor that cannot decide does
+   not guess. A branch nobody has observed yet is inconclusive until it has been.
 7. Every decision is appended to a hash-chained evidence log whose head is sealed to Sigstore Rekor
    once a day, so a third party who does not trust the operator can verify it.
 
@@ -100,7 +104,12 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | LTL3 monitor construction | Hand-built from Bauer, Leucker and Schallhart (2011): LTL to Büchi by the Gerth, Peled, Vardi, Wolper tableau, per-state emptiness, subset construction of the property and its negation, product, three-valued labelling, Moore minimisation. One table lookup per step. Zero dependencies. | `packages/engine/src/ltl/` |
 | Properties and evaluator | P1 to P5 compiled once per process; a path evaluates to verdicts plus the exact witness path on any false; open branches hold; terminal paths get the definite end-of-flow verdict | `packages/engine/src/properties.ts`, `packages/engine/src/evaluate.ts` |
 | Number facts | 204,776 NPA-NXX rows from the NANPA central office code file with state, rate center, operating company and a line-type prior; timezone by longest prefix from libphonenumber's map (2,046 entries); calling hours are three-valued when a prefix spans zones | `packages/numfacts/` |
-| Decision layer | Pass, block or hold per call; the person on the line is the callee of an outbound call or the caller of an inbound one; strict policy holds on inconclusive, advisory passes with a warning; an object that is not an NCCO is blocked under either | `apps/api/src/decide/answer.ts` |
+| Decision layer | Pass, block or hold per call over every observed path from here, prefixed by what the call already executed; the person on the line is the callee of an outbound call or the caller of an inbound one; strict policy holds on inconclusive, advisory passes with a warning; an object that is not an NCCO is blocked under either | `apps/api/src/decide/flow.ts` |
+| Passive graph discovery | Every served object merges into a transition system (nodes per action, sequential, branch and continue edges, observation counts); paths from a node end terminal, open or cyclic; coverage reports declared endpoints observed, states, edges, branch points and open branches | `packages/engine/src/graph/`, `apps/api/src/store/graphStore.ts` |
+| Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
+| Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
+| Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
+| Public recompute endpoints | `/api/summary` (decision counts, ledger head, coverage, verify and origin latency p50 and p95), `/api/coverage`, `/api/ledger/head`, `/api/ledger/entries`, `/api/ledger/verify`, all unauthenticated | `apps/api/src/server.ts` |
 | Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
 | Transparency-log seal | Daily workflow signs the chain head with a P-256 key, uploads a `hashedrekord` to Sigstore Rekor, verifies it back from the public log, and records the seal in the ledger | `.github/workflows/seal.yml`, `packages/ledger/keys/preflight-ledger-public.pem` |
@@ -158,7 +167,7 @@ recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-shee
 ```
 apps/api/            Fastify service: ingress, forwarder, decision layer, stores, ledger endpoints, migrations
 apps/web/            Vite front end (dashboard and public site; in progress)
-apps/reference/      the deliberately non-compliant reference application (in progress)
+apps/reference/      the deliberately non-compliant reference application (a Fastify plugin, mounted by the api)
 packages/engine/     NCCO parser, atoms, LTL parser, LTL3 monitor construction, properties, evaluator
 packages/numfacts/   NANPA table, prefix timezone map, calling-hours resolver, committed data + manifest
 packages/ledger/     canonical JSON, hash chain, verification, the public seal key
@@ -188,7 +197,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 101 tests
+pnpm test                       # every suite, 133 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from their sources
 ```
@@ -206,7 +215,9 @@ The engine's own guarantees are tests, not claims:
 - verdicts are final: once true or false, every extension keeps the verdict, over random traces;
 - a formula and its negation are complementary on every prefix and at every end of flow;
 - the ten-object corpus carries expected atoms, verdicts, decision and witness path per file, so a
-  reviewer checks a label by reading the object.
+  reviewer checks a label by reading the object;
+- the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
+  synthetically is caught at the hook on the first call and at answer time on the next.
 
 The evidence log is verifiable by anyone with the URL: `GET /api/ledger/verify` recomputes every
 hash from genesis and reports the first broken entry, if any. The Rekor seal is verified with
@@ -231,10 +242,9 @@ What is not built yet, so nobody has to guess:
   credentials are in place; until then there is no live URL and no badge claims one.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
-- The create-call gateway (`POST /v/calls`), passive graph discovery with the coverage counter, the
-  declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the paid
-  line-type lookup, the Verify v2 consent gate, the reference application and the `npx preflight`
-  CLI are planned and not present in the code. Wired or cut, at submission time.
+- The declared-versus-actual diff, the held queue's place-anyway override, the rate properties P6 to
+  P8, Vonage Identity Insights as the paid line-type lookup, the Verify v2 consent gate and the
+  `npx preflight` CLI are planned and not present in the code. Wired or cut, at submission time.
 
 ## Honesty and limitations
 
