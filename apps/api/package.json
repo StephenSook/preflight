@@ -20,7 +20,7 @@
     "build": "tsc -p tsconfig.json && mkdir -p dist/db && cp -R src/db/migrations dist/db/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx --conditions=development watch src/main.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {
