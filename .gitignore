@@ -42,3 +42,6 @@ CLAUDE.md
 
 # raw number-facts downloads; the derived tables beside them are committed
 packages/numfacts/data/raw/
+
+# The ledger seal PUBLIC key is committed on purpose: strangers verify seals against it.
+!packages/ledger/keys/preflight-ledger-public.pem

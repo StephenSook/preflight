@@ -15,7 +15,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "keys"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -23,8 +24,6 @@
     "test": "vitest run",
     "verify": "vitest run --reporter=verbose"
   },
-  "dependencies": {
-    "@sigstore/sign": "^5.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }
