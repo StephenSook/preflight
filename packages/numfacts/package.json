@@ -7,14 +7,24 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "data/co-codes.tsv",
+    "data/tz-map.txt",
+    "data/SOURCES.json"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fetch": "node ../../scripts/fetch-numfacts.mjs"
   },
-  "dependencies": {
-    "libphonenumber-js": "^1.13.0"},
+  "dependencies": {},
   "devDependencies": {}
 }
