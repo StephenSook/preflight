@@ -1,0 +1,20 @@
+{
+  "name": "@preflight/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hand-built LTL3 runtime-verification monitors over NCCO call flows. Zero dependencies. Runs in Node and the browser.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "verify": "vitest run --reporter=verbose"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

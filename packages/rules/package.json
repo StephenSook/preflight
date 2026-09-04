@@ -1,0 +1,19 @@
+{
+  "name": "@preflight/rules",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Preflight property set: citations, eCFR text fetched at build, ruleset digest, and the coverage file that ties every quoted clause to a live code path.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
