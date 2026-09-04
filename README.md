@@ -74,7 +74,7 @@ a false verdict blocks the call. The formulas are LTL over the atom vocabulary a
 
 | ID | Property | What Preflight checks, structurally | Citation |
 |---|---|---|---|
-| P1 | Calling hours | Every spoken action happens inside 8am to 9pm at the destination, resolved from the number prefix to a timezone against the call timestamp. `G( speaks -> within_hours )` | 47 CFR 64.1200(c)(1) |
+| P1 | Calling hours | The call is initiated inside 8am to 9pm at the destination, resolved from the number prefix to a timezone against the call timestamp. Every call, not only its spoken actions: a flow that goes straight to a live agent at 6am is still initiated at 6am. `within_hours` | 47 CFR 64.1200(c)(1) |
 | P2 | Identification present | No synthetic speech with no live human leg occurs strictly before the declared identification beat. `(!(speaks & synthetic & !connects_human)) W identifies` | 47 CFR 64.1200(b)(1) |
 | P3 | Interactive opt-out present | From the identification beat, an input declared as the opt-out handler or a connection to a live endpoint is reachable later on the path. `G( identifies -> F (offers_optout \| connects_human) )` | 47 CFR 64.1200(b)(3) |
 | P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. `G( caller_id_present )` | O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c) |
@@ -110,6 +110,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
 | Held queue | A call the interlock could not decide under strict policy waits for a person; deciding it needs the dashboard token and a name, writes an override entry to the ledger, and a re-submission carrying the hold id places the call only for that destination | `apps/api/src/store/holdStore.ts`, `apps/api/src/gateway/calls.ts` |
+| Consent gate | `POST /api/consent/start` calls the visitor's phone with a four-digit code over Verify v2's voice channel; `/api/consent/check` grants a single-use, fifteen-minute consent, written to the ledger with the number's hash and never its digits; `/api/demo/call` places one call to that number through the create-call gateway with a token the process mints from its own application key, so the interlock decides it like any other call. A block does not spend the consent; a placed call does, once. Daily allowances bound what a public page can spend | `apps/api/src/consent/` |
 | Decision stream | `/api/stream` serves decisions as server-sent events with a replay of recent ones on connect, behind the dashboard token because it carries phone numbers; the dashboard's transport | `apps/api/src/stream.ts` |
 | CLI | `npx preflight-interlock` (binary `preflight`): check one object, replay the labelled corpus, verify a ledger from a host or a file; one bundled file, no data tables, no account | `packages/cli/` |
 | Public recompute endpoints | `/api/summary` (decision counts, ledger head, coverage, verify and origin latency p50 and p95), `/api/coverage`, `/api/ledger/head`, `/api/ledger/entries`, `/api/ledger/verify`, all unauthenticated | `apps/api/src/server.ts` |
@@ -217,8 +218,12 @@ The engine's own guarantees are tests, not claims:
 - textbook LTL3 verdicts for G, F, U, X, R, GF, response and `G (a -> F b)`;
 - verdicts are final: once true or false, every extension keeps the verdict, over random traces;
 - a formula and its negation are complementary on every prefix and at every end of flow;
-- the ten-object corpus carries expected atoms, verdicts, decision and witness path per file, so a
-  reviewer checks a label by reading the object;
+- the 48-object corpus carries expected atoms, verdicts, decision and witness path per file, every
+  label derived by hand before any run, so a reviewer checks a label by reading the object;
+- a mutation harness (`pnpm mutate`) applies 43 hand-written mutations one at a time (weak until
+  turned strict, the live-human clause dropped, calling-hour boundaries moved, inconclusive collapsed
+  to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
+  a failing test for every one; the last run killed 43 of 43;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
   synthetically is caught at the hook on the first call and at answer time on the next.
 
@@ -277,9 +282,8 @@ What is not built yet, so nobody has to guess:
   shaped the design is measured, not assumed (docs/fact-sheet.md). The web app is not deployed.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
-- The declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the
-  paid line-type lookup and the Verify v2 consent gate are planned and not present in the code.
-  Wired or cut, at submission time.
+- The declared-versus-actual diff, the rate properties P6 to P8 and Vonage Identity Insights as the
+  paid line-type lookup are planned and not present in the code. Wired or cut, at submission time.
 
 ## Honesty and limitations
 
