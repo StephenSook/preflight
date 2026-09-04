@@ -73,8 +73,8 @@ a false verdict blocks the call. The formulas are LTL over the atom vocabulary a
 | P1 | Calling hours | Every spoken action happens inside 8am to 9pm at the destination, resolved from the number prefix to a timezone against the call timestamp. `G( speaks -> within_hours )` | 47 CFR 64.1200(c)(1) |
 | P2 | Identification present | No synthetic speech with no live human leg occurs strictly before the declared identification beat. `(!(speaks & synthetic & !connects_human)) W identifies` | 47 CFR 64.1200(b)(1) |
 | P3 | Interactive opt-out present | From every synthetic-speech action, an input action declared as the opt-out handler is reachable later on the path. `G( (speaks & synthetic & !connects_human) -> F offers_optout )` | 47 CFR 64.1200(b)(3) |
-| P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. `G( caller_id_present )` | O.C.G.A. 46-5-27(c) |
-| P5 | Georgia identification first | Nothing is spoken strictly before the declared identification beat. Position, not presence. `(!speaks) W identifies` | O.C.G.A. 46-5-27(b); Ga. Comp. R. & Regs. 515-14-1-.03(b) |
+| P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. `G( caller_id_present )` | O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c) |
+| P5 | Georgia identification first | Nothing is spoken strictly before the declared identification beat. Position, not presence. `(!speaks) W identifies` | O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b) |
 
 Two of these atoms come from what the developer declares about their own flow (which spoken beat
 identifies the caller, which input collects a do-not-call request), matched structurally by phrase,
@@ -101,6 +101,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Properties and evaluator | P1 to P5 compiled once per process; a path evaluates to verdicts plus the exact witness path on any false; open branches hold; terminal paths get the definite end-of-flow verdict | `packages/engine/src/properties.ts`, `packages/engine/src/evaluate.ts` |
 | Number facts | 204,776 NPA-NXX rows from the NANPA central office code file with state, rate center, operating company and a line-type prior; timezone by longest prefix from libphonenumber's map (2,046 entries); calling hours are three-valued when a prefix spans zones | `packages/numfacts/` |
 | Decision layer | Pass, block or hold per call; the person on the line is the callee of an outbound call or the caller of an inbound one; strict policy holds on inconclusive, advisory passes with a warning; an object that is not an NCCO is blocked under either | `apps/api/src/decide/answer.ts` |
+| Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
 | Transparency-log seal | Daily workflow signs the chain head with a P-256 key, uploads a `hashedrekord` to Sigstore Rekor, verifies it back from the public log, and records the seal in the ledger | `.github/workflows/seal.yml`, `packages/ledger/keys/preflight-ledger-public.pem` |
 | Event store | Every signed event webhook body persisted with its received-at timestamp, the raw material for the rate properties | `apps/api/src/store/pgEventStore.ts` |
@@ -132,10 +133,10 @@ never a network call. And the graph of a real call flow is distributed across yo
 (an `input` or `notify` callback can return a replacement object), so it cannot be known from any
 one document; an open branch is held until it has been observed.
 
-## Two corrections to the specification, found by construction
+## Three corrections to the specification, found by construction
 
-The product specification was written before the code. Building it found two defects, both recorded
-with the check that found them in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
+The product specification was written before the code. Building it found three defects, each
+recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
 
 - **Answer-webhook timing.** Vonage fires the answer webhook when a call is answered, so a
   webhook-only interlock cannot keep an outbound phone silent. Outbound calls need a create-call
@@ -143,6 +144,9 @@ with the check that found them in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
 - **The P2 and P5 formulas.** The spec wrote them as `!( !identifies U speaks )`, which is false on
   every compliant flow because the identification beat itself speaks. Weak until is the correct
   encoding, and the monitor test suite pins both the defect and the fix.
+- **The Georgia subsection letters.** The spec cited O.C.G.A. 46-5-27(b) for identification and (c)
+  for caller id. Those are the definitions and the no-call prohibition. The duties are (g)(1) and
+  (g)(2), which the citation-enforcement test now asserts against the codified text.
 
 ## Repo layout
 
@@ -153,7 +157,7 @@ apps/reference/      the deliberately non-compliant reference application (in pr
 packages/engine/     NCCO parser, atoms, LTL parser, LTL3 monitor construction, properties, evaluator
 packages/numfacts/   NANPA table, prefix timezone map, calling-hours resolver, committed data + manifest
 packages/ledger/     canonical JSON, hash chain, verification, the public seal key
-packages/rules/      statute text and citation enforcement (in progress)
+packages/rules/      committed statute texts at a pinned vintage, verbatim quoted clauses, two-direction citation enforcement
 packages/cli/        replay, verify-ledger, check (in progress)
 corpus/ncco/         labelled call-control objects with expected atoms, verdicts and witness paths
 scripts/             fetch-numfacts.mjs, ai-tone-gate.sh
@@ -209,7 +213,9 @@ hash from genesis and reports the first broken entry, if any. The Rekor seal is 
 |---|---|---|
 | NANPA central office code assignments (`reports.nanpa.com`) | state, rate center, operating company, line-type prior | public, no account; derived table committed with sha256 and file date in `packages/numfacts/data/SOURCES.json` |
 | libphonenumber `resources/timezones/map_data.txt` | prefix to timezone | Apache-2.0, The Libphonenumber Authors |
-| eCFR (`ecfr.gov`) | 47 CFR 64.1200 text at a pinned date | U.S. Government work |
+| eCFR (`ecfr.gov`) | 47 CFR 64.1200 text at a pinned date (2026-09-02), committed under `packages/rules/data` | U.S. Government work |
+| O.C.G.A. 46-5-27, 2025 Code (via Justia) and Senate Bill 73 (2024) as signed (`gov.georgia.gov`) | the Georgia identification, caller-id and liability text, post-SB 73 | statutory text; the signed act is the primary source |
+| Ga. Comp. R. & Regs. 515-14-1-.03 (via Cornell LII) | the Public Service Commission's identification and caller-id rules | regulatory text |
 | Vonage Voice API reference | NCCO field names, webhook shapes, signed callbacks | documentation |
 
 ## Honest status
@@ -238,8 +244,11 @@ What is not built yet, so nobody has to guess:
   still shows the original code holder; every NANPA-derived fact carries confidence "low".
 - **A timezone from a prefix is a proxy for where the person is.** Mobile numbers travel. When a
   prefix spans zones and they disagree at that instant, calling hours are undecided and the call holds.
-- **No Georgia penalty figure is printed.** The codified text after Senate Bill 73 conflicts with
-  secondary sources on the amount; until the primary text is read, no number appears anywhere.
+- **Georgia figures come from the codified text, not from commentary.** After Senate Bill 73 (effective
+  July 1, 2024) the "knowing" requirement is gone, liability reaches the party the call is made on
+  behalf of, the Attorney General's civil penalty is up to 2,000 USD per violation (46-5-27(h)), and
+  private damages are actual loss or up to 1,000 USD per violation with no cap in a class action
+  (46-5-27(i)(2)). The quoted clauses live in `packages/rules/data/citations.json`.
 - **Not legal advice.** Structure and position are checked; consent, business relationships and the
   truth of what is spoken are declared by the developer and marked unverified.
 

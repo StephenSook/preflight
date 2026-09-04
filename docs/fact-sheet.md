@@ -14,6 +14,11 @@ _not yet generated_
 | figure | value | primary source | verified on |
 |---|---|---|---|
 | Devpost submission deadline | 2026-09-09 03:45 UTC (Tue Sep 8, 11:45 PM EDT) | Devpost key dates API for dialedin | 2026-09-03 |
+| Federal per-violation liability | 500 USD per violation; up to three times that amount at the court's discretion for a willful or knowing violation | 47 U.S.C. 227(b)(3), https://www.law.cornell.edu/uscode/text/47/227 | 2026-09-03 (spec v1.0); re-verify against the text before the film |
+| Georgia AG civil penalty | up to 2,000.00 USD for each violation, no knowing requirement after SB 73 | O.C.G.A. 46-5-27(h), 2025 Code, quoted in packages/rules/data/citations.json (id ocga-46-5-27-h); primary: SB 73 as signed, https://gov.georgia.gov/document/2024-signed-legislation/sb-73/download | 2026-09-04 |
+| Georgia private damages | actual monetary loss or up to 1,000.00 USD in damages for each violation, whichever is greater; the limitation does not apply in a class action | O.C.G.A. 46-5-27(i)(2)(A) and (B), 2025 Code, quoted in packages/rules/data/citations.json (id ocga-46-5-27-i-2) | 2026-09-04 |
+| Georgia vicarious liability | "on behalf of any person or entity" inserted in 46-5-27(c) by SB 73, effective 2024-07-01 | O.C.G.A. 46-5-27(c) quoted in citations.json (id ocga-46-5-27-c); Justia amendment note; Ga. L. 2024, p. 912, § 2 | 2026-09-04 |
+| Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
 
 ## MEASUREMENTS (each row: what, value, how measured, when)
 
@@ -26,4 +31,6 @@ _not yet generated_
 | item | what the spec says | what is true | found by | date |
 |---|---|---|---|---|
 | Answer webhook timing | a webhook-only interlock keeps the phone silent | Vonage fires the answer webhook when the call is ANSWERED, so outbound calls need the create-call gateway (POST /v/calls) to stay silent | Vonage webhook reference, read 2026-09-03; timing test scheduled Day 1 | 2026-09-03 |
+| Georgia citations for P4 and P5 | O.C.G.A. 46-5-27(c) for caller id, 46-5-27(b) for identification | (b) is the definitions subsection and (c) is the no-call prohibition. The duties are 46-5-27(g)(1) (identification at the beginning of the call) and (g)(2) (no blocking of caller identification). The PSC rule cites are right: 515-14-1-.03(b) and (c) | packages/rules/src/citations.test.ts against the committed 2025 Code text | 2026-09-04 |
+| Georgia penalty figures (spec section 05 said "deliberately omitted", section 16 "conflicting") | subsection (h) recites 2,000 USD "for each knowing violation" while (c) no longer requires knowledge | The codified post-SB 73 text deletes "knowing" in (h): up to 2,000.00 USD for each violation in Attorney General proceedings. Private damages (i)(2)(A): actual loss or up to 1,000.00 USD per violation; (i)(2)(B): no cap in a class action. The 5,000 USD figure on the AG consumer page belongs to Fair Business Practices Act proceedings under 10-1-397, which (h) invokes, and is not printed here | packages/rules/src/citations.test.ts asserts the post-amendment wording | 2026-09-04 |
 | P2 and P5 formulas | `!( !identifies U speaks )` and `!( !identifies U (speaks & synthetic & !connects_human) )` | both are FALSE on every compliant flow, because the identification beat itself speaks and the until is satisfied at position 0. Correct encoding: `(!speaks) W identifies` and `(!(speaks & synthetic & !connects_human)) W identifies` (no speech strictly before identification) | packages/engine/src/ltl/monitor.test.ts, "the identification formulas" | 2026-09-04 |
