@@ -1,0 +1,33 @@
+name: deadman
+# Alerts when the keepalive STOPS, not when it is late. GitHub throttles cron schedules by hours at
+# times (gaps of 9 to 12.5 hours measured on other repositories), so the grace period sits above the
+# worst observed gap. A failed scheduled run emails the repository owner. The live host is probed too.
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: the newest successful keepalive must be younger than 14 hours
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          newest=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow keepalive.yml --status success --limit 1 --json updatedAt --jq '.[0].updatedAt // empty')
+          test -n "$newest" || { echo "no successful keepalive run exists yet"; exit 1; }
+          age=$(( $(date +%s) - $(date -d "$newest" +%s) ))
+          echo "newest successful keepalive: $newest (${age}s ago)"
+          test "$age" -lt 50400 || { echo "the keepalive has been silent for more than 14 hours"; exit 1; }
+      - name: the live host must answer
+        run: |
+          set -euo pipefail
+          test -n "${{ vars.PREFLIGHT_API_URL }}" || { echo "PREFLIGHT_API_URL repository variable is not set"; exit 1; }
+          curl -fsS --max-time 90 "${{ vars.PREFLIGHT_API_URL }}/health" | grep -q '"ok":true'
