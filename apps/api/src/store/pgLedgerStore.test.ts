@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../db/migrate.js";
+import { GENESIS_HASH } from "@preflight/ledger";
 import { PgLedgerStore, type LedgerDraft } from "./ledgerStore.js";
 
 /** Same contract as the other integration suites: under CI a missing DATABASE_URL fails, never skips. */
@@ -31,16 +32,22 @@ describe.skipIf(!url)("PgLedgerStore (integration)", () => {
   });
 
   it("appends linked entries and the whole chain verifies from genesis", async () => {
+    // Other writers (parallel CI runs) share this database, so linkage is asserted through the stored
+    // predecessor of each new entry rather than by assuming nobody appended in between.
     const before = await store.head();
     const a = await store.append(draft(1));
     const b = await store.append(draft(2));
-    expect(a.seq).toBe(before.seq + 1);
-    expect(a.prev_hash).toBe(before.entry_hash);
-    expect(b.prev_hash).toBe(a.entry_hash);
-    expect(await store.head()).toEqual({ seq: b.seq, entry_hash: b.entry_hash });
+    expect(a.seq).toBeGreaterThan(before.seq);
+    expect(b.seq).toBeGreaterThan(a.seq);
+    for (const e of [a, b]) {
+      const predecessor = e.seq === 1 ? undefined : (await store.entries(e.seq - 2, 1))[0];
+      if (predecessor) expect(predecessor.seq).toBe(e.seq - 1);
+      expect(e.prev_hash).toBe(predecessor ? predecessor.entry_hash : GENESIS_HASH);
+    }
+    expect((await store.head()).seq).toBeGreaterThanOrEqual(b.seq);
     const r = await store.verify();
     expect(r.ok).toBe(true);
-    expect(r.head).toBe(b.entry_hash);
+    expect(r.head).toMatch(/^sha256:[0-9a-f]{64}$/);
   }, 60000);
 
   it("serialises concurrent appends so no two entries share a predecessor", async () => {
