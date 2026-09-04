@@ -20,3 +20,10 @@ _not yet generated_
 | what | value | how | when |
 |---|---|---|---|
 | Vonage mid-call REST control (earmuff/unearmuff), 50 flips | median 103 ms, p95 183 ms, 0 non-2xx, 0 dropped legs | spike/gate1, tools/analyze.mjs | 2026-09-03 |
+
+## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)
+
+| item | what the spec says | what is true | found by | date |
+|---|---|---|---|---|
+| Answer webhook timing | a webhook-only interlock keeps the phone silent | Vonage fires the answer webhook when the call is ANSWERED, so outbound calls need the create-call gateway (POST /v/calls) to stay silent | Vonage webhook reference, read 2026-09-03; timing test scheduled Day 1 | 2026-09-03 |
+| P2 and P5 formulas | `!( !identifies U speaks )` and `!( !identifies U (speaks & synthetic & !connects_human) )` | both are FALSE on every compliant flow, because the identification beat itself speaks and the until is satisfied at position 0. Correct encoding: `(!speaks) W identifies` and `(!(speaks & synthetic & !connects_human)) W identifies` (no speech strictly before identification) | packages/engine/src/ltl/monitor.test.ts, "the identification formulas" | 2026-09-04 |
