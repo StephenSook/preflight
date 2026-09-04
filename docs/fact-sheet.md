@@ -22,6 +22,7 @@ _not yet generated_
 | Atlanta workshop coupon | `ATLDICHF26`, 15 USD credit | https://developer.vonage.com/en/events/register/dialedin-atlanta-a-createher-fest-tech-series (linked from the Devpost welcome email of 2026-08-14) | 2026-09-04 |
 | Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
 | Deployed API | https://preflight-api-rc34.onrender.com (Render free plan, virginia, service srv-dad5t10n74is73ddjmu0, auto-deploy from main); the signature secret on the host is a placeholder until the real one is set | Render API response at creation, 2026-09-04 06:00 UTC | 2026-09-04 |
+| Published CLI | `preflight-interlock@0.1.0` on npm, published 2026-09-04 18:27 UTC by the account owner (web 2FA with a security key), tarball shasum a4641e76037f18981688ef06dfe94d3da7ff7224, 3 files, 51.1 kB unpacked. From an empty directory, `npx -y preflight-interlock@0.1.0` checked an object, replayed the 10-object corpus (10 match their labels) and verified the live ledger (4 entries, every hash and link recomputed from genesis) | registry.npmjs.org (`npm view preflight-interlock`); the clean-seat run in this session | 2026-09-04 |
 
 ## MEASUREMENTS (each row: what, value, how measured, when)
 

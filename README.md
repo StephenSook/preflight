@@ -248,6 +248,14 @@ branch; they stay in the public log, as anything sealed there does.
 rekor-cli get --log-index 2707993586 --format json
 ```
 
+The CLI is published, so the same checks run from any empty directory with nothing installed:
+
+```bash
+npx -y preflight-interlock@0.1.0 verify-ledger https://preflight-api-rc34.onrender.com
+npx -y preflight-interlock@0.1.0 check my-flow.json        # exit 0 pass, 2 block, 3 hold
+npx -y preflight-interlock@0.1.0 replay corpus/ncco        # the labelled corpus, exit 1 on any mismatch
+```
+
 ## Data sources and licenses
 
 | Source | Used for | Terms |
@@ -271,7 +279,7 @@ What is not built yet, so nobody has to guess:
   softphone are not started.
 - The declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the
   paid line-type lookup and the Verify v2 consent gate are planned and not present in the code.
-  Wired or cut, at submission time. The CLI is built but not yet published to npm.
+  Wired or cut, at submission time.
 
 ## Honesty and limitations
 
