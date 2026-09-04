@@ -31,9 +31,17 @@ const env = Object.fromEntries(
       return [l.slice(0, i), l.slice(i + 1).trim().replace(/^"(.*)"$/, "$1")];
     }),
 );
+// A *_PEM key that .env does not carry inline is read from the file the matching *_PATH names,
+// so a key kept on disk locally becomes an inline variable on the host without ever being printed.
+for (const k of keys) {
+  if (!env[k] && k.endsWith("_PEM")) {
+    const pathKey = `${k.slice(0, -4)}_PATH`;
+    if (env[pathKey]) env[k] = readFileSync(path.resolve(root, env[pathKey]), "utf8");
+  }
+}
 const missing = keys.filter((k) => !env[k]);
 if (missing.length > 0) {
-  console.error(`empty or absent in .env: ${missing.join(", ")}`);
+  console.error(`empty or absent in .env (and no *_PATH file for a *_PEM key): ${missing.join(", ")}`);
   process.exit(1);
 }
 
