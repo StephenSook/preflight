@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import type { FlowDeclaration } from "@preflight/engine";
 import { z } from "zod";
 
 /**
  * Runtime configuration, parsed once at boot. Every value is validated so a missing secret fails the
- * boot rather than failing the first call. Nothing here is read from a file: Render and local dev both
- * supply the environment, and .env is loaded by the dev script only.
+ * boot rather than failing the first call. Nothing here is read from a file except the optional public
+ * key path: Render and local dev both supply the environment, and .env is loaded by the dev script only.
  */
 const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3131),
@@ -16,6 +17,8 @@ const schema = z.object({
   VONAGE_APPLICATION_ID: z.string().uuid().optional(),
   /** PEM of the application's PUBLIC key (the operator generated the pair). Lets the gateway verify a caller's application JWT. */
   VONAGE_APPLICATION_PUBLIC_KEY_PATH: z.string().min(1).optional(),
+  /** The same PEM inline, for hosts without a file system for secrets. Wins over the path. Backslash-n line breaks are accepted. */
+  VONAGE_APPLICATION_PUBLIC_KEY_PEM: z.string().min(1).optional(),
   VONAGE_API_HOST: z.string().url().default("https://api.nexmo.com"),
   /** The developer's real answer URL that Preflight forwards to. */
   ORIGIN_ANSWER_URL: z.string().url(),
@@ -54,6 +57,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Preflight configuration is invalid: ${issues}`);
   }
   return parsed.data;
+}
+
+/** The application public key PEM: the inline value first (hosted), else the file at the path (local), else nothing. */
+export function applicationPublicKeyPem(config: Pick<Config, "VONAGE_APPLICATION_PUBLIC_KEY_PEM" | "VONAGE_APPLICATION_PUBLIC_KEY_PATH">): string | undefined {
+  if (config.VONAGE_APPLICATION_PUBLIC_KEY_PEM) return config.VONAGE_APPLICATION_PUBLIC_KEY_PEM.replace(/\\n/g, "\n");
+  if (config.VONAGE_APPLICATION_PUBLIC_KEY_PATH) return readFileSync(config.VONAGE_APPLICATION_PUBLIC_KEY_PATH, "utf8");
+  return undefined;
 }
 
 const declarationSchema = z.object({

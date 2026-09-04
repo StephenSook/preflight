@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import postgres, { type Sql } from "postgres";
 import { NumberFactsResolver } from "@preflight/numfacts";
-import { declarationFrom, loadConfig } from "./config.js";
+import { applicationPublicKeyPem, declarationFrom, loadConfig } from "./config.js";
 import { runMigrations } from "./db/migrate.js";
 import { buildServer } from "./server.js";
 import { MemoryDecisionStore, PgDecisionStore, type DecisionStore } from "./store/decisionStore.js";
@@ -27,7 +27,8 @@ async function main(): Promise<void> {
   let holds: HoldStore = new MemoryHoldStore();
   let sql: Sql | undefined;
   if (config.DATABASE_URL) {
-    sql = postgres(config.DATABASE_URL, { max: 5, idle_timeout: 20, connect_timeout: 10 });
+    // Notices ("relation already exists, skipping" from every idempotent create) are not worth a log line per boot.
+    sql = postgres(config.DATABASE_URL, { max: 5, idle_timeout: 20, connect_timeout: 10, onnotice: () => undefined });
     const ran = await runMigrations(sql);
     store = new PgEventStore(sql);
     decisions = new PgDecisionStore(sql);
@@ -37,9 +38,9 @@ async function main(): Promise<void> {
     process.stdout.write(`migrations applied: ${ran.length === 0 ? "none pending" : ran.join(", ")}\n`);
   }
 
-  const applicationPublicKeyPem = config.VONAGE_APPLICATION_PUBLIC_KEY_PATH ? readFileSync(config.VONAGE_APPLICATION_PUBLIC_KEY_PATH, "utf8") : undefined;
-  if (!applicationPublicKeyPem) process.stderr.write("VONAGE_APPLICATION_PUBLIC_KEY_PATH is not set: the create-call gateway will refuse every caller\n");
-  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration, applicationPublicKeyPem });
+  const publicKeyPem = applicationPublicKeyPem(config);
+  if (!publicKeyPem) process.stderr.write("no application public key (VONAGE_APPLICATION_PUBLIC_KEY_PEM or _PATH): the create-call gateway will refuse every caller\n");
+  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration, applicationPublicKeyPem: publicKeyPem });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
   app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
 
