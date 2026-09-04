@@ -20,7 +20,7 @@ jobs:
           test -n "${{ vars.PREFLIGHT_API_URL }}" || { echo "PREFLIGHT_API_URL repository variable is not set"; exit 1; }
           test -n "${{ secrets.LEDGER_SIGNING_KEY }}" || { echo "LEDGER_SIGNING_KEY secret is not set"; exit 1; }
           test -n "${{ secrets.SEAL_TOKEN }}" || { echo "SEAL_TOKEN secret is not set"; exit 1; }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install rekor-cli
         run: |
           set -euo pipefail
