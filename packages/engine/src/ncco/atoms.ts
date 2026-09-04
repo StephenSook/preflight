@@ -35,7 +35,7 @@ export interface FlowDeclaration {
 
 export interface CallFacts {
   from: string | undefined;
-  lineType: "wireless" | "residential" | "voip" | "unknown";
+  lineType: "wireless" | "landline" | "voip" | "unknown";
   /** Computed by the number-facts layer from the rate-center timezone; null when unresolved. */
   withinHours: boolean | null;
 }
@@ -101,7 +101,8 @@ export function actionAtoms(action: NccoAction, declaration: FlowDeclaration = {
 export function callAtoms(facts: CallFacts): CallAtoms {
   return {
     dest_wireless: facts.lineType === "unknown" ? null : facts.lineType === "wireless",
-    dest_residential: facts.lineType === "unknown" ? null : facts.lineType === "residential",
+    // A landline; the free prior cannot tell residential from business, and the interface says so.
+    dest_residential: facts.lineType === "unknown" ? null : facts.lineType === "landline",
     within_hours: facts.withinHours,
     caller_id_present: callerIdPresent(facts.from),
   };
