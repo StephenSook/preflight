@@ -3,6 +3,8 @@ import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import { decideAnswer } from "./decide/answer.js";
+import { ledgerDraftFor } from "./decide/record.js";
+import { registerCallGateway } from "./gateway/calls.js";
 import { forwardToOrigin } from "./proxy/forward.js";
 import { timingSafeEqual } from "node:crypto";
 import type { DecisionStore } from "./store/decisionStore.js";
@@ -158,21 +160,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
       await decisions.append(outcome.record);
-      const failed = outcome.evaluation.verdicts.find((v) => v.verdict === "false");
-      const undecided = outcome.evaluation.verdicts.find((v) => v.verdict === "inconclusive");
-      const named = outcome.decision === "block" ? failed : outcome.decision === "hold" ? undecided : undefined;
-      await ledger.append({
-        ts: outcome.record.decidedAt,
-        kind: outcome.decision === "pass" ? "pass" : outcome.decision,
-        call_uuid: outcome.record.callUuid ?? null,
-        decision: outcome.decision,
-        property: named?.id ?? null,
-        citation: named?.citation ?? null,
-        witness: named?.witness?.map((w) => w.label) ?? [],
-        ncco_hash: outcome.record.nccoHash,
-        line_type: { value: outcome.record.facts.lineType, source: outcome.record.facts.lineTypeSource, conf: outcome.record.facts.lineTypeConfidence },
-        detail: outcome.reason ? { reason: outcome.reason } : null,
-      });
+      await ledger.append(ledgerDraftFor(outcome));
       await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });
       req.log.info({ decision: outcome.decision, reason: outcome.reason, callUuid: outcome.record.callUuid, terminal: outcome.record.terminal }, "answer decided");
       reply.header("x-preflight-origin-ms", forwarded.originLatencyMs.toFixed(1));
@@ -183,6 +171,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       return reply.code(200).type("application/json").send(JSON.stringify(body));
     },
   });
+
+  registerCallGateway(app, { config, decisions, ledger, resolver, declaration, fetchImpl, clock });
 
   // The evidence log, readable by anyone. The verify command a stranger runs is printed on the site.
   app.get("/api/ledger/head", async () => ledger.head());
