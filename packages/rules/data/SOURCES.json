@@ -1,0 +1,41 @@
+{
+  "fetchedAt": "2026-09-04T07:10:00Z",
+  "files": {
+    "47-cfr-64.1200.txt": {
+      "title": "47 CFR 64.1200 Delivery restrictions",
+      "url": "https://www.ecfr.gov/api/versioner/v1/full/2026-09-02/title-47.xml?part=64&section=64.1200",
+      "vintage": "eCFR up to date as of 2026-09-02",
+      "kind": "primary",
+      "terms": "U.S. Government work",
+      "extraction": "XML tags removed, whitespace collapsed",
+      "sha256": "b3b0db0524470a27d121767558381ebc24eea03e0da17804d4a08b3be6e48594"
+    },
+    "ocga-46-5-27.txt": {
+      "title": "O.C.G.A. 46-5-27 (2025 Code of Georgia)",
+      "url": "https://law.justia.com/codes/georgia/title-46/chapter-5/article-2/part-1/section-46-5-27/",
+      "vintage": "2025 Georgia Code as published by Justia; amendments through Ga. L. 2025, p. 1029 (SB 153), effective 2025-07-01",
+      "kind": "codified text via a secondary publisher",
+      "terms": "statutory text is not copyrightable; Justia's page furniture omitted",
+      "extraction": "rendered page innerText, statute body and history line only",
+      "sha256": "94774ae7a3a30ac0489e37fbd9905743532599b6fd52db5626f92db289099e03"
+    },
+    "ga-comp-r-regs-515-14-1-03.txt": {
+      "title": "Ga. Comp. R. & Regs. 515-14-1-.03 Restrictions on Telephone Solicitations to Residential, Mobile or Wireless Subscribers",
+      "url": "https://www.law.cornell.edu/regulations/georgia/Ga-Comp-R-Regs-R-515-14-1-.03",
+      "vintage": "as published by Cornell LII on 2026-09-04; the Secretary of State's own site refuses automated fetches",
+      "kind": "regulation text via a secondary publisher",
+      "terms": "regulatory text is not copyrightable",
+      "extraction": "HTML tags removed, rule text (a) to (d) only",
+      "sha256": "14a731231811e88b97ba5035263156c8e826f78f0314bc08de4eaa7fec9ab788"
+    },
+    "ga-sb73-2024-signed.txt": {
+      "title": "Georgia Senate Bill 73 (2024), as signed",
+      "url": "https://gov.georgia.gov/document/2024-signed-legislation/sb-73/download",
+      "vintage": "signed 2024-05-06, effective 2024-07-01",
+      "kind": "primary (the enrolled act)",
+      "terms": "public record",
+      "extraction": "pdftotext -layout; struck-through words are NOT distinguishable in this extraction, so quote the codified text, not this file",
+      "sha256": "d66d18b2ef2e4fec64569ec6867298bc7dfa5b7976ff140a6686a48d21d7d229"
+    }
+  }
+}

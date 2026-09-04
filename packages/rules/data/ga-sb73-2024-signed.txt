@@ -1,0 +1,302 @@
+     24                                                                                SB 73/AP
+
+     Senate Bill 73
+     By: Senators Tillery of the 19th, Brass of the 28th, Hatchett of the 50th, Dugan of the 30th,
+     Moore of the 53rd and others
+
+
+                                                                                    AS PASSED
+
+
+                                     A BILL TO BE ENTITLED
+                                              AN ACT
+
+
+ 1 To amend Titles 10 and 46 of the Official Code of Georgia Annotated, relating to commerce
+ 2 and trade and public utilities and public transportation, respectively, so as to revise
+ 3 provisions concerning advertisements and solicitations of certain professions and businesses;
+ 4 to provide for requirements for advertisements for legal services; to revise provisions
+ 5 concerning telephone solicitations; to provide remedies for violations of provisions relating
+ 6 to telephone solicitations; to provide for legislative findings; to provide for actions and
+ 7 damages against persons and entities on whose behalf such provisions were violated; to
+ 8 provide for and prohibit certain defenses in such actions; to provide for related matters; to
+ 9 repeal conflicting laws; and for other purposes.
+
+
+10             BE IT ENACTED BY THE GENERAL ASSEMBLY OF GEORGIA:
+
+
+11                                          SECTION 1.
+12 Title 10 of the Official Code of Georgia, relating to commerce and trade, is amended in Code
+13 Section 10-1-424.1, relating to false solicitation in media of legal services, by new
+14 subsections to read as follows:
+
+
+
+
+                                               S. B. 73
+                                                 -1-
+     24                                                                                    SB 73/AP
+
+15    "(c) The State Bar of Georgia shall promulgate rules and regulations relative to soliciting
+16    in any media regarding the provision of legal services. Such rules and regulations shall
+17    include, but shall not be limited to, the following:
+18        (1) Prohibitions against and penalties for false representations, misrepresentations, and
+19        misleading claims covered by this Code section;
+20        (2) A requirement that each solicitation include the disclosure of the location of the
+21        principal place of business of the soliciting person, firm, association, or corporation;
+22        (3) A prohibition against depicting an individual who is not employed by the soliciting
+23        person, firm, association, or corporation as being so employed or in such a manner that
+24        a reasonable person could believe such individual is so employed; provided, however,
+25        that such prohibition shall not apply to depictions of individuals who are immediate
+26        family members of the soliciting person or immediate family members of individuals
+27        employed by the soliciting firm, association, or corporation;
+28        (4) A prohibition against depicting an individual who is not a client of the soliciting
+29        person, firm, association, or corporation as being such a client or in such a manner that
+30        a reasonable person could believe such individual is such a client; provided, however,
+31        that such prohibition shall not preclude sponsorships with local organizations or the
+32        depictions of such sponsorships by the soliciting person, firm, association, or corporation;
+33        and
+34        (5) A requirement that disclosures provided for in such rules and regulations shall
+35        comprise no less than 10 percent of the total composition of the solicitation.
+36        (d)(1) The State Bar of Georgia, any member of the State Bar of Georgia in good
+37        standing, such member's firm, association, or corporation, or any individual who sees or
+38        hears a solicitation that violates this Code section or any rule or regulation of the State
+39        Bar of Georgia promulgated pursuant to this Code section, shall have a cause of action
+40        against the soliciting person, firm, association, or corporation for violating this Code
+
+
+
+
+                                                 S. B. 73
+                                                   -2-
+     24                                                                                   SB 73/AP
+
+41        section or any rule or regulation of the State Bar of Georgia promulgated pursuant to this
+42        Code section.
+43        (2) A soliciting person, firm, association, or corporation found by a court of competent
+44        jurisdiction to have violated this Code section or any rule or regulation of the State Bar
+45        of Georgia promulgated pursuant to this Code section shall be liable for a civil penalty
+46        in the amount of $10,000.00 per violation.
+47        (3) A successful petitioner shall be entitled to reasonable attorney's fees, expert witness
+48        costs, and other costs necessary to bring a cause of action under this subsection.
+49    (e) For purposes of this Code section, the term 'soliciting person, firm, association, or
+50    corporation' shall mean only the individual or entity seeking to market legal services and
+51    not the owner of any media that displays or otherwise publishes such solicitation."
+
+
+52                                            SECTION 2.
+53 Title 46 of the Official Code of Georgia Annotated, relating to public utilities and public
+54 transportation, is amended by revising Code Section 46-5-27, relating to telephone
+55 solicitations to residential, mobile, or wireless subscribers, Public Service Commission to
+56 establish and maintain list of certain subscribers, authorization for imposition of
+57 administrative fees, confidential nature of data base, and required identification, as follows:
+58    "46-5-27.
+59    (a) The General Assembly finds that:
+60        (1) The use of the telephone to market goods and services is pervasive now due to the
+61        increased use of cost-effective telemarketing techniques;
+62        (2) Over 30,000 businesses actively telemarket goods and services to business and
+63        residential customers;
+64        (3) Every day, over 300,000 solicitors place calls to more than 18 million Americans,
+65        including citizens of this state;
+
+
+
+
+                                                 S. B. 73
+                                                   -3-
+     24                                                                                    SB 73/AP
+
+66        (4) Telemarketing, however, can be an intrusive and relentless invasion of the privacy
+67        and peacefulness of individuals;
+68        (5) Many citizens of this state are outraged over the proliferation of nuisance calls from
+69        telemarketers;
+70        (6) Individuals' privacy rights and commercial freedom of speech can be balanced in a
+71        way that accommodates both the privacy of individuals and legitimate telemarketing
+72        practices; and
+73        (7) It is in the public interest to establish a mechanism under which the individual
+74        citizens of this state can decide whether or not to receive telemarketing calls and can seek
+75        injunctive relief and damages against those in violation of this Code section and against
+76        those on whose behalf such violations were committed.
+77    (b) As used in this Code section, the term:
+78        (1) 'Caller identification service' means a type of telephone service which permits
+79        telephone subscribers to see the telephone number of incoming telephone calls.
+80        (2) 'Residential, mobile, or wireless subscriber' means a person who has subscribed to
+81        telephone service from a local exchange company or mobile or wireless telephone service
+82        provider or other persons living or residing with such person.
+83        (3) 'Telephone solicitation' means any voice communication over a telephone line for the
+84        purpose of encouraging the purchase or rental of, or investment in, property, goods, or
+85        services, but does not include communications:
+86         (A) To any residential, mobile, or wireless subscriber with that subscriber's prior
+87         express invitation or permission;
+88         (B) By or on behalf of any person or entity with whom a residential, mobile, or
+89         wireless subscriber has a prior or current business or personal relationship; or
+90         (C) By or on behalf of a charitable organization which has filed a registration statement
+91         pursuant to Code Section 43-17-5, is exempt from such registration under
+92         paragraphs (1) through (6) of subsection (a) of Code Section 43-17-9, or is exempt from
+
+
+                                                 S. B. 73
+                                                   -4-
+      24                                                                                    SB 73/AP
+
+ 93         such registration as a religious organization or agency referred to in paragraph (2) of
+ 94         Code Section 43-17-2.
+ 95        Such communication may be from a live operator, through the use of ADAD equipment
+ 96        as defined in Code Section 46-5-23, or by other means.
+ 97    (c) No person or entity shall make or cause to be made on behalf of any person or entity
+ 98    any telephone solicitation to the telephone line of any residential, mobile, or wireless
+ 99    subscriber in this state who has given notice to the commission, in accordance with
+100    regulations promulgated under subsection (d) of this Code section, of such subscriber's
+101    objection to receiving telephone solicitations.
+102        (d)(1) The commission shall establish and provide for the operation of a data base to
+103        compile a list of telephone numbers of residential, mobile, and wireless subscribers who
+104        object to receiving telephone solicitations. It shall be the duty of the commission to have
+105        such data base in operation no later than January 1, 1999.
+106        (2) Such data base may be operated by the commission or by another entity selected by
+107        and awarded a contract by the commission.
+108        (3) No later than January 1, 1999, the commission shall promulgate regulations which:
+109         (A) Require each local exchange company to inform its residential, mobile, or wireless
+110         subscribers of the opportunity to provide notification to the commission or its
+111         contractor that such subscriber objects to receiving telephone solicitations;
+112         (B) Specify the methods by which each residential, mobile, or wireless subscriber may
+113         give notice to the commission or its contractor of his or her objection to receiving such
+114         solicitations and methods for revocation of such notice;
+115         (C) Specify the length of time for which a notice of objection shall be effective and the
+116         effect of a change of telephone number on such notice;
+117         (D) Specify the methods by which such objections and revocations shall be collected
+118         and added to the data base;
+
+
+
+
+                                                  S. B. 73
+                                                    -5-
+      24                                                                                  SB 73/AP
+
+119         (E) Specify the methods by which any person or entity desiring to make telephone
+120         solicitations will obtain access to the data base as required to avoid calling the
+121         telephone numbers of residential, mobile, or wireless subscribers included in the data
+122         base; and
+123         (F) Specify such other matters relating to the data base that the commission deems
+124         desirable.
+125        (4)   If, pursuant to 47 U.S.C. Section 227(c)(3), the Federal Communications
+126        Commission establishes a single national data base of telephone numbers of subscribers
+127        who object to receiving telephone solicitations, the commission shall include the part of
+128        such single national data base that relates to Georgia in the data base established under
+129        this Code section.
+130    (e) The commission may provide by rule or regulation for administrative fees to be
+131    imposed upon:
+132        (1) A residential, mobile, or wireless subscriber for each notice of inclusion in the data
+133        base established under this Code section; provided, however, that the commission shall
+134        not set this fee in an amount greater than $5.00; and
+135        (2) A person or entity desiring to make telephone solicitations for access to or for
+136        electronic copies of the data base established under this Code section.
+137        (f)(1) Information contained in the data base established under this Code section shall
+138        be used only for the purpose of compliance with this Code section or in a proceeding or
+139        action under subsection (h) or (i) of this Code section. Such information shall not be
+140        subject to public inspection or disclosure under Article 4 of Chapter 18 of Title 50.
+141        (2) No person or entity shall knowingly compile or disseminate or compile and
+142        disseminate information obtained from the data base for any reason other than those
+143        legitimate purposes established by law. Any person or entity found guilty of violating
+144        this subsection shall be guilty of a misdemeanor and upon conviction shall be punished
+
+
+
+
+                                                  S. B. 73
+                                                    -6-
+      24                                                                                        SB 73/AP
+
+145        by a fine not to exceed $1,000.00. Each instance of an unauthorized disclosure of
+146        information from the data base shall constitute a separate offense.
+147        (g)(1) Any person or entity who that makes a telephone solicitation to the telephone line
+148        of any residential, mobile, or wireless subscriber in this state shall, at the beginning of
+149        such call, state clearly the identity of the person or entity initiating the call.
+150        (2) No person or entity who that makes a telephone solicitation to the telephone line of
+151        a residential, mobile, or wireless subscriber in this state shall knowingly utilize any
+152        method to block or otherwise circumvent such subscriber's use of a caller identification
+153        service.
+154    (h) The Attorney General shall have authority to initiate proceedings, pursuant to Code
+155    Section 10-1-397, relating to a knowing violation or threatened knowing violation of
+156    subsection (c) or (g) of this Code section. Such proceedings include without limitation
+157    proceedings to issue a cease and desist order, to issue an order imposing a civil penalty up
+158    to a maximum of $2,000.00 for each knowing violation, and to seek additional relief in any
+159    superior court of competent jurisdiction. Such actions shall be brought in the name of the
+160    state. The provisions of Code Sections 10-1-398, 10-1-398.1, and 10-1-405 shall apply to
+161    proceedings initiated by the Attorney General under this subsection. The Attorney General
+162    is authorized to issue investigative demands, issue subpoenas, administer oaths, and
+163    conduct hearings in the course of investigating a violation of subsection (c) or (g) of this
+164    Code section, in accordance with the provisions of Code Sections 10-1-403 and 10-1-404.
+165    (i) Any person who that has received more than one telephone solicitation within any 12
+166    month period by or on behalf of the same person or entity in violation of subsection (c)
+167    or (g) of this Code section may either bring an action against the person or entity that made
+168    the telephone solicitation or the person or entity that the telephone solicitation was made
+169    on behalf of, or both. Such an action may seek to:
+170        (1) Enjoin to enjoin such violation;
+
+
+
+
+                                                    S. B. 73
+                                                      -7-
+      24                                                                                 SB 73/AP
+
+171        (2) Bring bring an action to recover for reasonable attorney's fees and costs plus
+172        damages:
+173         (A) In the amount of actual monetary loss from such knowing violation or to receive
+174         up to $2,000.00 $1,000.00 in damages for each such knowing violation, whichever is
+175         greater; or bring both such actions
+176         (B) As part of a class action pursuant to Code Section 9-11-23, for which the damages
+177         limitation in subparagraph (A) of this paragraph shall not apply; or
+178        (3) Enjoin such violation and bring an action for attorney's fees, costs, and damages.
+179    (j) It shall not be a defense in any action or proceeding brought under subsection (h) or (i)
+180    of this Code section that the defendant has established and implemented, with due care,
+181    reasonable practices and procedures to effectively prevent telephone solicitations in
+182    violation of this Code section did not make the telephone solicitation or was not aware that
+183    such telephone solicitation was in violation of this Code section, if such telephone
+184    solicitation was made on behalf of the defendant as a result of a written or verbal
+185    agreement, contract, request, or employment relationship; provided, however, that it shall
+186    be a defense if the defendant has, with respect to the person or entity that made the
+187    telephone solicitation, established policies and procedures to effectively prevent telephone
+188    solicitations in violation of this Code section and mandated and enforced compliance with
+189    such policies and procedures.
+190    (j.1) It shall be a defense in any action or proceeding brought under subsection (h) or (i)
+191    of this Code section that the telephone solicitation was made to a residential, mobile, or
+192    wireless subscriber whose telephone number was provided in error by another subscriber
+193    so long as the defendant to such action did not know, or have reason to know, that the
+194    telephone number was provided in error.
+195    (k) No action or proceeding may be brought under subsection (h) or (i) of this Code
+196    section the later of:
+
+
+
+
+                                                  S. B. 73
+                                                    -8-
+      24                                                                                SB 73/AP
+
+197        (1) More than two years after the person bringing the action knew or should have known
+198        of the occurrence of the alleged violation; or
+199        (2) More than two years after the termination of any proceeding or action by the State
+200        of Georgia, whichever is later.
+201    (l) A court of this state may exercise personal jurisdiction over any nonresident or his or
+202    her executor or administrator as to an action or proceeding authorized by this Code section
+203    in accordance with the provisions of Code Section 9-10-91.
+204    (m) The remedies, duties, prohibitions, and penalties of this Code section are not exclusive
+205    and are in addition to all other causes of action, remedies, and penalties provided by law.
+206    (n) No provider of telephone caller identification service, local exchange telephone
+207    service, wireless service, or voice over internet protocol service shall be held liable for
+208    providing such service for violations of this Code section committed by other persons or
+209    entities while using such provider's service."
+
+
+210                                           SECTION 3.
+211 All laws and parts of laws in conflict with this Act are repealed.
+
+
+
+
+                                                 S. B. 73
+                                                   -9-
+

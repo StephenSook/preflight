@@ -15,13 +15,22 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "data/47-cfr-64.1200.txt",
+    "data/ocga-46-5-27.txt",
+    "data/ga-comp-r-regs-515-14-1-03.txt",
+    "data/ga-sb73-2024-signed.txt",
+    "data/SOURCES.json",
+    "data/citations.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fetch": "node ../../scripts/fetch-rules.mjs"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "@preflight/engine": "workspace:*"
+  }
 }

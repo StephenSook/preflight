@@ -1,0 +1,95 @@
+[
+  {
+    "id": "cfr-64.1200-c-1",
+    "citation": "47 CFR 64.1200(c)(1)",
+    "source": "47-cfr-64.1200.txt",
+    "usedBy": [
+      "P1"
+    ],
+    "quote": "(c) No person or entity shall initiate any telephone solicitation to: (1) Any residential telephone subscriber before the hour of 8 a.m. or after 9 p.m. (local time at the called party's location)"
+  },
+  {
+    "id": "cfr-64.1200-b-1",
+    "citation": "47 CFR 64.1200(b)(1)",
+    "source": "47-cfr-64.1200.txt",
+    "usedBy": [
+      "P2"
+    ],
+    "quote": "(b) All artificial or prerecorded voice telephone messages shall: (1) At the beginning of the message, state clearly the identity of the business, individual, or other entity that is responsible for initiating the call."
+  },
+  {
+    "id": "cfr-64.1200-b-3",
+    "citation": "47 CFR 64.1200(b)(3)",
+    "source": "47-cfr-64.1200.txt",
+    "usedBy": [
+      "P3"
+    ],
+    "quote": "(3) In every case where the artificial or prerecorded-voice telephone message is made pursuant to an exemption under paragraphs (a)(3)(ii) through (v) of this section or includes or introduces an advertisement or constitutes telemarketing and is delivered to a residential telephone line or any of the lines or telephone numbers described in paragraphs (a)(1)(i) through (iii) of this section, provide an automated, interactive voice- and/or key press-activated opt-out mechanism for the called person to make a do-not-call request, including brief explanatory instructions on how to use such mechanism, within two (2) seconds of providing the identification information required in paragraph (b)(1) of this section. When the called person elects to opt out using such mechanism, the mechanism must automatically record the called person's number to the caller's do-not-call list and immediately terminate the call. When the artificial or prerecorded-voice telephone message is left on an answering machine or a voice mail service, such message must also provide a toll free number that enables the called person to call back at a later time and connect directly to the automated, interactive voice- and/or key press-activated opt-out mechanism and automatically record the called person's number to the caller's do-not-call list."
+  },
+  {
+    "id": "ocga-46-5-27-g-1",
+    "citation": "O.C.G.A. 46-5-27(g)(1)",
+    "source": "ocga-46-5-27.txt",
+    "usedBy": [
+      "P5"
+    ],
+    "quote": "(g) (1) Any person or entity that makes a telephone solicitation to the telephone line of any residential, mobile, or wireless subscriber in this state shall, at the beginning of such call, state clearly the identity of the person or entity initiating the call."
+  },
+  {
+    "id": "ocga-46-5-27-g-2",
+    "citation": "O.C.G.A. 46-5-27(g)(2)",
+    "source": "ocga-46-5-27.txt",
+    "usedBy": [
+      "P4"
+    ],
+    "quote": "(2) No person or entity that makes a telephone solicitation to the telephone line of a residential, mobile, or wireless subscriber in this state shall utilize any method to block or otherwise circumvent such subscriber’s use of a caller identification service."
+  },
+  {
+    "id": "gapsc-515-14-1-03-b",
+    "citation": "Ga. Comp. R. & Regs. 515-14-1-.03(b)",
+    "source": "ga-comp-r-regs-515-14-1-03.txt",
+    "usedBy": [
+      "P5"
+    ],
+    "quote": "(b) Any person who or entity that makes a telephone solicitation to the telephone line of any residential, mobile or wireless subscriber in this jurisdiction shall begin the call by clearly stating the identity of the person or entity on whose behalf the call is being made."
+  },
+  {
+    "id": "gapsc-515-14-1-03-c",
+    "citation": "Ga. Comp. R. & Regs. 515-14-1-.03(c)",
+    "source": "ga-comp-r-regs-515-14-1-03.txt",
+    "usedBy": [
+      "P4"
+    ],
+    "quote": "(c) No person who or entity that makes a telephone solicitation to the telephone line of a residential, mobile or wireless subscriber in this state shall knowingly utilize any method to block or otherwise circumvent said subscriber's use of a caller identification service."
+  },
+  {
+    "id": "ocga-46-5-27-h",
+    "citation": "O.C.G.A. 46-5-27(h)",
+    "source": "ocga-46-5-27.txt",
+    "usedBy": [
+      "docs/fact-sheet.md"
+    ],
+    "reason": "the Attorney General's civil penalty figure printed on judge-facing surfaces; not a monitored property",
+    "quote": "(h) The Attorney General shall have authority to initiate proceedings, pursuant to Code Section 10-1-397, relating to a violation or threatened violation of subsection (c) or (g) of this Code section. Such proceedings include without limitation proceedings to issue a cease and desist order, to issue an order imposing a civil penalty up to a maximum of $2,000.00 for each violation, and to seek additional relief in any superior court of competent jurisdiction."
+  },
+  {
+    "id": "ocga-46-5-27-i-2",
+    "citation": "O.C.G.A. 46-5-27(i)(2)",
+    "source": "ocga-46-5-27.txt",
+    "usedBy": [
+      "docs/fact-sheet.md"
+    ],
+    "reason": "the private damages figure printed on judge-facing surfaces; not a monitored property",
+    "quote": "(2) Bring an action to recover reasonable attorney’s fees and costs plus damages: (A) In the amount of actual monetary loss from such violation or up to $1,000.00 in damages for each such violation, whichever is greater; or (B) As part of a class action pursuant to Code Section 9-11-23, for which the damages limitation in subparagraph (A) of this paragraph shall not apply; or"
+  },
+  {
+    "id": "ocga-46-5-27-c",
+    "citation": "O.C.G.A. 46-5-27(c)",
+    "source": "ocga-46-5-27.txt",
+    "usedBy": [
+      "docs/fact-sheet.md"
+    ],
+    "reason": "the vicarious-liability wording added by SB 73 (on behalf of any person or entity), quoted in the write-up; a Tier 3 no-call-list matter, not a monitored property",
+    "quote": "(c) No person or entity shall make or cause to be made on behalf of any person or entity any telephone solicitation to the telephone line of any residential, mobile, or wireless subscriber in this state who has given notice to the commission, in accordance with regulations promulgated under subsection"
+  }
+]

@@ -106,7 +106,11 @@ importers:
 
   packages/numfacts: {}
 
-  packages/rules: {}
+  packages/rules:
+    devDependencies:
+      '@preflight/engine':
+        specifier: workspace:*
+        version: link:../engine
 
 packages:
 
