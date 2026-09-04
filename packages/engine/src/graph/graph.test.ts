@@ -96,6 +96,20 @@ describe("passive graph discovery", () => {
     expect(ev.verdicts.find((v) => v.id === "P3")?.reason).toContain("loops");
   });
 
+  it("reports a violation on one branch even while a sibling branch is still open: false outranks undecided", () => {
+    const g = new FlowGraph();
+    const { nodeIds } = g.observeObject("answer", ANSWER, T);
+    const input = nodeIds[1] as string;
+    g.observeObject("/webhooks/question", TIMEOUT_BRANCH, T, { nodeId: input, kind: "input_branch" });
+    g.observeObject("/webhooks/question", OPTOUT_MENU, T, { nodeId: input, kind: "input_branch" });
+    const ev = evaluateGraph(g, nodeIds[0] as string, { declaration: decl, facts, policy: "strict" });
+    expect(ev.paths.map((p) => p.path.end).sort()).toEqual(["open", "terminal"]);
+    const p3 = ev.verdicts.find((v) => v.id === "P3");
+    expect(p3).toMatchObject({ verdict: "false", atEnd: true });
+    expect(p3?.witness?.map((w) => w.label)).toEqual(["talk#0", "input#1", "talk#0'"]);
+    expect(ev.decision).toBe("block");
+  });
+
   it("round-trips through the node and edge collections a store would persist", () => {
     const g = new FlowGraph();
     const { nodeIds } = g.observeObject("answer", ANSWER, T);

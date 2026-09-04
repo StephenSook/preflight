@@ -1,0 +1,303 @@
+[
+  {
+    "id": "P2-weak-until-to-until",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"(!(speaks & synthetic & !connects_human)) W identifies\",",
+    "replace": "formula: \"(!(speaks & synthetic & !connects_human)) U identifies\",",
+    "why": "Strong until obliges the identification beat to arrive; a human-only flow that never identifies must stay inconclusive, not fail at the end."
+  },
+  {
+    "id": "P5-weak-until-to-until",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"(!speaks) W identifies\",",
+    "replace": "formula: \"(!speaks) U identifies\",",
+    "why": "Same as P2: weak until is the spec correction of 2026-09-04; strong until reintroduces the false-on-compliant-flow defect at the end of the flow."
+  },
+  {
+    "id": "P3-drop-connects-human",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"G( identifies -> F (offers_optout | connects_human) )\",",
+    "replace": "formula: \"G( identifies -> F offers_optout )\",",
+    "why": "A live human leg satisfies the opt-out obligation (spec example); dropping the clause blocks the greeting-then-agent flow."
+  },
+  {
+    "id": "P3-implication-reversed",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"G( identifies -> F (offers_optout | connects_human) )\",",
+    "replace": "formula: \"G( F (offers_optout | connects_human) -> identifies )\",",
+    "why": "The obligation runs from identification to opt-out, not the other way; reversed, a compliant flow fails at its opt-out input."
+  },
+  {
+    "id": "P1-guard-unconditional",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"G( speaks -> within_hours )\",",
+    "replace": "formula: \"G( within_hours )\",",
+    "why": "P1 constrains spoken actions only; every corpus object runs with withinHours true, so the guard's antecedent is never exercised by the labelled corpus."
+  },
+  {
+    "id": "P4-always-to-eventually",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"G( caller_id_present )\",",
+    "replace": "formula: \"F( caller_id_present )\",",
+    "why": "A missing caller id must be a violation at the first action with that witness, not a hope deferred to the end of the flow."
+  },
+  {
+    "id": "evaluate-null-fact-passes",
+    "file": "packages/engine/src/evaluate.ts",
+    "find": "if (nullFact) return { id: p.id, citation: p.citation, verdict: \"inconclusive\", reason: REASON_FOR_NULL[nullFact] };",
+    "replace": "if (nullFact) return { id: p.id, citation: p.citation, verdict: \"true\", reason: REASON_FOR_NULL[nullFact] };",
+    "why": "An unresolved timezone or line type must hold the call, never pass it; this is the never-guess rule of spec section 08."
+  },
+  {
+    "id": "decide-strict-inconclusive-passes",
+    "file": "packages/engine/src/evaluate.ts",
+    "find": "return policy === \"strict\" ? \"hold\" : \"pass\";",
+    "replace": "return \"pass\";",
+    "why": "Under strict policy an inconclusive verdict holds for a human; advisory is the only policy that passes it."
+  },
+  {
+    "id": "decide-hold-outranks-block",
+    "file": "packages/engine/src/evaluate.ts",
+    "find": "  if (verdicts.some((v) => v.verdict === \"false\")) return \"block\";\n  if (verdicts.some((v) => v.verdict === \"inconclusive\")) return policy === \"strict\" ? \"hold\" : \"pass\";",
+    "replace": "  if (verdicts.some((v) => v.verdict === \"inconclusive\")) return policy === \"strict\" ? \"hold\" : \"pass\";\n  if (verdicts.some((v) => v.verdict === \"false\")) return \"block\";",
+    "why": "A definite violation on one property outranks an undecided verdict on another: block beats hold."
+  },
+  {
+    "id": "evaluate-open-path-decided-as-terminal",
+    "file": "packages/engine/src/evaluate.ts",
+    "find": "    if (!terminal) return { id: p.id, citation: p.citation, verdict: \"inconclusive\", reason: \"the path continues through a branch that has not been observed\" };\n",
+    "replace": "",
+    "why": "An open path (a branch nobody has observed) must be held, not given the end-of-flow verdict as if the object had ended."
+  },
+  {
+    "id": "evaluate-end-verdict-inverted",
+    "file": "packages/engine/src/evaluate.ts",
+    "find": "return end === \"true\" ? { id: p.id, citation: p.citation, verdict: \"true\" }",
+    "replace": "return end !== \"true\" ? { id: p.id, citation: p.citation, verdict: \"true\" }",
+    "why": "The end-of-flow verdict turns 'no opt-out yet' into 'no opt-out ever'; inverted, the synthetic-no-optout object passes."
+  },
+  {
+    "id": "atoms-talk-not-synthetic",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "atoms.synthetic = true;\n      const text = normalizePhrase(action.text);",
+    "replace": "atoms.synthetic = false;\n      const text = normalizePhrase(action.text);",
+    "why": "A talk action is synthesised speech; without the synthetic atom P2's prohibition never fires."
+  },
+  {
+    "id": "atoms-stream-not-synthetic",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "atoms.synthetic = true;\n      const urls = declaration.identification?.streamUrls ?? [];",
+    "replace": "atoms.synthetic = false;\n      const urls = declaration.identification?.streamUrls ?? [];",
+    "why": "A stream action plays prerecorded audio, which 47 CFR 64.1200(b) treats exactly like an artificial voice."
+  },
+  {
+    "id": "atoms-identifies-without-phrase-check",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "atoms.identifies = phrases.some((p) => text.includes(p));",
+    "replace": "atoms.identifies = phrases.length > 0;",
+    "why": "Only the beat that speaks a declared phrase identifies; a declaration alone must not make every talk action identify."
+  },
+  {
+    "id": "atoms-optout-dropped",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "atoms.offers_optout = matchesOptOut(action.eventUrl, declaration.optOut?.eventUrlPatterns);",
+    "replace": "atoms.offers_optout = false;",
+    "why": "An input whose event URL matches the declared opt-out handler offers opt-out; dropping the detection makes every synthetic flow fail P3."
+  },
+  {
+    "id": "atoms-caller-id-inverted",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "return /^\\+?[0-9]{7,15}$/.test(trimmed);",
+    "replace": "return !/^\\+?[0-9]{7,15}$/.test(trimmed);",
+    "why": "Caller id presence inverted: a valid number would read as suppressed and a malformed one as present."
+  },
+  {
+    "id": "atoms-caller-id-short-accepted",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "/^\\+?[0-9]{7,15}$/",
+    "replace": "/^\\+?[0-9]{5,15}$/",
+    "why": "A five-digit string is not a dialable caller id; the lower bound is part of the validity check."
+  },
+  {
+    "id": "types-websocket-counted-live",
+    "file": "packages/engine/src/ncco/types.ts",
+    "find": "= [\"phone\", \"app\", \"sip\", \"vbc\"];",
+    "replace": "= [\"phone\", \"app\", \"sip\", \"vbc\", \"websocket\"];",
+    "why": "A websocket endpoint is a machine, not a person; counting it as a live leg would satisfy P2 and P3 with a bot."
+  },
+  {
+    "id": "atoms-normalize-keeps-case",
+    "file": "packages/engine/src/ncco/atoms.ts",
+    "find": "return s.toLowerCase().replace(/[^\\p{L}\\p{N}\\s]/gu, \" \")",
+    "replace": "return s.replace(/[^\\p{L}\\p{N}\\s]/gu, \" \")",
+    "why": "Phrase matching is case-insensitive by design; a capitalised declaration must still match the spoken beat."
+  },
+  {
+    "id": "monitor-inconclusive-collapsed-to-true",
+    "file": "packages/engine/src/ltl/monitor.ts",
+    "find": "return \"inconclusive\";",
+    "replace": "return \"true\";",
+    "why": "LTL3's third value is the whole point: an undecided prefix must not read as satisfied."
+  },
+  {
+    "id": "monitor-verdict-polarity-swapped",
+    "file": "packages/engine/src/ltl/monitor.ts",
+    "find": "    if (!neg.accepting[q]) return \"true\";\n    if (!pos.accepting[p]) return \"false\";",
+    "replace": "    if (!neg.accepting[q]) return \"false\";\n    if (!pos.accepting[p]) return \"true\";",
+    "why": "An empty negation language means the property holds on every continuation; swapping the two verdicts flips every definite answer."
+  },
+  {
+    "id": "monitor-end-verdict-inverted",
+    "file": "packages/engine/src/ltl/monitor.ts",
+    "find": "as boolean) ? \"true\" : \"false\";",
+    "replace": "as boolean) ? \"false\" : \"true\";",
+    "why": "The end-of-flow verdict for a terminating path decides P3; inverted, a flow with no opt-out passes and one with an opt-out fails."
+  },
+  {
+    "id": "monitor-letter-reads-missing-atoms-as-true",
+    "file": "packages/engine/src/ltl/monitor.ts",
+    "find": "if (valuation[a] === true) letter |= 1 << i;",
+    "replace": "if (valuation[a] !== false) letter |= 1 << i;",
+    "why": "An atom absent from a valuation (or null) must read false; reading it true would satisfy identifies or offers_optout by omission."
+  },
+  {
+    "id": "buchi-acceptance-emptiness-negated",
+    "file": "packages/engine/src/ltl/buchi.ts",
+    "find": "return nontrivial && nba.acceptance.every((set) => vs.some((v) => set.includes(v)));",
+    "replace": "return nontrivial && !nba.acceptance.every((set) => vs.some((v) => set.includes(v)));",
+    "why": "The per-state emptiness check decides which states have a non-empty omega-language; negated, the monitor's true and false verdicts are built on the wrong states."
+  },
+  {
+    "id": "buchi-trivial-scc-accepting",
+    "file": "packages/engine/src/ltl/buchi.ts",
+    "find": "const nontrivial = vs.length > 1 || vs.some((v) => succ[v]?.includes(v));",
+    "replace": "const nontrivial = true;",
+    "why": "A single node with no self edge has no infinite run through it; counting it as an accepting cycle makes a dead-end state live and an unsatisfiable obligation undecided."
+  },
+  {
+    "id": "buchi-admits-ignores-negative-literals",
+    "file": "packages/engine/src/ltl/buchi.ts",
+    "find": "(letter & s.posMask) === s.posMask && (letter & s.negMask) === 0;",
+    "replace": "(letter & s.posMask) === s.posMask;",
+    "why": "A state labelled !p must refuse a letter where p is true; otherwise every negated atom in a property is ignored."
+  },
+  {
+    "id": "buchi-until-acceptance-vacuous",
+    "file": "packages/engine/src/ltl/buchi.ts",
+    "find": "return states.filter((s) => !s.old.includes(uk) || s.old.includes(rk)).map((s) => s.id);",
+    "replace": "return states.map((s) => s.id);",
+    "why": "The acceptance set for an until must exclude states still owing the right-hand side; with every state accepting, F p holds on a path that never sees p."
+  },
+  {
+    "id": "buchi-until-drops-obligation",
+    "file": "packages/engine/src/ltl/buchi.ts",
+    "find": "        expand(branch([eta.left], [eta]));\n        expand(branch([eta.right], []));",
+    "replace": "        expand(branch([eta.left], []));\n        expand(branch([eta.right], []));",
+    "why": "The left branch of p U q must carry the until into the next state; without it, one p discharges the obligation forever."
+  },
+  {
+    "id": "ast-weak-until-wrong-expansion",
+    "file": "packages/engine/src/ltl/ast.ts",
+    "find": "release(right, or(left, right));",
+    "replace": "release(right, left);",
+    "why": "p W q is q R (p | q); q R p would require !speaks on the identification beat itself, the very defect the weak-until correction removed."
+  },
+  {
+    "id": "graph-aggregate-open-outranks-false",
+    "file": "packages/engine/src/graph/evaluateGraph.ts",
+    "find": "  const falsy = mine.find((v) => v.verdict === \"false\");\n  if (falsy) return falsy;\n  const undecided = mine.find((v) => v.verdict === \"inconclusive\");\n  if (undecided) return undecided;",
+    "replace": "  const undecided = mine.find((v) => v.verdict === \"inconclusive\");\n  if (undecided) return undecided;\n  const falsy = mine.find((v) => v.verdict === \"false\");\n  if (falsy) return falsy;",
+    "why": "Across paths a property is false if any observed path makes it false; an unobserved branch elsewhere must not downgrade a violation to a hold."
+  },
+  {
+    "id": "hours-open-at-7",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "openMinutes: 8 * 60",
+    "replace": "openMinutes: 7 * 60",
+    "why": "47 CFR 64.1200(c)(1) opens the window at 8am local; 7:59 must be outside."
+  },
+  {
+    "id": "hours-close-at-22",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "closeMinutes: 21 * 60",
+    "replace": "closeMinutes: 22 * 60",
+    "why": "The window closes at 9pm local; 21:00 must be outside."
+  },
+  {
+    "id": "hours-open-exclusive",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "m >= CALLING_WINDOW.openMinutes",
+    "replace": "m > CALLING_WINDOW.openMinutes",
+    "why": "Exactly 8:00 is inside the window (the rule says before 8am); an exclusive open bound would block the first minute."
+  },
+  {
+    "id": "hours-close-inclusive",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "m < CALLING_WINDOW.closeMinutes",
+    "replace": "m <= CALLING_WINDOW.closeMinutes",
+    "why": "Exactly 21:00 is outside the window (the rule says after 9pm, and 9:00pm itself is not before it); an inclusive close bound would allow it."
+  },
+  {
+    "id": "hours-unknown-zone-passes",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "if (zones.length === 0) return null;",
+    "replace": "if (zones.length === 0) return true;",
+    "why": "A destination with no known timezone must be three-valued (null, which the evaluator holds), never assumed inside hours."
+  },
+  {
+    "id": "hours-disagreeing-zones-pick-first",
+    "file": "packages/numfacts/src/timezone.ts",
+    "find": "return answers.size === 1 ? [...answers][0] ?? null : null;",
+    "replace": "return [...answers][0] ?? null;",
+    "why": "A prefix that spans two zones which disagree at this instant is undecided; picking the first zone's answer guesses."
+  },
+  {
+    "id": "ledger-prev-hash-check-removed",
+    "file": "packages/ledger/src/chain.ts",
+    "find": "    if (e.prev_hash !== prev) return { ok: false, entries: entries.length, head: prev, brokenAt: { seq: e.seq, problem: \"prev_hash does not match the previous entry\" } };\n",
+    "replace": "",
+    "why": "Without the link check a rewritten entry whose own hash was recomputed verifies; the chain is then a list of self-consistent entries, not a chain."
+  },
+  {
+    "id": "ledger-entry-hash-check-removed",
+    "file": "packages/ledger/src/chain.ts",
+    "find": "    if (recomputed !== entry_hash) return { ok: false, entries: entries.length, head: prev, brokenAt: { seq: e.seq, problem: \"entry_hash does not match the entry's canonical form\" } };\n",
+    "replace": "",
+    "why": "Without recomputing each entry's hash, a rewritten body under an unchanged hash verifies."
+  },
+  {
+    "id": "ledger-seq-check-removed",
+    "file": "packages/ledger/src/chain.ts",
+    "find": "    if (e.seq !== expectedSeq) return { ok: false, entries: entries.length, head: prev, brokenAt: { seq: e.seq, problem: `sequence gap: expected ${expectedSeq}` } };\n",
+    "replace": "",
+    "why": "A deleted entry must surface as a sequence gap at the entry after it."
+  },
+  {
+    "id": "ledger-genesis-changed",
+    "file": "packages/ledger/src/chain.ts",
+    "find": "export const GENESIS_HASH = \"sha256:\" + \"0\".repeat(64);",
+    "replace": "export const GENESIS_HASH = \"sha256:\" + \"1\".repeat(64);",
+    "why": "The genesis link is a published protocol constant: every persisted chain and every stranger's verifier starts from sixty-four zero nibbles."
+  },
+  {
+    "id": "canonical-key-order-removed",
+    "file": "packages/ledger/src/canonical.ts",
+    "find": "const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();",
+    "replace": "const keys = Object.keys(value).filter((k) => value[k] !== undefined);",
+    "why": "Canonical JSON sorts keys by code point so two writers hash the same body alike; insertion order would make the hash depend on the writer."
+  },
+  {
+    "id": "canonical-undefined-kept",
+    "file": "packages/ledger/src/canonical.ts",
+    "find": "const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();",
+    "replace": "const keys = Object.keys(value).sort();",
+    "why": "Undefined values are omitted from the canonical form; keeping them would make the encoder throw or emit a non-JSON token."
+  },
+  {
+    "id": "canonical-float-allowed",
+    "file": "packages/ledger/src/canonical.ts",
+    "find": "if (!Number.isSafeInteger(value)) throw",
+    "replace": "if (!Number.isFinite(value)) throw",
+    "why": "Only safe integers are canonical; a float can print differently across runtimes and so hash differently."
+  }
+]

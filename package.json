@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
+    "mutate": "node scripts/mutation/run.mjs",
     "verify:engine": "pnpm --filter @preflight/engine run verify",
     "ledger:verify": "pnpm --filter @preflight/ledger run verify",
     "replay": "pnpm --filter @preflight/cli run replay --",

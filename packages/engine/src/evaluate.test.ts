@@ -110,3 +110,38 @@ describe("what the evaluator refuses to guess", () => {
     expect(decide(shuffled, "strict")).toBe(decide(a.verdicts, "strict"));
   });
 });
+
+describe("the property table where the corpus is silent", () => {
+  const decl: FlowDeclaration = { identification: { phrases: ["this is a message from preflight demo clinic"] }, optOut: { eventUrlPatterns: ["/webhooks/optout"] } };
+  const inHours: CallFacts = { from: "14045550100", lineType: "wireless", withinHours: true };
+  const afterHours: CallFacts = { from: "14045550100", lineType: "wireless", withinHours: false };
+  const labels = (v: PropertyVerdict | undefined): string[] | undefined => v?.witness?.map((s) => s.label);
+
+  it("P2 and P5 are weak: a flow that never identifies and never speaks synthetically satisfies them when it ends", () => {
+    // Every corpus object identifies early or violates early, so only a live-leg-only flow tells the
+    // table's weak until from a strong until, which would fail both properties at the end of the flow.
+    const liveOnly = parseNcco([{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }]);
+    const ev = evaluateNcco(liveOnly, { declaration: decl, facts: inHours, terminal: true });
+    const got = byId(ev.verdicts);
+    expect(got["P2"]?.verdict).toBe("true");
+    expect(got["P5"]?.verdict).toBe("true");
+    expect(ev.decision).toBe("pass");
+  });
+
+  it("P1 blocks the first spoken action outside calling hours, and the witness is that action, not a silent one before it", () => {
+    // Every corpus object runs inside hours; this is the only place the evaluator's P1 false path runs.
+    const spoken = parseNcco([{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "input", type: ["dtmf"], eventUrl: ["https://o.example/webhooks/optout"] }]);
+    const ev = evaluateNcco(spoken, { declaration: decl, facts: afterHours, terminal: true });
+    const got = byId(ev.verdicts);
+    expect(got["P1"]?.verdict).toBe("false");
+    expect(labels(got["P1"])).toEqual(["talk#0"]);
+    expect(got["P1"]?.atEnd).toBeUndefined();
+    for (const id of ["P2", "P3", "P4", "P5"]) expect(got[id]?.verdict).toBe("true");
+    expect(ev.decision).toBe("block");
+    // A silent live leg before the spoken beat is not the violation; the spoken beat is.
+    const humanFirst = parseNcco([{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }, { action: "talk", text: "This is a message from Preflight Demo Clinic." }]);
+    const late = byId(evaluateNcco(humanFirst, { declaration: decl, facts: afterHours, terminal: true }).verdicts);
+    expect(late["P1"]?.verdict).toBe("false");
+    expect(labels(late["P1"])).toEqual(["connect#0", "talk#1"]);
+  });
+});

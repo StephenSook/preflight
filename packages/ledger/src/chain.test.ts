@@ -52,6 +52,14 @@ describe("the hash chain", () => {
     expect(verifyChain([])).toEqual({ ok: true, entries: 0, head: GENESIS_HASH });
   });
 
+  it("starts every chain from the published genesis link, sixty-four zero nibbles, so a chain another writer persisted still verifies", () => {
+    const genesis = "sha256:" + "0".repeat(64);
+    expect(GENESIS_HASH).toBe(genesis);
+    const first = makeEntry(body(1, genesis));
+    expect(verifyChain([first])).toEqual({ ok: true, entries: 1, head: first.entry_hash });
+    expect(verifyChain([makeEntry(body(1, "sha256:" + "1".repeat(64)))])).toMatchObject({ ok: false, brokenAt: { seq: 1, problem: expect.stringContaining("prev_hash") } });
+  });
+
   it("detects a rewritten historical entry at that entry", () => {
     const c = chain(5);
     const tampered = c.map((e, i) => (i === 2 ? { ...e, witness: ["talk#0"] } : e));
