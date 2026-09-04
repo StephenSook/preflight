@@ -1,9 +1,8 @@
 /**
  * Every webhook Preflight admits is stored with a received-at timestamp. This is the raw material for
  * the rate properties (P6 abandonment with the human-answered denominator, P7 ring duration, P8 the
- * platform's own acceptable-use limit) and for the replay corpus. The Postgres implementation lands
- * once the database exists; the memory implementation keeps the server honest until then and serves
- * the unit tests.
+ * platform's own acceptable-use limit) and for the replay corpus. PgEventStore is the production
+ * implementation; MemoryEventStore serves the unit tests and a process started without DATABASE_URL.
  */
 
 export type WebhookKind = "answer" | "event" | "fallback";
@@ -25,6 +24,8 @@ export interface StoredWebhook {
 }
 
 export interface EventStore {
+  /** Reported by /health so a deployment can never silently run on the memory store. */
+  readonly name: "memory" | "postgres";
   append(row: StoredWebhook): Promise<void>;
   /** Most recent rows first. */
   recent(limit: number): Promise<StoredWebhook[]>;
@@ -32,6 +33,7 @@ export interface EventStore {
 }
 
 export class MemoryEventStore implements EventStore {
+  readonly name = "memory" as const;
   private rows: StoredWebhook[] = [];
   async append(row: StoredWebhook): Promise<void> {
     this.rows.push(row);
