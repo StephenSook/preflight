@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig } from "./config.js";
 import { buildServer } from "./server.js";
 import { MemoryDecisionStore } from "./store/decisionStore.js";
+import { MemoryLedgerStore } from "./store/ledgerStore.js";
 import { MemoryEventStore } from "./store/eventStore.js";
 import { sha256Hex } from "./vonage/verifyWebhook.js";
 
@@ -60,7 +61,8 @@ describe("preflight api ingress", () => {
     });
     const store = new MemoryEventStore();
     const decisions = new MemoryDecisionStore();
-    return { server: buildServer({ config, store, decisions, resolver, declaration: DECLARATION, now: () => NOW }), store, decisions };
+    const ledger = new MemoryLedgerStore();
+    return { server: buildServer({ config, store, decisions, ledger, resolver, declaration: DECLARATION, now: () => NOW }), store, decisions, ledger };
   }
   const post = (server: ReturnType<typeof app>["server"], url: string, payload: Record<string, unknown>) => {
     const raw = JSON.stringify(payload);
@@ -164,7 +166,7 @@ describe("preflight api ingress", () => {
     const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent" });
     const lateNight = Date.parse("2026-09-05T02:30:00Z"); // 22:30 in Atlanta
     const decisions = new MemoryDecisionStore();
-    const server = buildServer({ config, store: new MemoryEventStore(), decisions, resolver, declaration: DECLARATION, now: () => lateNight });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger: new MemoryLedgerStore(), resolver, declaration: DECLARATION, now: () => lateNight });
     const raw = JSON.stringify({ ...OUTBOUND, uuid: "call-7" });
     const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
     const body = b64url(JSON.stringify({ iat: Math.floor(lateNight / 1000), jti: "j", iss: "Vonage", payload_hash: sha256Hex(raw), api_key: API_KEY }));
@@ -173,6 +175,35 @@ describe("preflight api ingress", () => {
     expect(res.headers["x-preflight-decision"]).toBe("block");
     expect((res.json() as Array<{ text: string }>)[0]?.text).toContain("47 CFR 64.1200(c)(1)");
     expect((await decisions.recent(1))[0]?.verdicts.find((v) => v.id === "P1")).toMatchObject({ verdict: "false", witness: [expect.objectContaining({ label: "talk#0" })] });
+  });
+
+  it("writes every decision to the evidence log as a linked entry and serves head, entries and verify", async () => {
+    served = FLOWS.syntheticNoOptOut;
+    const { server, ledger } = app();
+    await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-L1" });
+    served = FLOWS.connectOnly;
+    await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-L2" });
+    const head = (await server.inject({ method: "GET", url: "/api/ledger/head" })).json() as { seq: number; entry_hash: string };
+    expect(head.seq).toBe(2);
+    expect(head.entry_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const page = (await server.inject({ method: "GET", url: "/api/ledger/entries?after=0&limit=10" })).json() as { entries: Array<Record<string, unknown>> };
+    expect(page.entries).toHaveLength(2);
+    expect(page.entries[0]).toMatchObject({ seq: 1, kind: "block", call_uuid: "call-L1", property: "P3", citation: "47 CFR 64.1200(b)(3)", witness: ["talk#0", "talk#1"], line_type: { value: "wireless", source: "nanpa", conf: "low" } });
+    expect(page.entries[1]).toMatchObject({ seq: 2, kind: "pass", call_uuid: "call-L2", property: null, prev_hash: page.entries[0]?.["entry_hash"] });
+    expect((await server.inject({ method: "GET", url: "/api/ledger/verify" })).json()).toMatchObject({ ok: true, entries: 2, head: head.entry_hash });
+    expect((await ledger.verify()).ok).toBe(true);
+  });
+
+  it("records a transparency-log seal only with the seal token, and refuses without it", async () => {
+    const { server } = app({ SEAL_TOKEN: "a-seal-token-of-sufficient-length" });
+    const seal = { rekor_uuid: "24296fb2" + "0".repeat(72), rekor_log_index: 123456, sealed: { seq: 0, entry_hash: "sha256:" + "0".repeat(64) }, signature_b64: "MEUCIQ==" };
+    const forbidden = await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify(seal), headers: { "content-type": "application/json", authorization: "Bearer wrong-token-wrong-token-wrong" } });
+    expect(forbidden.statusCode).toBe(403);
+    const created = await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify(seal), headers: { "content-type": "application/json", authorization: "Bearer a-seal-token-of-sufficient-length" } });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ seq: 1, kind: "seal", detail: { rekor_uuid: seal.rekor_uuid, rekor_log_index: 123456, sealed_seq: 0 } });
+    const disabled = app();
+    expect((await disabled.server.inject({ method: "POST", url: "/api/ledger/seals", payload: "{}", headers: { "content-type": "application/json" } })).statusCode).toBe(404);
   });
 
   it("fails closed with a safe object when the origin exceeds the timeout", async () => {

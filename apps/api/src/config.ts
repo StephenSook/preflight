@@ -29,6 +29,8 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   /** What the developer declared about their flow (Setup screen), as JSON. See declarationFrom(). */
   FLOW_DECLARATION_JSON: z.string().optional(),
+  /** Shared secret the seal workflow presents when it records a transparency-log seal. Absent disables the endpoint. */
+  SEAL_TOKEN: z.string().min(16).optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 

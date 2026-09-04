@@ -4,7 +4,9 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import { decideAnswer } from "./decide/answer.js";
 import { forwardToOrigin } from "./proxy/forward.js";
+import { timingSafeEqual } from "node:crypto";
 import type { DecisionStore } from "./store/decisionStore.js";
+import type { LedgerStore } from "./store/ledgerStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
 import { verifyVonageWebhook } from "./vonage/verifyWebhook.js";
 
@@ -12,6 +14,7 @@ export interface ServerDeps {
   config: Config;
   store: EventStore;
   decisions: DecisionStore;
+  ledger: LedgerStore;
   resolver: NumberFactsResolver;
   declaration: FlowDeclaration;
   fetchImpl?: typeof fetch;
@@ -56,7 +59,7 @@ function str(v: unknown): string | undefined {
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const { config, store, decisions, resolver, declaration } = deps;
+  const { config, store, decisions, ledger, resolver, declaration } = deps;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clock = deps.now ?? Date.now;
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
@@ -74,6 +77,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     store: store.name,
     events: await store.count(),
     decisions: await decisions.counts(),
+    ledger: await ledger.head(),
     numfacts: { nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, prefixes: resolver.coCodes.size },
   }));
 
@@ -154,6 +158,21 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
       await decisions.append(outcome.record);
+      const failed = outcome.evaluation.verdicts.find((v) => v.verdict === "false");
+      const undecided = outcome.evaluation.verdicts.find((v) => v.verdict === "inconclusive");
+      const named = outcome.decision === "block" ? failed : outcome.decision === "hold" ? undecided : undefined;
+      await ledger.append({
+        ts: outcome.record.decidedAt,
+        kind: outcome.decision === "pass" ? "pass" : outcome.decision,
+        call_uuid: outcome.record.callUuid ?? null,
+        decision: outcome.decision,
+        property: named?.id ?? null,
+        citation: named?.citation ?? null,
+        witness: named?.witness?.map((w) => w.label) ?? [],
+        ncco_hash: outcome.record.nccoHash,
+        line_type: { value: outcome.record.facts.lineType, source: outcome.record.facts.lineTypeSource, conf: outcome.record.facts.lineTypeConfidence },
+        detail: outcome.reason ? { reason: outcome.reason } : null,
+      });
       await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });
       req.log.info({ decision: outcome.decision, reason: outcome.reason, callUuid: outcome.record.callUuid, terminal: outcome.record.terminal }, "answer decided");
       reply.header("x-preflight-origin-ms", forwarded.originLatencyMs.toFixed(1));
@@ -163,6 +182,49 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       const body = outcome.decision === "block" ? safeNcco(outcome.reason ?? "") : holdNcco(outcome.reason ?? "");
       return reply.code(200).type("application/json").send(JSON.stringify(body));
     },
+  });
+
+  // The evidence log, readable by anyone. The verify command a stranger runs is printed on the site.
+  app.get("/api/ledger/head", async () => ledger.head());
+  app.get<{ Querystring: { after?: string; limit?: string } }>("/api/ledger/entries", async (req) => {
+    const after = Math.max(0, Number(req.query.after ?? 0) || 0);
+    const limit = Math.min(1000, Math.max(1, Number(req.query.limit ?? 200) || 200));
+    return { after, entries: await ledger.entries(after, limit) };
+  });
+  app.get("/api/ledger/verify", async () => ledger.verify());
+
+  // The seal workflow records where the chain head was anchored in the public transparency log.
+  app.post<{ Body: string }>("/api/ledger/seals", async (req, reply) => {
+    if (!config.SEAL_TOKEN) return reply.code(404).send({ error: "sealing is not enabled on this deployment" });
+    const presented = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    const expected = config.SEAL_TOKEN;
+    const ok = presented.length === expected.length && timingSafeEqual(Buffer.from(presented), Buffer.from(expected));
+    if (!ok) return reply.code(403).send({ error: "seal token rejected" });
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(typeof req.body === "string" ? req.body : "") as Record<string, unknown>;
+    } catch {
+      return reply.code(400).send({ error: "body must be JSON" });
+    }
+    const sealed = body["sealed"] as { seq?: unknown; entry_hash?: unknown } | undefined;
+    const uuid = body["rekor_uuid"];
+    const logIndex = body["rekor_log_index"];
+    if (typeof uuid !== "string" || !Number.isSafeInteger(logIndex) || !sealed || !Number.isSafeInteger(sealed.seq) || typeof sealed.entry_hash !== "string") {
+      return reply.code(400).send({ error: "expected rekor_uuid, rekor_log_index and sealed {seq, entry_hash}" });
+    }
+    const entry = await ledger.append({
+      ts: new Date(clock()).toISOString(),
+      kind: "seal",
+      call_uuid: null,
+      decision: null,
+      property: null,
+      citation: null,
+      witness: [],
+      ncco_hash: null,
+      line_type: null,
+      detail: { rekor_uuid: uuid, rekor_log_index: logIndex as number, sealed_seq: sealed.seq as number, sealed_head: sealed.entry_hash, signature_b64: typeof body["signature_b64"] === "string" ? body["signature_b64"] : null },
+    });
+    return reply.code(201).send(entry);
   });
 
   // Event webhook: verify, store every body, forward to the origin's event URL if one is configured,
