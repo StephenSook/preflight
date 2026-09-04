@@ -6,17 +6,26 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx --conditions=development watch src/server.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "fastify": "^5.12.0"},
+    "fastify": "^5.12.0"
+  },
   "devDependencies": {}
 }
