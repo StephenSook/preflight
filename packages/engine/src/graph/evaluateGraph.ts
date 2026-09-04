@@ -2,6 +2,7 @@ import { decide, type Decision, type PropertyVerdict, type WitnessStep } from ".
 import { evaluatePath, labelOf } from "../evaluate.js";
 import type { CallFacts, FlowDeclaration } from "../ncco/atoms.js";
 import { PROPERTIES, type PropertyId } from "../properties.js";
+import type { NccoAction } from "../ncco/types.js";
 import type { FlowGraph, FlowPath } from "./graph.js";
 
 export interface PathEvaluation {
@@ -22,13 +23,26 @@ export interface GraphEvaluation {
  * every path decides it true. The bound is the honest one: a branch nobody has observed holds under
  * strict policy, and coverage says so.
  */
-export function evaluateGraph(graph: FlowGraph, rootId: string, ctx: { declaration?: FlowDeclaration | undefined; facts: CallFacts; policy: "strict" | "advisory" }): GraphEvaluation {
-  const paths = graph.paths(rootId);
+export interface EvaluatePrefix {
+  /** Actions the call has already executed, in order, with their labels. */
+  actions: NccoAction[];
+  labels: string[];
+}
+
+export function evaluateGraph(graph: FlowGraph, rootId: string, ctx: { declaration?: FlowDeclaration | undefined; facts: CallFacts; policy: "strict" | "advisory"; prefix?: EvaluatePrefix | undefined }): GraphEvaluation {
+  const prefix = ctx.prefix ?? { actions: [], labels: [] };
+  const prefixPrimes = prefix.labels.length > 0 ? ((prefix.labels[prefix.labels.length - 1] ?? "").match(/'+$/)?.[0].length ?? 0) + 1 : 0;
+  const paths = graph.paths(rootId).map((p): FlowPath => ({
+    ...p,
+    actions: [...prefix.actions, ...p.actions],
+    labels: [...prefix.labels, ...p.labels.map((l) => l.replace(/'*$/, (m) => "'".repeat(m.length + prefixPrimes)))],
+    nodeIds: p.nodeIds,
+  }));
   const evaluations: PathEvaluation[] = paths.map((path) => {
-    const ev = evaluatePath(path.actions, { declaration: ctx.declaration, facts: ctx.facts, terminal: path.end === "terminal" });
+    const ev = evaluatePath(path.actions.map((act, i) => ({ ...act, index: i })), { declaration: ctx.declaration, facts: ctx.facts, terminal: path.end === "terminal" });
     const relabelled = ev.verdicts.map((v) => {
       if (v.verdict === "inconclusive" && path.end === "cyclic") return { ...v, reason: "the flow loops back on itself; a looping path is never decided, it is held" };
-      if (v.verdict === "inconclusive" && path.end === "open") return { ...v, reason: `the path continues through ${path.labels[path.labels.length - 1] ?? "a branch"} and no continuation has been observed yet` };
+      if (v.verdict === "inconclusive" && path.end === "open") return { ...v, reason: `the path continues through ${path.labels[path.labels.length - 1] ?? "a branch"}, whose continuation has not been observed yet` };
       return v.witness ? { ...v, witness: primeWitness(v.witness, path) } : v;
     });
     return { path, verdicts: relabelled };
@@ -53,3 +67,4 @@ function aggregate(id: PropertyId, citation: string, evaluations: PathEvaluation
 }
 
 export { labelOf };
+export type { NccoAction };

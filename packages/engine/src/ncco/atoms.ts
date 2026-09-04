@@ -31,6 +31,8 @@ export interface FlowDeclaration {
     /** An input whose eventUrl contains one of these (substring, or exact URL path) offers opt-out. */
     eventUrlPatterns?: string[];
   };
+  /** Callback paths the developer says their flow has (e.g. "/webhooks/question"); the coverage denominator. */
+  endpoints?: string[];
 }
 
 export interface CallFacts {
