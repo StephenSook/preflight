@@ -1,12 +1,19 @@
+import type { FlowDeclaration } from "@preflight/engine";
+import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
+import { decideAnswer } from "./decide/answer.js";
 import { forwardToOrigin } from "./proxy/forward.js";
+import type { DecisionStore } from "./store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
 import { verifyVonageWebhook } from "./vonage/verifyWebhook.js";
 
 export interface ServerDeps {
   config: Config;
   store: EventStore;
+  decisions: DecisionStore;
+  resolver: NumberFactsResolver;
+  declaration: FlowDeclaration;
   fetchImpl?: typeof fetch;
   /** Injected clock so tests can pin token freshness. */
   now?: () => number;
@@ -17,9 +24,12 @@ export interface ServerDeps {
  * plain spoken sentence and a hangup: no branch, no input, nothing a monitor could object to.
  */
 export function safeNcco(reason: string): unknown[] {
-  return [
-    { action: "talk", text: `This call was stopped by Preflight. ${reason}` },
-  ];
+  return [{ action: "talk", text: `This call was stopped by Preflight. ${reason}` }];
+}
+
+/** The object served while a call is held for a human decision under strict policy. */
+export function holdNcco(reason: string): unknown[] {
+  return [{ action: "talk", text: `This call is held for review by Preflight. ${reason}` }];
 }
 
 function rawPayloadOf(req: FastifyRequest): string {
@@ -46,8 +56,9 @@ function str(v: unknown): string | undefined {
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const { config, store } = deps;
+  const { config, store, decisions, resolver, declaration } = deps;
   const fetchImpl = deps.fetchImpl ?? fetch;
+  const clock = deps.now ?? Date.now;
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
 
   // Keep the exact bytes: payload_hash is computed over what Vonage sent, not over a re-serialisation.
@@ -62,6 +73,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     policy: config.POLICY_MODE,
     store: store.name,
     events: await store.count(),
+    decisions: await decisions.counts(),
+    numfacts: { nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, prefixes: resolver.coCodes.size },
   }));
 
   const secretFor = (apiKey: string) => (apiKey === config.VONAGE_API_KEY ? config.VONAGE_SIGNATURE_SECRET : undefined);
@@ -97,8 +110,9 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return store.append(row);
   }
 
-  // Answer webhook: verify, forward to the origin, return the origin's NCCO untouched (pass-through
-  // until the monitor bank lands), fail closed with a safe NCCO if the origin does not answer.
+  // Answer webhook: verify, forward to the origin, run every armed monitor over the origin's object,
+  // return it byte for byte on pass, the safe object on block, the hold object on hold. Fail closed
+  // with the safe object if the origin does not answer.
   app.route({
     method: ["GET", "POST"],
     url: "/v/answer",
@@ -125,10 +139,29 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
         req.log.error({ error: forwarded.error, status: forwarded.status }, "origin did not return an NCCO; failing closed");
         return reply.code(200).type("application/json").send(JSON.stringify(safeNcco("The application's server did not answer in time.")));
       }
-      await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, decision: "forwarded" });
+      const decideStart = performance.now();
+      const outcome = decideAnswer({
+        payload,
+        nccoBytes: forwarded.bodyText,
+        declaration,
+        resolver,
+        policy: config.POLICY_MODE,
+        applicationId: config.VONAGE_APPLICATION_ID,
+        now: new Date(clock()),
+        originLatencyMs: forwarded.originLatencyMs,
+        verifyLatencyMs,
+      });
+      const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
+      outcome.record.verifyLatencyMs = totalVerifyMs;
+      await decisions.append(outcome.record);
+      await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });
+      req.log.info({ decision: outcome.decision, reason: outcome.reason, callUuid: outcome.record.callUuid, terminal: outcome.record.terminal }, "answer decided");
       reply.header("x-preflight-origin-ms", forwarded.originLatencyMs.toFixed(1));
-      reply.header("x-preflight-verify-ms", verifyLatencyMs.toFixed(1));
-      return reply.code(200).type(forwarded.contentType ?? "application/json").send(forwarded.bodyText);
+      reply.header("x-preflight-verify-ms", totalVerifyMs.toFixed(1));
+      reply.header("x-preflight-decision", outcome.decision);
+      if (outcome.decision === "pass") return reply.code(200).type(forwarded.contentType ?? "application/json").send(forwarded.bodyText);
+      const body = outcome.decision === "block" ? safeNcco(outcome.reason ?? "") : holdNcco(outcome.reason ?? "");
+      return reply.code(200).type("application/json").send(JSON.stringify(body));
     },
   });
 

@@ -1,3 +1,4 @@
+import type { FlowDeclaration } from "@preflight/engine";
 import { z } from "zod";
 
 /**
@@ -26,6 +27,8 @@ const schema = z.object({
    */
   ORIGIN_TIMEOUT_MS: z.coerce.number().int().positive().max(4500).default(3000),
   DATABASE_URL: z.string().min(1).optional(),
+  /** What the developer declared about their flow (Setup screen), as JSON. See declarationFrom(). */
+  FLOW_DECLARATION_JSON: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 
@@ -38,4 +41,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Preflight configuration is invalid: ${issues}`);
   }
   return parsed.data;
+}
+
+const declarationSchema = z.object({
+  identification: z.object({ phrases: z.array(z.string()).optional(), streamUrls: z.array(z.string()).optional() }).optional(),
+  optOut: z.object({ eventUrlPatterns: z.array(z.string()).optional() }).optional(),
+});
+
+/** The declared identification beat and opt-out handler. Absent means nothing identifies and nothing offers opt-out. */
+export function declarationFrom(config: Pick<Config, "FLOW_DECLARATION_JSON">): FlowDeclaration {
+  if (!config.FLOW_DECLARATION_JSON) return {};
+  let value: unknown;
+  try {
+    value = JSON.parse(config.FLOW_DECLARATION_JSON);
+  } catch (err) {
+    throw new Error(`FLOW_DECLARATION_JSON is not JSON: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const parsed = declarationSchema.safeParse(value);
+  if (!parsed.success) throw new Error(`FLOW_DECLARATION_JSON is invalid: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+  return parsed.data as FlowDeclaration;
 }
