@@ -23,7 +23,7 @@ function sign(raw: string, secret = SECRET, apiKey = API_KEY): string {
 const ORIGIN_NCCO = '[{"action":"talk",  "text":"Hello from the origin"} ,{"action":"hangup"}]';
 
 describe("preflight api ingress", () => {
-  const origin = Fastify();
+  const origin = Fastify({ forceCloseConnections: true });
   let originUrl = "";
   let originHits = 0;
   beforeAll(async () => {
@@ -34,7 +34,7 @@ describe("preflight api ingress", () => {
     if (!addr || typeof addr === "string") throw new Error("origin did not bind");
     originUrl = `http://127.0.0.1:${addr.port}`;
   });
-  afterAll(async () => { await origin.close(); });
+  afterAll(async () => { await origin.close(); }, 15000);
 
   function app(overrides: Record<string, string> = {}) {
     const config = loadConfig({
