@@ -1,4 +1,4 @@
-import type { Sql } from "postgres";
+import type { JSONValue, Sql } from "postgres";
 import type { EventStore, StoredWebhook, WebhookKind } from "./eventStore.js";
 
 interface Row {
@@ -38,7 +38,7 @@ export class PgEventStore implements EventStore {
   async append(row: StoredWebhook): Promise<void> {
     await this.sql`
       insert into webhooks (kind, received_at, method, application_id, call_uuid, conversation_uuid, raw, payload, origin_latency_ms, verify_latency_ms, decision)
-      values (${row.kind}, ${row.receivedAt}, ${row.method}, ${row.applicationId ?? null}, ${row.callUuid ?? null}, ${row.conversationUuid ?? null}, ${row.raw}, ${row.payload ? JSON.stringify(row.payload) : null}::jsonb, ${row.originLatencyMs}, ${row.verifyLatencyMs}, ${row.decision})
+      values (${row.kind}, ${row.receivedAt}, ${row.method}, ${row.applicationId ?? null}, ${row.callUuid ?? null}, ${row.conversationUuid ?? null}, ${row.raw}, ${row.payload ? this.sql.json(row.payload as JSONValue) : null}, ${row.originLatencyMs}, ${row.verifyLatencyMs}, ${row.decision})
     `;
   }
 
