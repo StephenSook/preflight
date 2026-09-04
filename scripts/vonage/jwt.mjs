@@ -19,7 +19,8 @@ export function loadEnv() {
   const applicationId = env.VONAGE_APPLICATION_ID;
   const keyPath = env.VONAGE_PRIVATE_KEY_PATH || "./secrets/private.key";
   if (!applicationId) throw new Error("VONAGE_APPLICATION_ID is not set");
-  const privateKey = readFileSync(path.resolve(root, keyPath), "utf8");
+  // A hosted job (GitHub Actions) carries the PEM inline; a person's machine keeps it in a file.
+  const privateKey = env.VONAGE_PRIVATE_KEY ? env.VONAGE_PRIVATE_KEY.replace(/\\n/g, "\n") : readFileSync(path.resolve(root, keyPath), "utf8");
   return { applicationId, privateKey, env, root };
 }
 

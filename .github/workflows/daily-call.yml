@@ -1,0 +1,40 @@
+name: daily real call
+# Proves the real path once a day, which the keepalive cannot: a create-call request signed with the
+# application's own key goes through the deployed gateway. The broken reference flow must be refused
+# before the platform is touched. With the DAILY_CALL_PLACE variable on, one real call is then placed
+# (fixed flow, from the outbound number to the public number, both ours) and the mode switched back.
+on:
+  schedule:
+    - cron: "41 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: the gateway must refuse the broken flow, then place the fixed one when enabled
+        env:
+          PREFLIGHT_API_URL: ${{ vars.PREFLIGHT_API_URL }}
+          VONAGE_APPLICATION_ID: ${{ vars.VONAGE_APPLICATION_ID }}
+          VONAGE_PUBLIC_NUMBER: ${{ vars.VONAGE_PUBLIC_NUMBER }}
+          VONAGE_FROM_NUMBER: ${{ vars.VONAGE_FROM_NUMBER }}
+          DAILY_CALL_PLACE: ${{ vars.DAILY_CALL_PLACE }}
+          VONAGE_PRIVATE_KEY: ${{ secrets.VONAGE_PRIVATE_KEY }}
+          REFERENCE_ADMIN_TOKEN: ${{ secrets.REFERENCE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$PREFLIGHT_API_URL" || { echo "PREFLIGHT_API_URL repository variable is not set"; exit 1; }
+          test -n "$VONAGE_PRIVATE_KEY" || { echo "VONAGE_PRIVATE_KEY secret is not set"; exit 1; }
+          test -n "$REFERENCE_ADMIN_TOKEN" || { echo "REFERENCE_ADMIN_TOKEN secret is not set"; exit 1; }
+          node scripts/vonage/daily-call.mjs
