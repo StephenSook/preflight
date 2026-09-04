@@ -1,0 +1,20 @@
+name: Bug
+description: Something other than a verdict is wrong.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Commands or requests, in order.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version

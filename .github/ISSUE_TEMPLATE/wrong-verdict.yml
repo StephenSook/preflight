@@ -1,0 +1,39 @@
+name: Wrong verdict
+description: Preflight passed a flow it should have blocked, blocked one it should have passed, or held one it could have decided.
+labels: ["verdict"]
+body:
+  - type: textarea
+    id: ncco
+    attributes:
+      label: The call-control object
+      description: The exact NCCO as the server returned it. Redact numbers if you must, keep the shape.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: declaration
+    attributes:
+      label: The flow declaration in force
+      description: The identification phrases or stream URLs and the opt-out event URL patterns, if any.
+      render: json
+  - type: dropdown
+    id: got
+    attributes:
+      label: What Preflight decided
+      options: [pass, block, hold]
+    validations:
+      required: true
+  - type: dropdown
+    id: expected
+    attributes:
+      label: What it should have decided
+      options: [pass, block, hold]
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Which property and why
+      description: Name the property (P1 to P5) and the clause of the rule. A citation to the primary text helps most.
+    validations:
+      required: true

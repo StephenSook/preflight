@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://github.com/StephenSook/preflight/security/advisories/new
+    about: A way past the signed-webhook ingress, a false verdict that passes, or a ledger entry altered without breaking the chain. Report privately.
