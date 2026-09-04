@@ -46,3 +46,5 @@ packages/numfacts/data/raw/
 # The ledger seal PUBLIC key is committed on purpose: strangers verify seals against it.
 !packages/ledger/keys/preflight-ledger-public.pem
 packages/rules/data/raw/
+research/
+secrets/
