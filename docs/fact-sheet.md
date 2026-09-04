@@ -18,12 +18,15 @@ _not yet generated_
 | Georgia AG civil penalty | up to 2,000.00 USD for each violation, no knowing requirement after SB 73 | O.C.G.A. 46-5-27(h), 2025 Code, quoted in packages/rules/data/citations.json (id ocga-46-5-27-h); primary: SB 73 as signed, https://gov.georgia.gov/document/2024-signed-legislation/sb-73/download | 2026-09-04 |
 | Georgia private damages | actual monetary loss or up to 1,000.00 USD in damages for each violation, whichever is greater; the limitation does not apply in a class action | O.C.G.A. 46-5-27(i)(2)(A) and (B), 2025 Code, quoted in packages/rules/data/citations.json (id ocga-46-5-27-i-2) | 2026-09-04 |
 | Georgia vicarious liability | "on behalf of any person or entity" inserted in 46-5-27(c) by SB 73, effective 2024-07-01 | O.C.G.A. 46-5-27(c) quoted in citations.json (id ocga-46-5-27-c); Justia amendment note; Ga. L. 2024, p. 912, § 2 | 2026-09-04 |
+| Public number | +1 943 244 5023 (Atlanta overlay, on the account since 2026-09-03); +1 201 613 1021 bought 2026-09-04 as the outbound caller id (1.09 USD setup, 1.09 USD per month each) | Vonage dashboard purchase receipt (toast: "has now been added to your account for use"); balance 16.66 to 15.57 USD | 2026-09-04 |
+| Atlanta workshop coupon | `ATLDICHF26`, 15 USD credit | https://developer.vonage.com/en/events/register/dialedin-atlanta-a-createher-fest-tech-series (linked from the Devpost welcome email of 2026-08-14) | 2026-09-04 |
 | Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
 
 ## MEASUREMENTS (each row: what, value, how measured, when)
 
 | what | value | how | when |
 |---|---|---|---|
+| Identity Insights, first lookup (format, current_carrier, original_carrier) on +1 943 244 5023 | HTTP 200 in about 600 ms; format time_zones [America/New_York], is_valid true; original_carrier network_type LANDLINE; current_carrier NOT_FOUND ("may not be assigned to a mobile network"); request_id b44c2ea3-d16c-4654-aa59-de69bfa64e4b | scripts/vonage/identity-insights.mjs with the application JWT, results/identity-insights-2026-09-04T05-5*.json | 2026-09-04 |
 | Vonage mid-call REST control (earmuff/unearmuff), 50 flips | median 103 ms, p95 183 ms, 0 non-2xx, 0 dropped legs | spike/gate1, tools/analyze.mjs | 2026-09-03 |
 
 ## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)
