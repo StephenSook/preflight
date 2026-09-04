@@ -4,8 +4,8 @@ import { parseNcco } from "../ncco/parse.js";
 import { evaluateGraph } from "./evaluateGraph.js";
 import { FlowGraph, nodeIdOf } from "./graph.js";
 
-/** As in the spec example: the question input is where a caller can opt out, so it is declared as such. */
-const decl: FlowDeclaration = { identification: { phrases: ["This is a message from Preflight Demo Clinic"] }, optOut: { eventUrlPatterns: ["/webhooks/question", "/webhooks/optout"] } };
+/** As in the spec example: the question input collects a digit and is not an opt-out; only /webhooks/optout is. */
+const decl: FlowDeclaration = { identification: { phrases: ["This is a message from Preflight Demo Clinic"] }, optOut: { eventUrlPatterns: ["/webhooks/optout"] } };
 const facts: CallFacts = { from: "14045550100", lineType: "wireless", withinHours: true };
 const T = "2026-09-06T21:14:00.000Z";
 const actions = (ncco: unknown) => parseNcco(ncco).actions;

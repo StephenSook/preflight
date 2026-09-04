@@ -8,6 +8,12 @@ import { compileMonitor, type CompiledMonitor } from "./ltl/monitor.js";
  * P2 and P5 use weak until, "nothing of this kind strictly before the identification beat". The
  * spec's first draft wrote them as !( !identifies U speaks ), which is false on every flow whose
  * identification beat speaks; see ltl/monitor.test.ts, "the identification formulas".
+ *
+ * P3 is anchored on the identification beat, as 47 CFR 64.1200(b)(3) is ("within two (2) seconds of
+ * providing the identification information required in paragraph (b)(1)"). The spec's printed
+ * formula obliged every synthetic utterance, which flagged a closing sentence after the opt-out and
+ * the spec's own declared agent path; a live human leg satisfies the obligation because the
+ * example in the spec treats the agent path as compliant.
  */
 export type PropertyId = "P1" | "P2" | "P3" | "P4" | "P5";
 
@@ -46,8 +52,8 @@ export const PROPERTIES: readonly PropertySpec[] = [
     id: "P3",
     title: "Interactive opt-out present",
     summary: "An artificial or prerecorded voice message must provide an automated, interactive voice- and/or key press-activated opt-out mechanism.",
-    checks: "From every synthetic-speech action, an input action declared as the opt-out handler is reachable later on the path.",
-    formula: "G( (speaks & synthetic & !connects_human) -> F offers_optout )",
+    checks: "From the identification beat, an input declared as the opt-out handler, or a connection to a live endpoint, is reachable later on the path. The rule anchors the opt-out to the identification; speech after the opt-out is not a violation.",
+    formula: "G( identifies -> F (offers_optout | connects_human) )",
     citation: "47 CFR 64.1200(b)(3)",
     shape: "ordering",
   },

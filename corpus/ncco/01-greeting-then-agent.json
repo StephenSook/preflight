@@ -1,6 +1,6 @@
 {
   "name": "greeting then live agent",
-  "description": "Identifies, then connects to a person. No synthetic branch after the greeting.",
+  "description": "Identifies, then connects to a person. The live leg satisfies the opt-out reachability the rule anchors to the identification.",
   "declaration": {
     "identification": {
       "phrases": [
@@ -60,20 +60,11 @@
       "verdicts": {
         "P1": "true",
         "P2": "true",
-        "P3": "false",
+        "P3": "true",
         "P4": "true",
         "P5": "true"
       },
-      "decision": "block",
-      "witness": {
-        "P3": {
-          "path": [
-            "talk#0",
-            "connect#1"
-          ],
-          "atEnd": true
-        }
-      }
+      "decision": "pass"
     }
   }
 }

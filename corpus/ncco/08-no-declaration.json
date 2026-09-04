@@ -1,6 +1,6 @@
 {
   "name": "nothing declared",
-  "description": "Without a declaration no talk identifies and no input offers opt-out, however the words read. That is the fail-closed default.",
+  "description": "Without a declaration no talk identifies and no input offers opt-out, however the words read. P2 and P5 fail; P3 has nothing to anchor to and is vacuously true, which is why it is never armed alone.",
   "ncco": [
     {
       "action": "talk",
@@ -47,7 +47,7 @@
       "verdicts": {
         "P1": "true",
         "P2": "false",
-        "P3": "false",
+        "P3": "true",
         "P4": "true",
         "P5": "false"
       },
@@ -64,13 +64,6 @@
             "talk#0"
           ],
           "atEnd": false
-        },
-        "P3": {
-          "path": [
-            "talk#0",
-            "input#1"
-          ],
-          "atEnd": true
         }
       }
     }

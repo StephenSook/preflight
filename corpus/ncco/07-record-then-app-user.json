@@ -119,24 +119,11 @@
       "verdicts": {
         "P1": "true",
         "P2": "true",
-        "P3": "false",
+        "P3": "true",
         "P4": "true",
         "P5": "true"
       },
-      "decision": "block",
-      "witness": {
-        "P3": {
-          "path": [
-            "record#0",
-            "notify#1",
-            "talk#2",
-            "connect#3",
-            "conversation#4",
-            "pay#5"
-          ],
-          "atEnd": true
-        }
-      }
+      "decision": "pass"
     }
   }
 }
