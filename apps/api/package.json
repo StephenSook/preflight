@@ -1,0 +1,31 @@
+{
+  "name": "@preflight/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Preflight API: webhook ingress, origin forwarder, create-call gateway, event store, decision + ledger, SSE, public recompute endpoints.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@preflight/engine": "workspace:*",
+    "@preflight/ledger": "workspace:*",
+    "@preflight/numfacts": "workspace:*",
+    "@preflight/rules": "workspace:*",
+    "@vonage/jwt": "^1.17.0",
+    "fastify": "^5.12.0",
+    "pino": "^10.0.0",
+    "postgres": "^3.4.0",
+    "zod": "^4.0.0"},
+  "devDependencies": {}
+}
