@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-133%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-142%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -109,6 +109,9 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
+| Held queue | A call the interlock could not decide under strict policy waits for a person; deciding it needs the dashboard token and a name, writes an override entry to the ledger, and a re-submission carrying the hold id places the call only for that destination | `apps/api/src/store/holdStore.ts`, `apps/api/src/gateway/calls.ts` |
+| Decision stream | `/api/stream` serves decisions as server-sent events with a replay of recent ones on connect; the dashboard's transport | `apps/api/src/stream.ts` |
+| CLI | `npx preflight-interlock` (binary `preflight`): check one object, replay the labelled corpus, verify a ledger from a host or a file; one bundled file, no data tables, no account | `packages/cli/` |
 | Public recompute endpoints | `/api/summary` (decision counts, ledger head, coverage, verify and origin latency p50 and p95), `/api/coverage`, `/api/ledger/head`, `/api/ledger/entries`, `/api/ledger/verify`, all unauthenticated | `apps/api/src/server.ts` |
 | Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
@@ -172,7 +175,7 @@ packages/engine/     NCCO parser, atoms, LTL parser, LTL3 monitor construction, 
 packages/numfacts/   NANPA table, prefix timezone map, calling-hours resolver, committed data + manifest
 packages/ledger/     canonical JSON, hash chain, verification, the public seal key
 packages/rules/      committed statute texts at a pinned vintage, verbatim quoted clauses, two-direction citation enforcement
-packages/cli/        replay, verify-ledger, check (in progress)
+packages/cli/        npx preflight-interlock: check, replay, verify-ledger (bundled, no dependencies)
 corpus/ncco/         labelled call-control objects with expected atoms, verdicts and witness paths
 scripts/             fetch-numfacts.mjs, ai-tone-gate.sh
 spike/gate1/         the measurement rig that killed the previous candidate (kept as evidence)
@@ -197,7 +200,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 133 tests
+pnpm test                       # every suite, 142 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from their sources
 ```
@@ -242,9 +245,9 @@ What is not built yet, so nobody has to guess:
   credentials are in place; until then there is no live URL and no badge claims one.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
-- The declared-versus-actual diff, the held queue's place-anyway override, the rate properties P6 to
-  P8, Vonage Identity Insights as the paid line-type lookup, the Verify v2 consent gate and the
-  `npx preflight` CLI are planned and not present in the code. Wired or cut, at submission time.
+- The declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the
+  paid line-type lookup and the Verify v2 consent gate are planned and not present in the code.
+  Wired or cut, at submission time. The CLI is built but not yet published to npm.
 
 ## Honesty and limitations
 
