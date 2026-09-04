@@ -6,6 +6,7 @@ import { buildServer } from "../server.js";
 import { MemoryDecisionStore } from "../store/decisionStore.js";
 import { MemoryEventStore } from "../store/eventStore.js";
 import { MemoryGraphStore } from "../store/graphStore.js";
+import { MemoryHoldStore } from "../store/holdStore.js";
 import { MemoryLedgerStore } from "../store/ledgerStore.js";
 
 const NOW = Date.parse("2026-09-04T16:00:00Z"); // 12:00 in Atlanta
@@ -52,8 +53,9 @@ describe("create-call gateway", () => {
     const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_API_HOST: VONAGE, PUBLIC_BASE_URL: "https://preflight.example", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent", ...overrides });
     const decisions = new MemoryDecisionStore();
     const ledger = new MemoryLedgerStore();
-    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, graphStore: new MemoryGraphStore(), resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
-    return { server, decisions, ledger };
+    const holds = new MemoryHoldStore();
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, graphStore: new MemoryGraphStore(), holds, resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
+    return { server, decisions, ledger, holds };
   }
   const call = (server: ReturnType<typeof app>["server"], body: unknown, headers: Record<string, string> = { authorization: TOKEN }) =>
     server.inject({ method: "POST", url: "/v/calls", payload: typeof body === "string" ? body : JSON.stringify(body), headers: { "content-type": "application/json", ...headers } });
@@ -148,6 +150,33 @@ describe("create-call gateway", () => {
     const placed = await call(advisory.server, { ...BASE, ncco: OPEN });
     expect(placed.statusCode).toBe(201);
     expect(placed.headers["x-preflight-decision"]).toBe("pass");
+  });
+
+  it("puts a held call in the queue, and places it only after a named person decides and the caller re-submits with the override", async () => {
+    const { server, ledger } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
+    const held = await call(server, { ...BASE, ncco: OPEN });
+    expect(held.statusCode).toBe(409);
+    const { holdId } = held.json() as { holdId: string };
+    expect(holdId).toMatch(/^hold-/);
+    const auth = { authorization: "Bearer dashboard-token-for-tests-1" };
+    expect((await server.inject({ method: "GET", url: "/api/held" })).statusCode).toBe(403);
+    const queue = (await server.inject({ method: "GET", url: "/api/held", headers: auth })).json() as { holds: Array<{ holdId: string; status: string; humanParty: string }> };
+    expect(queue.holds).toEqual([expect.objectContaining({ holdId, status: "open", humanParty: "14042010000" })]);
+    // Re-submitting before anyone decides is still held.
+    expect((await call(server, { ...BASE, ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId })).statusCode).toBe(409);
+    const nameless = await server.inject({ method: "POST", url: `/api/held/${holdId}/decide`, payload: JSON.stringify({ action: "place" }), headers: { "content-type": "application/json", ...auth } });
+    expect(nameless.statusCode).toBe(400);
+    const decided = await server.inject({ method: "POST", url: `/api/held/${holdId}/decide`, payload: JSON.stringify({ action: "place", by: "S. Sookra" }), headers: { "content-type": "application/json", ...auth } });
+    expect(decided.statusCode).toBe(200);
+    expect(decided.json()).toMatchObject({ hold: { status: "placed", decidedBy: "S. Sookra" } });
+    expect((await ledger.entries(0, 20)).find((e) => e.kind === "override")).toMatchObject({ detail: { hold_id: holdId, action: "place", by: "S. Sookra" } });
+    const placed = await call(server, { ...BASE, ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
+    expect(placed.statusCode).toBe(201);
+    expect(placed.headers["x-preflight-decision"]).toBe("pass");
+    // An override is bound to its destination.
+    const other = await call(server, { ...BASE, to: [{ type: "phone", number: "14042000000" }], ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
+    expect(other.statusCode).toBe(409);
+    expect((await server.inject({ method: "POST", url: `/api/held/${holdId}/decide`, payload: JSON.stringify({ action: "cancel", by: "x" }), headers: { "content-type": "application/json", ...auth } })).statusCode).toBe(404);
   });
 
   it("treats random_from_number as a present caller id", async () => {

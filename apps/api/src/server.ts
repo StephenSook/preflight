@@ -13,6 +13,8 @@ import { forwardToOrigin } from "./proxy/forward.js";
 import type { DecisionStore } from "./store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
 import type { GraphStore } from "./store/graphStore.js";
+import type { HoldStore } from "./store/holdStore.js";
+import { DecisionBus, publishing, registerStream } from "./stream.js";
 import type { LedgerStore } from "./store/ledgerStore.js";
 import { verifyVonageWebhook } from "./vonage/verifyWebhook.js";
 
@@ -22,6 +24,7 @@ export interface ServerDeps {
   decisions: DecisionStore;
   ledger: LedgerStore;
   graphStore: GraphStore;
+  holds: HoldStore;
   resolver: NumberFactsResolver;
   declaration: FlowDeclaration;
   fetchImpl?: typeof fetch;
@@ -59,9 +62,11 @@ function percentile(sorted: number[], p: number): number | null {
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const { config, store, decisions, ledger, graphStore, resolver, declaration } = deps;
+  const { config, store, ledger, graphStore, holds, resolver, declaration } = deps;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clock = deps.now ?? Date.now;
+  const bus = new DecisionBus();
+  const decisions = publishing(deps.decisions, bus);
   const flow = new FlowDecider({ config, graphStore, declaration, resolver });
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
 
@@ -171,7 +176,48 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   }
 
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
-  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, fetchImpl, clock });
+  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock });
+  registerStream(app, bus);
+
+  // The held queue. Reading and deciding both need the dashboard token: a phone number is personal data.
+  const dashboardAuth = (authorization: string | undefined): boolean => {
+    if (!config.DASHBOARD_TOKEN) return false;
+    const presented = (authorization ?? "").replace(/^Bearer\s+/i, "");
+    return presented.length === config.DASHBOARD_TOKEN.length && timingSafeEqual(Buffer.from(presented), Buffer.from(config.DASHBOARD_TOKEN));
+  };
+  app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";
+    return { status, holds: await holds.list(status, Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100))) };
+  });
+  app.post<{ Params: { id: string }; Body: string }>("/api/held/:id/decide", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    let body: { action?: unknown; by?: unknown };
+    try {
+      body = JSON.parse(typeof req.body === "string" ? req.body : "{}") as { action?: unknown; by?: unknown };
+    } catch {
+      return reply.code(400).send({ error: "body must be JSON" });
+    }
+    const action = body.action;
+    const by = typeof body.by === "string" ? body.by.trim() : "";
+    if ((action !== "place" && action !== "cancel") || by.length === 0) return reply.code(400).send({ error: 'expected {"action": "place" | "cancel", "by": "<name>"}: every override names who made it' });
+    const at = new Date(clock()).toISOString();
+    const hold = await holds.decide(req.params.id, action === "place" ? "placed" : "cancelled", by, at);
+    if (!hold) return reply.code(404).send({ error: "no open hold with that id" });
+    const entry = await ledger.append({
+      ts: at,
+      kind: "override",
+      call_uuid: hold.callUuid ?? null,
+      decision: null,
+      property: hold.verdicts.find((v) => v.verdict === "inconclusive")?.id ?? null,
+      citation: hold.verdicts.find((v) => v.verdict === "inconclusive")?.citation ?? null,
+      witness: [],
+      ncco_hash: null,
+      line_type: null,
+      detail: { hold_id: hold.holdId, action, by, reason: hold.reason },
+    });
+    return { hold, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
+  });
 
   // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.
   app.get("/api/coverage", async () => flow.coverage());

@@ -6,6 +6,7 @@ import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
 import type { GraphStore } from "../store/graphStore.js";
+import type { HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 
 export interface GatewayDeps {
@@ -14,6 +15,7 @@ export interface GatewayDeps {
   graphStore: GraphStore;
   decisions: DecisionStore;
   ledger: LedgerStore;
+  holds: HoldStore;
   fetchImpl: typeof fetch;
   clock: () => number;
 }
@@ -40,7 +42,7 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v.leng
  * verdicts and nothing reaches the carrier.
  */
 export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): void {
-  const { config, flow, graphStore, decisions, ledger, fetchImpl, clock } = deps;
+  const { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock } = deps;
 
   app.post<{ Body: string }>("/v/calls", async (req, reply) => {
     const authorization = req.headers.authorization;
@@ -106,6 +108,23 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       outcome.record.decision = "block";
       outcome.record.reason = originFailure;
     }
+    // A person decided a held call may be placed: the caller re-submits with the hold id. The override
+    // is already in the ledger; here it is checked against the same destination and recorded again.
+    const overrideId = typeof req.headers["x-preflight-override"] === "string" ? req.headers["x-preflight-override"] : undefined;
+    let override: { holdId: string; by: string } | undefined;
+    if (overrideId) {
+      const hold = await holds.get(overrideId);
+      if (!hold || hold.status !== "placed" || hold.humanParty !== toNumber) {
+        return reply.code(409).send({ decision: "hold", placed: false, reason: hold ? `override ${overrideId} is ${hold.status} or names another destination` : `no hold ${overrideId}` });
+      }
+      override = { holdId: hold.holdId, by: hold.decidedBy ?? "unknown" };
+      if (outcome.decision === "hold") {
+        outcome.decision = "pass";
+        outcome.record.decision = "pass";
+        outcome.reason = `placed on the override recorded for hold ${hold.holdId} by ${override.by}`;
+        outcome.record.reason = outcome.reason;
+      }
+    }
     if (randomFrom && !fromNumber) {
       // The platform picks one of the account's own numbers: a caller id will be present.
       for (const v of outcome.evaluation.verdicts) if (v.id === "P4" && v.verdict === "false") Object.assign(v, { verdict: "true", witness: undefined });
@@ -150,10 +169,15 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       }
     }
 
+    let holdId: string | undefined;
+    if (outcome.decision === "hold") {
+      holdId = `hold-${randomBytes(8).toString("hex")}`;
+      await holds.create({ holdId, callUuid: outcome.record.callUuid, humanParty: toNumber, reason: outcome.reason ?? "undecided", verdicts: outcome.evaluation.verdicts, status: "open", createdAt: outcome.record.decidedAt, decidedBy: undefined, decidedAt: undefined });
+    }
     outcome.record.verifyLatencyMs = performance.now() - verifyStart - (originLatencyMs ?? 0);
     await decisions.append(outcome.record);
     await ledger.append(ledgerDraftFor(outcome));
-    req.log.info({ decision: outcome.decision, reason: outcome.reason, to: toNumber, callUuid: outcome.record.callUuid, placed: placed?.status }, "create-call gateway decided");
+    req.log.info({ decision: outcome.decision, reason: outcome.reason, to: toNumber, callUuid: outcome.record.callUuid, placed: placed?.status, holdId, override }, "create-call gateway decided");
 
     reply.header("x-preflight-decision", outcome.decision);
     reply.header("x-preflight-verify-ms", (outcome.record.verifyLatencyMs ?? 0).toFixed(1));
@@ -165,6 +189,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       reason: outcome.reason,
       verdicts: outcome.evaluation.verdicts,
       coverage: outcome.coverage,
+      ...(holdId ? { holdId, decide: "a person decides this hold in the dashboard; re-submit the same request with X-Preflight-Override: <holdId> once it is placed" } : {}),
       facts: { state: outcome.record.facts.state, rateCenter: outcome.record.facts.rateCenter, lineType: outcome.record.facts.lineType, zones: outcome.record.facts.zones, withinHours: outcome.record.facts.withinHours, hoursBasis: outcome.record.facts.hoursBasis },
       terminal: outcome.record.terminal,
     });

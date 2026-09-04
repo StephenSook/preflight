@@ -31,6 +31,8 @@ const schema = z.object({
   FLOW_DECLARATION_JSON: z.string().optional(),
   /** Shared secret the seal workflow presents when it records a transparency-log seal. Absent disables the endpoint. */
   SEAL_TOKEN: z.string().min(16).optional(),
+  /** Bearer token for the dashboard's write actions (deciding a held call). Absent disables them. */
+  DASHBOARD_TOKEN: z.string().min(16).optional(),
   /** Mount the reference application under /reference on this host (one host for the whole demonstration). */
   REFERENCE_APP: z.enum(["on", "off"]).default("off"),
   REFERENCE_MODE: z.enum(["broken", "fixed"]).default("broken"),

@@ -7,6 +7,7 @@ import { buildServer } from "./server.js";
 import { MemoryDecisionStore, PgDecisionStore, type DecisionStore } from "./store/decisionStore.js";
 import { MemoryEventStore, type EventStore } from "./store/eventStore.js";
 import { MemoryGraphStore, PgGraphStore, type GraphStore } from "./store/graphStore.js";
+import { MemoryHoldStore, PgHoldStore, type HoldStore } from "./store/holdStore.js";
 import { MemoryLedgerStore, PgLedgerStore, type LedgerStore } from "./store/ledgerStore.js";
 import { PgEventStore } from "./store/pgEventStore.js";
 
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   let decisions: DecisionStore = new MemoryDecisionStore();
   let ledger: LedgerStore = new MemoryLedgerStore();
   let graphStore: GraphStore = new MemoryGraphStore();
+  let holds: HoldStore = new MemoryHoldStore();
   let sql: Sql | undefined;
   if (config.DATABASE_URL) {
     sql = postgres(config.DATABASE_URL, { max: 5, idle_timeout: 20, connect_timeout: 10 });
@@ -31,10 +33,11 @@ async function main(): Promise<void> {
     decisions = new PgDecisionStore(sql);
     ledger = new PgLedgerStore(sql);
     graphStore = new PgGraphStore(sql, config.VONAGE_APPLICATION_ID);
+    holds = new PgHoldStore(sql);
     process.stdout.write(`migrations applied: ${ran.length === 0 ? "none pending" : ran.join(", ")}\n`);
   }
 
-  const app = buildServer({ config, store, decisions, ledger, graphStore, resolver, declaration });
+  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
   app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
 

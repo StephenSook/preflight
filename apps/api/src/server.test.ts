@@ -8,6 +8,7 @@ import { MemoryDecisionStore } from "./store/decisionStore.js";
 import { MemoryLedgerStore } from "./store/ledgerStore.js";
 import { MemoryEventStore } from "./store/eventStore.js";
 import { MemoryGraphStore } from "./store/graphStore.js";
+import { MemoryHoldStore } from "./store/holdStore.js";
 import { sha256Hex } from "./vonage/verifyWebhook.js";
 
 const SECRET = "test-signature-secret";
@@ -78,8 +79,9 @@ describe("preflight api ingress", () => {
     const decisions = new MemoryDecisionStore();
     const ledger = new MemoryLedgerStore();
     const graphStore = new MemoryGraphStore();
+    const holds = new MemoryHoldStore();
     const declaration = config.FLOW_DECLARATION_JSON ? declarationFrom(config) : DECLARATION;
-    return { server: buildServer({ config, store, decisions, ledger, graphStore, resolver, declaration, now: () => NOW }), store, decisions, ledger, graphStore };
+    return { server: buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration, now: () => NOW }), store, decisions, ledger, graphStore, holds };
   }
   const post = (server: ReturnType<typeof app>["server"], url: string, payload: Record<string, unknown>) => {
     const raw = JSON.stringify(payload);
@@ -190,7 +192,7 @@ describe("preflight api ingress", () => {
     const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent" });
     const lateNight = Date.parse("2026-09-05T02:30:00Z"); // 22:30 in Atlanta
     const decisions = new MemoryDecisionStore();
-    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), resolver, declaration: DECLARATION, now: () => lateNight });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, now: () => lateNight });
     const raw = JSON.stringify({ ...OUTBOUND, uuid: "call-7" });
     const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
     const body = b64url(JSON.stringify({ iat: Math.floor(lateNight / 1000), jti: "j", iss: "Vonage", payload_hash: sha256Hex(raw), api_key: API_KEY }));
@@ -307,6 +309,42 @@ describe("preflight api ingress", () => {
     const nine = await server.inject({ method: "POST", url: fixedHook.pathname + fixedHook.search, payload: nineRaw, headers: { "content-type": "application/json", authorization: sign(nineRaw) } });
     expect(nine.headers["x-preflight-decision"]).toBe("pass");
     expect((nine.json() as Array<{ text: string }>)[0]?.text).toContain("will not receive these calls again");
+  });
+
+  it("streams decisions as server-sent events, with a replay of recent ones on connect", async () => {
+    served = FLOWS.connectOnly;
+    const { server } = app();
+    await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S1" });
+    await server.listen({ port: 0, host: "127.0.0.1" });
+    try {
+      const addr = server.server.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      const ac = new AbortController();
+      const res = await fetch(`http://127.0.0.1:${port}/api/stream?replay=5`, { signal: ac.signal });
+      expect(res.headers.get("content-type")).toContain("text/event-stream");
+      const reader = res.body?.getReader();
+      let text = "";
+      const decoder = new TextDecoder();
+      // First chunk carries the retry hint and the replayed decision.
+      while (!text.includes("call-S1")) {
+        const { value, done } = (await reader?.read()) ?? { value: undefined, done: true };
+        if (done) break;
+        text += decoder.decode(value);
+      }
+      expect(text).toContain("retry: 3000");
+      expect(text).toContain("event: decision");
+      // A new decision arrives live.
+      await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S2" });
+      while (!text.includes("call-S2")) {
+        const { value, done } = (await reader?.read()) ?? { value: undefined, done: true };
+        if (done) break;
+        text += decoder.decode(value);
+      }
+      expect(text).toContain('"callUuid":"call-S2"');
+      ac.abort();
+    } finally {
+      await server.close();
+    }
   });
 
   it("fails closed with a safe object when the origin exceeds the timeout", async () => {
