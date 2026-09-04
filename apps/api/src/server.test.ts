@@ -42,7 +42,18 @@ describe("preflight api ingress", () => {
   let originHits = 0;
   let served: string = FLOWS.connectOnly;
   let servedQuestion = "";
+  /** The reference application on its own listener, switched through its own admin endpoint. */
+  const ref = Fastify({ forceCloseConnections: true });
+  let refUrl = "";
+  const REF_ADMIN = "reference-admin-token-for-tests";
   beforeAll(async () => {
+    const { referenceApp } = await import("@preflight/reference");
+    ref.addContentTypeParser(["application/json", "text/plain"], { parseAs: "string" }, (_req, body, done) => done(null, body));
+    await ref.register(referenceApp, { prefix: "/reference", selfBaseUrl: () => `${refUrl}/reference`, mode: "broken", adminToken: REF_ADMIN });
+    await ref.listen({ port: 0, host: "127.0.0.1" });
+    const refAddr = ref.server.address();
+    if (!refAddr || typeof refAddr === "string") throw new Error("reference app did not bind");
+    refUrl = `http://127.0.0.1:${refAddr.port}`;
     origin.route({ method: ["GET", "POST"], url: "/answer", handler: async (_req, reply) => { originHits += 1; return reply.type("application/json").send(served); } });
     origin.route({ method: ["GET", "POST"], url: "/question", handler: async (_req, reply) => (servedQuestion.length === 0 ? reply.code(204).send() : reply.type("application/json").send(servedQuestion)) });
     origin.post("/slow", async (_req, reply) => { await new Promise((r) => setTimeout(r, 400)); return reply.send("[]"); });
@@ -51,7 +62,7 @@ describe("preflight api ingress", () => {
     if (!addr || typeof addr === "string") throw new Error("origin did not bind");
     originUrl = `http://127.0.0.1:${addr.port}`;
   });
-  afterAll(async () => { await origin.close(); }, 15000);
+  afterAll(async () => { await origin.close(); await ref.close(); }, 15000);
 
   function app(overrides: Record<string, string> = {}) {
     const config = loadConfig({
@@ -268,6 +279,34 @@ describe("preflight api ingress", () => {
     await strict.graphStore.save([...(await graphStore.load()).nodes.values()], [...(await graphStore.load()).edges.values()]);
     const decided = await post(strict.server, "/v/answer", { ...OUTBOUND, uuid: "call-C2" });
     expect(decided.headers["x-preflight-decision"]).toBe("pass");
+  });
+
+  it("runs the demonstration loop: the mounted reference application is blocked on its untraced branch, then passes once fixed", async () => {
+    const { referenceDeclaration } = await import("@preflight/reference");
+    const decl = referenceDeclaration();
+    const setMode = (mode: string) => ref.inject({ method: "POST", url: "/reference/mode", payload: JSON.stringify({ mode }), headers: { "content-type": "application/json", authorization: `Bearer ${REF_ADMIN}` } });
+    const { server, ledger } = app({ POLICY_MODE: "advisory", ORIGIN_ANSWER_URL: `${refUrl}/reference/answer`, FLOW_DECLARATION_JSON: JSON.stringify(decl) });
+    expect((await setMode("broken")).statusCode).toBe(200);
+    const first = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-D1" });
+    expect(first.headers["x-preflight-decision"]).toBe("pass");
+    const hookUrl = new URL((first.json() as Array<{ eventUrl?: string[] }>)[1]?.eventUrl?.[0] ?? "");
+    const timeoutRaw = JSON.stringify({ uuid: "call-D1", dtmf: { digits: "", timed_out: true }, direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from });
+    const hook = await server.inject({ method: "POST", url: hookUrl.pathname + hookUrl.search, payload: timeoutRaw, headers: { "content-type": "application/json", authorization: sign(timeoutRaw) } });
+    expect(hook.headers["x-preflight-decision"]).toBe("block");
+    expect((hook.json() as Array<{ text: string }>)[0]?.text).toContain("stopped by Preflight");
+    // The next call is refused before it runs; the ledger names the branch.
+    const second = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-D2" });
+    expect(second.headers["x-preflight-decision"]).toBe("block");
+    expect((await ledger.entries(0, 10)).filter((e) => e.kind === "block").map((e) => e.witness)).toEqual([["talk#0", "input#1", "talk#0'"], ["talk#0", "input#1", "talk#0'"]]);
+    // The fix: the keypress is routed to the declared opt-out handler. The graph observes the new object.
+    expect((await setMode("fixed")).statusCode).toBe(200);
+    const third = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-D3" });
+    expect(third.headers["x-preflight-decision"]).toBe("pass");
+    const fixedHook = new URL((third.json() as Array<{ eventUrl?: string[] }>)[1]?.eventUrl?.[0] ?? "");
+    const nineRaw = JSON.stringify({ uuid: "call-D3", dtmf: { digits: "9" }, direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from });
+    const nine = await server.inject({ method: "POST", url: fixedHook.pathname + fixedHook.search, payload: nineRaw, headers: { "content-type": "application/json", authorization: sign(nineRaw) } });
+    expect(nine.headers["x-preflight-decision"]).toBe("pass");
+    expect((nine.json() as Array<{ text: string }>)[0]?.text).toContain("will not receive these calls again");
   });
 
   it("fails closed with a safe object when the origin exceeds the timeout", async () => {

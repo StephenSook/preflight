@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FlowDeclaration } from "@preflight/engine";
+import { referenceApp } from "@preflight/reference";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
@@ -162,6 +163,12 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       return reply.code(200).type("application/json").send(JSON.stringify(body));
     },
   });
+
+  if (config.REFERENCE_APP === "on") {
+    // The reference application lives on this host so the demonstration needs one service.
+    // Preflight still reaches it over HTTP, exactly as it would any developer's server.
+    void app.register(referenceApp, { prefix: "/reference", selfBaseUrl: `${config.PUBLIC_BASE_URL ?? `http://127.0.0.1:${config.PORT}`}/reference`, mode: config.REFERENCE_MODE, agent: config.REFERENCE_AGENT, adminToken: config.REFERENCE_ADMIN_TOKEN });
+  }
 
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
   registerCallGateway(app, { config, flow, graphStore, decisions, ledger, fetchImpl, clock });

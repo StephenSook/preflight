@@ -41,6 +41,9 @@ importers:
       '@preflight/numfacts':
         specifier: workspace:*
         version: link:../../packages/numfacts
+      '@preflight/reference':
+        specifier: workspace:*
+        version: link:../reference
       '@preflight/rules':
         specifier: workspace:*
         version: link:../../packages/rules

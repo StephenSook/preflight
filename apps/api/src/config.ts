@@ -31,6 +31,13 @@ const schema = z.object({
   FLOW_DECLARATION_JSON: z.string().optional(),
   /** Shared secret the seal workflow presents when it records a transparency-log seal. Absent disables the endpoint. */
   SEAL_TOKEN: z.string().min(16).optional(),
+  /** Mount the reference application under /reference on this host (one host for the whole demonstration). */
+  REFERENCE_APP: z.enum(["on", "off"]).default("off"),
+  REFERENCE_MODE: z.enum(["broken", "fixed"]).default("broken"),
+  /** Bearer token that may switch the reference application's mode at runtime; absent disables switching. */
+  REFERENCE_ADMIN_TOKEN: z.string().min(16).optional(),
+  /** The live endpoint the reference flow connects to: an app user for the browser softphone, or a phone number. */
+  REFERENCE_AGENT: z.string().min(1).default("scheduler"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 

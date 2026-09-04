@@ -36,7 +36,7 @@ async function main(): Promise<void> {
 
   const app = buildServer({ config, store, decisions, ledger, graphStore, resolver, declaration });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
-  app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration) }, "preflight api listening");
+  app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     app.log.info({ signal }, "preflight api shutting down");
