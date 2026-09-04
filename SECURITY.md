@@ -9,6 +9,10 @@ design answers that in three ways, and each is a surface worth reporting against
 - **Signature verification before state.** Every webhook is verified (HS256, `api_key`-selected secret,
   payload hash) before anything is stored or forwarded. An unverified request cannot inject a phantom
   state into the discovered flow.
+- **Fetches go to one place.** The create-call gateway verifies the caller's application JWT against
+  the application's public key before it fetches anything, and its pre-dial check reaches only the
+  configured origin host. The branch hook reads the origin callback back from the graph node the
+  operator's own object created, never from the query string, and no fetch follows a redirect.
 - **An externally anchored ledger.** The evidence log is a hash chain whose head is sealed to Sigstore
   Rekor, so the operator cannot quietly rewrite history, even against themselves.
 

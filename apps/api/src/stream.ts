@@ -32,8 +32,16 @@ export function publishing(store: DecisionStore, bus: DecisionBus): DecisionStor
   };
 }
 
-export function registerStream(app: FastifyInstance, bus: DecisionBus, heartbeatMs = 15000): void {
-  app.get<{ Querystring: { replay?: string } }>("/api/stream", (req, reply) => {
+/**
+ * The stream carries phone numbers, so it is for the dashboard only: the dashboard token must be
+ * presented as a bearer header or, because EventSource cannot set headers, as ?token=. Without a
+ * configured token the route does not exist.
+ */
+export function registerStream(app: FastifyInstance, bus: DecisionBus, authorize: (presented: string | undefined) => "ok" | "forbidden" | "disabled", heartbeatMs = 15000): void {
+  app.get<{ Querystring: { replay?: string; token?: string } }>("/api/stream", (req, reply) => {
+    const presented = typeof req.query.token === "string" ? req.query.token : (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "") || undefined;
+    const auth = authorize(presented);
+    if (auth !== "ok") return reply.code(auth === "disabled" ? 404 : 403).send({ error: auth === "disabled" ? "the dashboard is not enabled on this deployment" : "dashboard token rejected" });
     const replay = Math.min(100, Math.max(0, Number(req.query.replay ?? 20) || 0));
     reply.raw.writeHead(200, {
       "content-type": "text/event-stream",
