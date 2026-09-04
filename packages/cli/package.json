@@ -24,7 +24,7 @@
     "@preflight/ledger": "workspace:*"
   },
   "bin": {
-    "preflight": "./dist/preflight.js"
+    "preflight": "dist/preflight.js"
   },
   "repository": {
     "type": "git",
