@@ -8,6 +8,7 @@ import type { DecisionStore } from "../store/decisionStore.js";
 import type { GraphStore } from "../store/graphStore.js";
 import type { HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
+import { verifyApplicationJwt } from "../vonage/verifyApplicationJwt.js";
 
 export interface GatewayDeps {
   config: Config;
@@ -18,6 +19,7 @@ export interface GatewayDeps {
   holds: HoldStore;
   fetchImpl: typeof fetch;
   clock: () => number;
+  applicationPublicKeyPem?: string | undefined;
 }
 
 interface CreateCallBody {
@@ -42,12 +44,17 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v.leng
  * verdicts and nothing reaches the carrier.
  */
 export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): void {
-  const { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock } = deps;
+  const { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem } = deps;
 
   app.post<{ Body: string }>("/v/calls", async (req, reply) => {
+    // Nothing is fetched and nothing is forwarded for a caller who is not this application.
     const authorization = req.headers.authorization;
-    if (!authorization || !/^Bearer\s+\S+/i.test(authorization)) {
-      return reply.code(401).send({ error: "the calling application's Vonage JWT is required in Authorization; Preflight forwards it to the platform and never stores it" });
+    if (!applicationPublicKeyPem || !config.VONAGE_APPLICATION_ID) {
+      return reply.code(503).send({ error: "the gateway needs VONAGE_APPLICATION_ID and VONAGE_APPLICATION_PUBLIC_KEY_PATH to verify callers; it refuses everyone until then" });
+    }
+    const caller = verifyApplicationJwt({ authorization, publicKeyPem: applicationPublicKeyPem, applicationId: config.VONAGE_APPLICATION_ID, now: clock });
+    if (!caller.ok || !authorization) {
+      return reply.code(401).send({ error: "the calling application's Vonage JWT is required in Authorization and must be signed by this application's private key; Preflight forwards it to the platform and never stores it", reason: caller.reason });
     }
     const rawBody = typeof req.body === "string" ? req.body : "";
     let body: CreateCallBody;
@@ -69,6 +76,11 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
     const answerUrl = Array.isArray(body.answer_url) ? str(body.answer_url[0]) : undefined;
     const hasInline = Array.isArray(body.ncco);
     if (!hasInline && !answerUrl) return reply.code(400).send({ error: "either ncco or answer_url is required" });
+    // The pre-fetch reaches exactly one place: the configured origin. Either the caller named
+    // Preflight's own answer URL (the installed shape), or the same host as ORIGIN_ANSWER_URL.
+    if (answerUrl && !isPreflightAnswerUrl(answerUrl, config) && !isConfiguredOrigin(answerUrl, config)) {
+      return reply.code(400).send({ error: "answer_url must be this Preflight's /v/answer or a URL on the configured origin host; the pre-dial check fetches nowhere else" });
+    }
 
     const verifyStart = performance.now();
     const dryRunId = `preflight-dryrun-${randomBytes(6).toString("hex")}`;
@@ -194,6 +206,16 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       terminal: outcome.record.terminal,
     });
   });
+}
+
+function isConfiguredOrigin(url: string, config: Config): boolean {
+  try {
+    const u = new URL(url);
+    const o = new URL(config.ORIGIN_ANSWER_URL);
+    return (u.protocol === "http:" || u.protocol === "https:") && u.host === o.host;
+  } catch {
+    return false;
+  }
 }
 
 function isPreflightAnswerUrl(url: string, config: Config): boolean {

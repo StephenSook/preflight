@@ -27,6 +27,8 @@ export interface ServerDeps {
   holds: HoldStore;
   resolver: NumberFactsResolver;
   declaration: FlowDeclaration;
+  /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
+  applicationPublicKeyPem?: string | undefined;
   fetchImpl?: typeof fetch;
   /** Injected clock so tests can pin token freshness. */
   now?: () => number;
@@ -176,15 +178,14 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   }
 
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
-  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock });
-  registerStream(app, bus);
-
-  // The held queue. Reading and deciding both need the dashboard token: a phone number is personal data.
+  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem });
+  // The held queue and the stream both need the dashboard token: a phone number is personal data.
   const dashboardAuth = (authorization: string | undefined): boolean => {
     if (!config.DASHBOARD_TOKEN) return false;
     const presented = (authorization ?? "").replace(/^Bearer\s+/i, "");
     return presented.length === config.DASHBOARD_TOKEN.length && timingSafeEqual(Buffer.from(presented), Buffer.from(config.DASHBOARD_TOKEN));
   };
+  registerStream(app, bus, (presented) => (!config.DASHBOARD_TOKEN ? "disabled" : dashboardAuth(presented ? `Bearer ${presented}` : undefined) ? "ok" : "forbidden"));
   app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
     const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";

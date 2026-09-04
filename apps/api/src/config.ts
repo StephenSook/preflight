@@ -14,6 +14,8 @@ const schema = z.object({
   /** Signature secret from the Vonage dashboard (Settings > Signed webhooks). 1 to 50 characters. */
   VONAGE_SIGNATURE_SECRET: z.string().min(1).max(50),
   VONAGE_APPLICATION_ID: z.string().uuid().optional(),
+  /** PEM of the application's PUBLIC key (the operator generated the pair). Lets the gateway verify a caller's application JWT. */
+  VONAGE_APPLICATION_PUBLIC_KEY_PATH: z.string().min(1).optional(),
   VONAGE_API_HOST: z.string().url().default("https://api.nexmo.com"),
   /** The developer's real answer URL that Preflight forwards to. */
   ORIGIN_ANSWER_URL: z.string().url(),

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import postgres, { type Sql } from "postgres";
 import { NumberFactsResolver } from "@preflight/numfacts";
 import { declarationFrom, loadConfig } from "./config.js";
@@ -37,7 +37,9 @@ async function main(): Promise<void> {
     process.stdout.write(`migrations applied: ${ran.length === 0 ? "none pending" : ran.join(", ")}\n`);
   }
 
-  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration });
+  const applicationPublicKeyPem = config.VONAGE_APPLICATION_PUBLIC_KEY_PATH ? readFileSync(config.VONAGE_APPLICATION_PUBLIC_KEY_PATH, "utf8") : undefined;
+  if (!applicationPublicKeyPem) process.stderr.write("VONAGE_APPLICATION_PUBLIC_KEY_PATH is not set: the create-call gateway will refuse every caller\n");
+  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, resolver, declaration, applicationPublicKeyPem });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
   app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
 

@@ -1,3 +1,4 @@
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,7 +14,19 @@ const NOW = Date.parse("2026-09-04T16:00:00Z"); // 12:00 in Atlanta
 const VONAGE = "https://vonage.test";
 const resolver = NumberFactsResolver.load();
 const DECLARATION = { identification: { phrases: ["This is a message from Preflight Demo Clinic"] }, optOut: { eventUrlPatterns: ["/webhooks/optout"] } };
-const TOKEN = "Bearer eyJhbGciOiJSUzI1NiJ9.caller-owned-token.sig";
+const APP_ID = "0634d503-32c0-4160-be3e-8c31f50e5bd6";
+const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const strangerKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const APP_PUBLIC_PEM = keys.publicKey.export({ type: "spki", format: "pem" }) as string;
+function appToken(privateKey = keys.privateKey, applicationId = APP_ID): string {
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const head = b64({ alg: "RS256", typ: "JWT" });
+  const body = b64({ application_id: applicationId, iat: Math.floor(NOW / 1000), exp: Math.floor(NOW / 1000) + 900, jti: "gw" });
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${head}.${body}`);
+  return `Bearer ${head}.${body}.${signer.sign(privateKey).toString("base64url")}`;
+}
+const TOKEN = appToken();
 
 const NONCOMPLIANT = [{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "talk", text: "Your appointment is tomorrow." }];
 const CONNECT_ONLY = [{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }];
@@ -50,23 +63,48 @@ describe("create-call gateway", () => {
   };
 
   function app(overrides: Record<string, string> = {}) {
-    const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_API_HOST: VONAGE, PUBLIC_BASE_URL: "https://preflight.example", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent", ...overrides });
+    const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_APPLICATION_ID: APP_ID, VONAGE_API_HOST: VONAGE, PUBLIC_BASE_URL: "https://preflight.example", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent", ...overrides });
     const decisions = new MemoryDecisionStore();
     const ledger = new MemoryLedgerStore();
     const holds = new MemoryHoldStore();
-    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, graphStore: new MemoryGraphStore(), holds, resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, graphStore: new MemoryGraphStore(), holds, resolver, declaration: DECLARATION, fetchImpl, now: () => NOW, applicationPublicKeyPem: APP_PUBLIC_PEM });
     return { server, decisions, ledger, holds };
   }
   const call = (server: ReturnType<typeof app>["server"], body: unknown, headers: Record<string, string> = { authorization: TOKEN }) =>
     server.inject({ method: "POST", url: "/v/calls", payload: typeof body === "string" ? body : JSON.stringify(body), headers: { "content-type": "application/json", ...headers } });
   const BASE = { to: [{ type: "phone", number: "14042010000" }], from: { type: "phone", number: "14045550100" }, event_url: ["https://origin.example/webhooks/event"] };
 
-  it("refuses a request without the caller's bearer token, and never touches the platform", async () => {
+  it("refuses a caller without a token signed by this application's key, and fetches nothing for them", async () => {
     const { server } = app();
     const before = platformRequests.length;
-    const res = await call(server, { ...BASE, ncco: CONNECT_ONLY }, {});
-    expect(res.statusCode).toBe(401);
+    const beforeOrigin = originRequests.length;
+    expect((await call(server, { ...BASE, ncco: CONNECT_ONLY }, {})).statusCode).toBe(401);
+    expect((await call(server, { ...BASE, answer_url: [`${originUrl}/answer`] }, { authorization: appToken(strangerKeys.privateKey) })).statusCode).toBe(401);
+    expect((await call(server, { ...BASE, answer_url: [`${originUrl}/answer`] }, { authorization: appToken(keys.privateKey, "another-application") })).statusCode).toBe(401);
+    expect((await call(server, { ...BASE, ncco: CONNECT_ONLY }, { authorization: "Bearer eyJhbGciOiJSUzI1NiJ9.not-a-real-token.sig" })).statusCode).toBe(401);
     expect(platformRequests.length).toBe(before);
+    expect(originRequests.length).toBe(beforeOrigin);
+  });
+
+  it("pre-fetches only from the configured origin host, never from a caller-chosen address", async () => {
+    const { server } = app();
+    const beforeOrigin = originRequests.length;
+    for (const bad of ["http://127.0.0.1:1/answer", "http://169.254.169.254/latest/meta-data", "https://attacker.example/answer", "file:///etc/passwd"]) {
+      const res = await call(server, { ...BASE, answer_url: [bad] });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: expect.stringContaining("configured origin host") });
+    }
+    expect(originRequests.length).toBe(beforeOrigin);
+    // The configured origin host is reachable, and the origin serves a compliant connect-only object here.
+    served = JSON.stringify(CONNECT_ONLY);
+    expect((await call(server, { ...BASE, answer_url: [`${originUrl}/answer`] })).statusCode).toBe(201);
+    expect(originRequests.length).toBe(beforeOrigin + 1);
+  });
+
+  it("refuses everyone when no application public key is configured", async () => {
+    const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_APPLICATION_ID: APP_ID, VONAGE_API_HOST: VONAGE, ORIGIN_ANSWER_URL: `${originUrl}/answer`, LOG_LEVEL: "silent" });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions: new MemoryDecisionStore(), ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
+    expect((await call(server, { ...BASE, ncco: CONNECT_ONLY })).statusCode).toBe(503);
   });
 
   it("rejects malformed create-call requests with 400", async () => {
