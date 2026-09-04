@@ -1,0 +1,79 @@
+name: seal the evidence log
+# Anchors the chain head in Sigstore Rekor (public, append-only, Merkle-backed) once a day, and
+# records the Rekor entry back into the ledger. A stranger verifies with the command printed on
+# the site. Never inside a decision: sealing is asynchronous by design.
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: require the deployment URL and the seal credentials
+        run: |
+          test -n "${{ vars.PREFLIGHT_API_URL }}" || { echo "PREFLIGHT_API_URL repository variable is not set"; exit 1; }
+          test -n "${{ secrets.LEDGER_SIGNING_KEY }}" || { echo "LEDGER_SIGNING_KEY secret is not set"; exit 1; }
+          test -n "${{ secrets.SEAL_TOKEN }}" || { echo "SEAL_TOKEN secret is not set"; exit 1; }
+      - uses: actions/checkout@v4
+      - name: install rekor-cli
+        run: |
+          set -euo pipefail
+          wget -q -O rekor-cli https://github.com/sigstore/rekor/releases/download/v1.3.9/rekor-cli-linux-amd64
+          chmod +x rekor-cli
+          ./rekor-cli version
+      - name: read the chain head
+        run: |
+          set -euo pipefail
+          wget -q -O head.json "${{ vars.PREFLIGHT_API_URL }}/api/ledger/head"
+          cat head.json
+          node -e '
+            const h = JSON.parse(require("fs").readFileSync("head.json","utf8"));
+            if (!Number.isSafeInteger(h.seq) || !/^sha256:[0-9a-f]{64}$/.test(h.entry_hash)) { console.error("head is malformed"); process.exit(1); }
+            // The artifact that gets sealed: the canonical head statement, one line.
+            require("fs").writeFileSync("artifact.json", JSON.stringify({ entry_hash: h.entry_hash, seq: h.seq }) + "\n");
+          '
+      - name: sign the head with the ledger key
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${{ secrets.LEDGER_SIGNING_KEY }}" > key.pem
+          chmod 600 key.pem
+          openssl dgst -sha256 -sign key.pem -out artifact.sig artifact.json
+          openssl dgst -sha256 -verify packages/ledger/keys/preflight-ledger-public.pem -signature artifact.sig artifact.json
+      - name: upload to Rekor
+        run: |
+          set -euo pipefail
+          ./rekor-cli upload --artifact artifact.json --signature artifact.sig --public-key packages/ledger/keys/preflight-ledger-public.pem --pki-format x509 --format json > upload.json
+          cat upload.json
+          node -e '
+            const u = JSON.parse(require("fs").readFileSync("upload.json","utf8"));
+            const uuid = u.Location ? u.Location.split("/").pop() : u.UUID;
+            if (!uuid || !Number.isSafeInteger(u.Index)) { console.error("upload response lacks uuid or index"); process.exit(1); }
+            const h = JSON.parse(require("fs").readFileSync("head.json","utf8"));
+            const sig = require("fs").readFileSync("artifact.sig").toString("base64");
+            require("fs").writeFileSync("seal.json", JSON.stringify({ rekor_uuid: uuid, rekor_log_index: u.Index, sealed: h, signature_b64: sig }));
+          '
+      - name: verify the entry from the public log before recording it
+        run: |
+          set -euo pipefail
+          UUID=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("seal.json","utf8")).rekor_uuid)')
+          ./rekor-cli verify --uuid "$UUID" --artifact artifact.json --signature artifact.sig --public-key packages/ledger/keys/preflight-ledger-public.pem --pki-format x509
+      - name: record the seal in the ledger
+        run: |
+          set -euo pipefail
+          node -e '
+            const body = require("fs").readFileSync("seal.json", "utf8");
+            fetch(process.env.API + "/api/ledger/seals", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + process.env.TOKEN }, body })
+              .then(async (r) => { const t = await r.text(); console.log(r.status, t); if (r.status !== 201) process.exit(1); });
+          '
+        env:
+          API: ${{ vars.PREFLIGHT_API_URL }}
+          TOKEN: ${{ secrets.SEAL_TOKEN }}
+      - name: scrub the key
+        if: always()
+        run: shred -u key.pem 2>/dev/null || true
