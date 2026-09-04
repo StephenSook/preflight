@@ -1,17 +1,75 @@
 {
   "name": "synthetic message with no opt-out",
   "description": "Identifies, speaks a prerecorded-style message, ends. Nothing collects a do-not-call request.",
-  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
   "ncco": [
-    { "action": "talk", "text": "This is a message from Preflight Demo Clinic." },
-    { "action": "talk", "text": "Your appointment is tomorrow at nine. Goodbye.", "language": "en-US", "style": 2 }
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "talk",
+      "text": "Your appointment is tomorrow at nine. Goodbye.",
+      "language": "en-US",
+      "style": 2
+    }
   ],
   "expect": {
-    "kinds": ["talk", "talk"],
-    "atoms": [
-      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
-      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false }
+    "kinds": [
+      "talk",
+      "talk"
     ],
-    "errors": 0
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "false",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P3": {
+          "path": [
+            "talk#0",
+            "talk#1"
+          ],
+          "atEnd": true
+        }
+      }
+    }
   }
 }

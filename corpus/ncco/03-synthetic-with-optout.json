@@ -1,19 +1,87 @@
 {
   "name": "synthetic message with a declared opt-out input",
   "description": "The same message followed by an input whose eventUrl is the declared opt-out handler.",
-  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
   "ncco": [
-    { "action": "talk", "text": "This is a message from Preflight Demo Clinic.", "bargeIn": true },
-    { "action": "talk", "text": "Press nine to stop receiving these calls." },
-    { "action": "input", "type": ["dtmf"], "dtmf": { "maxDigits": 1, "timeOut": 5 }, "eventUrl": ["https://origin.example/webhooks/optout"], "eventMethod": "POST" }
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic.",
+      "bargeIn": true
+    },
+    {
+      "action": "talk",
+      "text": "Press nine to stop receiving these calls."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
   ],
   "expect": {
-    "kinds": ["talk", "talk", "input"],
-    "atoms": [
-      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
-      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false },
-      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": true, "connects_human": false }
+    "kinds": [
+      "talk",
+      "talk",
+      "input"
     ],
-    "errors": 0
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
   }
 }

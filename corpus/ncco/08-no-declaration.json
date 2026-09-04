@@ -2,15 +2,77 @@
   "name": "nothing declared",
   "description": "Without a declaration no talk identifies and no input offers opt-out, however the words read. That is the fail-closed default.",
   "ncco": [
-    { "action": "talk", "text": "This is a message from Preflight Demo Clinic. Press nine to opt out." },
-    { "action": "input", "type": ["dtmf"], "eventUrl": ["https://origin.example/webhooks/optout"] }
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. Press nine to opt out."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ]
+    }
   ],
   "expect": {
-    "kinds": ["talk", "input"],
-    "atoms": [
-      { "speaks": true, "synthetic": true, "identifies": false, "offers_optout": false, "connects_human": false },
-      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    "kinds": [
+      "talk",
+      "input"
     ],
-    "errors": 0
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "false",
+        "P3": "false",
+        "P4": "true",
+        "P5": "false"
+      },
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": false
+        },
+        "P3": {
+          "path": [
+            "talk#0",
+            "input#1"
+          ],
+          "atEnd": true
+        }
+      }
+    }
   }
 }

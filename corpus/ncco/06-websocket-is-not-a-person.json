@@ -1,17 +1,82 @@
 {
   "name": "connect to a websocket is not a live human leg",
   "description": "A media websocket is a machine. Only phone, app, sip and vbc endpoints count as a person.",
-  "declaration": { "identification": { "phrases": ["This is a message from Preflight Demo Clinic"] }, "optOut": { "eventUrlPatterns": ["/webhooks/optout"] } },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
   "ncco": [
-    { "action": "talk", "text": "This is a message from Preflight Demo Clinic." },
-    { "action": "connect", "endpoint": [ { "type": "websocket", "uri": "wss://origin.example/media", "content-type": "audio/l16;rate=16000", "headers": { "campaign": "fall" } } ] }
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "connect",
+      "endpoint": [
+        {
+          "type": "websocket",
+          "uri": "wss://origin.example/media",
+          "content-type": "audio/l16;rate=16000",
+          "headers": {
+            "campaign": "fall"
+          }
+        }
+      ]
+    }
   ],
   "expect": {
-    "kinds": ["talk", "connect"],
-    "atoms": [
-      { "speaks": true, "synthetic": true, "identifies": true, "offers_optout": false, "connects_human": false },
-      { "speaks": false, "synthetic": false, "identifies": false, "offers_optout": false, "connects_human": false }
+    "kinds": [
+      "talk",
+      "connect"
     ],
-    "errors": 0
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "false",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P3": {
+          "path": [
+            "talk#0",
+            "connect#1"
+          ],
+          "atEnd": true
+        }
+      }
+    }
   }
 }

@@ -1,6 +1,28 @@
 {
   "name": "not an NCCO at all",
   "description": "An object where an array was expected. Zero actions, one error, ok is false.",
-  "ncco": { "action": "talk", "text": "hello" },
-  "expect": { "kinds": [], "atoms": [], "errors": 1 }
+  "ncco": {
+    "action": "talk",
+    "text": "hello"
+  },
+  "expect": {
+    "kinds": [],
+    "atoms": [],
+    "errors": 1,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "inconclusive",
+        "P3": "inconclusive",
+        "P4": "inconclusive",
+        "P5": "inconclusive"
+      },
+      "decision": "hold"
+    }
+  }
 }
