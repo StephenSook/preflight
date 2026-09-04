@@ -7,8 +7,13 @@ import { verifySignature } from "@vonage/jwt";
  * Vonage sends a JWT in the Authorization header of every answer, event and fallback webhook:
  *   header  { alg: "HS256", typ: "JWT" }
  *   payload { iat, jti, iss: "Vonage", payload_hash, api_key, application_id }
- * The signature is HS256 over the signature secret that belongs to the api_key claim, and
- * payload_hash is the SHA-256 of the request body (POST) or of the query string (GET).
+ * The signature is HS256 over the signature secret that belongs to the api_key claim. payload_hash
+ * is the SHA-256 of the request body for a POST. For a GET it is the SHA-256 of the query parameters
+ * serialised as a compact JSON object in URL order (Vonage support article 19033783342876, "How do I
+ * verify that the Voice API Webhook request and its payload has not been tampered during transit");
+ * the raw query string is accepted as well, since both are faithful serialisations of what arrived
+ * and the HS256 signature over the token is what authenticates the sender. Measured 2026-09-04: the
+ * raw-string reading alone refused every real GET answer webhook (payload_hash_mismatch).
  * Source: developer.vonage.com/getting-started/concepts/webhooks, "Decoding signed webhooks".
  *
  * This is a correctness control, not only a security one: the call-flow graph is learned from
@@ -17,8 +22,11 @@ import { verifySignature } from "@vonage/jwt";
  */
 
 export type VerifyResult =
-  | { ok: true; claims: VonageWebhookClaims }
+  | { ok: true; claims: VonageWebhookClaims; payloadForm: PayloadForm }
   | { ok: false; reason: VerifyFailure };
+
+/** Which serialisation of the received payload the payload_hash claim matched. */
+export type PayloadForm = "body" | "query_json" | "query_raw" | "unhashed";
 
 export type VerifyFailure =
   | "missing_authorization"
@@ -42,6 +50,8 @@ export interface VerifyInput {
   authorization: string | undefined;
   /** Exact bytes of the request body (POST) or the raw query string without "?" (GET). */
   rawPayload: string;
+  /** GET selects the query-parameter hash forms; anything else hashes the body. Defaults to POST. */
+  method?: "GET" | "POST";
   /** Selects the signature secret for the api_key claim. Returns undefined for an unknown key. */
   secretFor: (apiKey: string) => string | undefined;
   /** Reject tokens older than this many seconds. Vonage does not publish the exp window for Voice. */
@@ -71,6 +81,21 @@ function constantTimeEqualHex(a: string, b: string): boolean {
   return timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
 }
 
+/** The query parameters as Vonage hashes them for a GET: a compact JSON object, keys in URL order. */
+export function queryAsJson(rawQuery: string): string {
+  return JSON.stringify(Object.fromEntries(new URLSearchParams(rawQuery).entries()));
+}
+
+function candidateHashes(input: VerifyInput): Array<{ form: PayloadForm; hash: string }> {
+  if (input.method === "GET") {
+    return [
+      { form: "query_json", hash: sha256Hex(queryAsJson(input.rawPayload)) },
+      { form: "query_raw", hash: sha256Hex(input.rawPayload) },
+    ];
+  }
+  return [{ form: "body", hash: sha256Hex(input.rawPayload) }];
+}
+
 export function verifyVonageWebhook(input: VerifyInput): VerifyResult {
   const auth = input.authorization?.trim();
   if (!auth || !/^Bearer\s+/i.test(auth)) return { ok: false, reason: "missing_authorization" };
@@ -96,11 +121,11 @@ export function verifyVonageWebhook(input: VerifyInput): VerifyResult {
   if (Math.abs(now - claims.iat) > maxAge) return { ok: false, reason: "stale_token" };
 
   if (typeof claims.payload_hash === "string" && claims.payload_hash.length > 0) {
-    const expected = sha256Hex(input.rawPayload);
-    if (!constantTimeEqualHex(expected, claims.payload_hash.toLowerCase())) {
-      return { ok: false, reason: "payload_hash_mismatch" };
-    }
+    const presented = claims.payload_hash.toLowerCase();
+    const match = candidateHashes(input).find((c) => constantTimeEqualHex(c.hash, presented));
+    if (!match) return { ok: false, reason: "payload_hash_mismatch" };
+    return { ok: true, claims, payloadForm: match.form };
   }
 
-  return { ok: true, claims };
+  return { ok: true, claims, payloadForm: "unhashed" };
 }

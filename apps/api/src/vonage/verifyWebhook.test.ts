@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { sha256Hex, verifyVonageWebhook } from "./verifyWebhook.js";
+import { queryAsJson, sha256Hex, verifyVonageWebhook } from "./verifyWebhook.js";
 
 const SECRET = "test-signature-secret";
 const API_KEY = "a1b2c3d";
@@ -38,6 +38,39 @@ describe("verifyVonageWebhook", () => {
     const r = verifyVonageWebhook({ authorization: `Bearer ${token}`, rawPayload: raw, secretFor });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.claims.api_key).toBe(API_KEY);
+  });
+
+  const query = "to=19432445023&endpoint_type=phone&from=12016131021&conversation_uuid=CON-59d439b9-3e75-4f7d-a5c9-8030aee26ac4&uuid=aade2718c73eada70cfd2096847a1d52&region_url=https%3A%2F%2Fapi-us-3.vonage.com";
+
+  it("accepts a GET answer webhook whose payload_hash is the compact JSON of the query parameters, in URL order", () => {
+    expect(queryAsJson(query)).toBe('{"to":"19432445023","endpoint_type":"phone","from":"12016131021","conversation_uuid":"CON-59d439b9-3e75-4f7d-a5c9-8030aee26ac4","uuid":"aade2718c73eada70cfd2096847a1d52","region_url":"https://api-us-3.vonage.com"}');
+    const token = signHS256(claimsFor(queryAsJson(query)), SECRET);
+    const r = verifyVonageWebhook({ authorization: `Bearer ${token}`, rawPayload: query, method: "GET", secretFor });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.payloadForm).toBe("query_json");
+  });
+
+  it("still accepts a GET whose payload_hash covers the raw query string", () => {
+    const token = signHS256(claimsFor(query), SECRET);
+    const r = verifyVonageWebhook({ authorization: `Bearer ${token}`, rawPayload: query, method: "GET", secretFor });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.payloadForm).toBe("query_raw");
+  });
+
+  it("rejects a GET whose query parameters were altered after signing", () => {
+    const token = signHS256(claimsFor(queryAsJson(query)), SECRET);
+    const altered = query.replace("from=12016131021", "from=12016131099");
+    const r = verifyVonageWebhook({ authorization: `Bearer ${token}`, rawPayload: altered, method: "GET", secretFor });
+    expect(r).toEqual({ ok: false, reason: "payload_hash_mismatch" });
+  });
+
+  it("reports the body form for a POST and no form when the token carries no payload_hash", () => {
+    const withBody = verifyVonageWebhook({ authorization: `Bearer ${signHS256(claimsFor(raw), SECRET)}`, rawPayload: raw, secretFor });
+    expect(withBody.ok && withBody.payloadForm).toBe("body");
+    const { payload_hash, ...rest } = claimsFor(raw);
+    void payload_hash;
+    const bare = verifyVonageWebhook({ authorization: `Bearer ${signHS256(rest, SECRET)}`, rawPayload: raw, secretFor });
+    expect(bare.ok && bare.payloadForm).toBe("unhashed");
   });
 
   it("rejects a missing Authorization header", () => {

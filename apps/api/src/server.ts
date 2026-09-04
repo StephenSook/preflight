@@ -97,9 +97,11 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     const verified = verifyVonageWebhook({
       authorization: req.headers.authorization,
       rawPayload: raw,
+      method: req.method === "GET" ? "GET" : "POST",
       secretFor,
       ...(deps.now ? { now: deps.now } : {}),
     });
+    if (verified.ok) app.log.info({ method: req.method, path: req.url.split("?")[0], payloadForm: verified.payloadForm }, "webhook verified");
     const payload = parsePayload(req, raw);
     return { verifyStart, raw, verified, payload };
   }
