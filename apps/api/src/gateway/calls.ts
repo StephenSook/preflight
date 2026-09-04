@@ -1,20 +1,19 @@
 import { randomBytes } from "node:crypto";
-import type { FlowDeclaration } from "@preflight/engine";
-import type { NumberFactsResolver } from "@preflight/numfacts";
 import type { FastifyInstance } from "fastify";
 import type { Config } from "../config.js";
-import { decideAnswer, type AnswerOutcome } from "../decide/answer.js";
+import type { FlowDecider, FlowOutcome } from "../decide/flow.js";
 import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
+import type { GraphStore } from "../store/graphStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 
 export interface GatewayDeps {
   config: Config;
+  flow: FlowDecider;
+  graphStore: GraphStore;
   decisions: DecisionStore;
   ledger: LedgerStore;
-  resolver: NumberFactsResolver;
-  declaration: FlowDeclaration;
   fetchImpl: typeof fetch;
   clock: () => number;
 }
@@ -41,7 +40,7 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v.leng
  * verdicts and nothing reaches the carrier.
  */
 export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): void {
-  const { config, decisions, ledger, resolver, declaration, fetchImpl, clock } = deps;
+  const { config, flow, graphStore, decisions, ledger, fetchImpl, clock } = deps;
 
   app.post<{ Body: string }>("/v/calls", async (req, reply) => {
     const authorization = req.headers.authorization;
@@ -93,13 +92,10 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       if (!forwarded.ok) originFailure = `the application's answer URL did not return a flow during the pre-dial check (${forwarded.error ?? "error"}${forwarded.status ? ` HTTP ${forwarded.status}` : ""})`;
     }
 
-    const outcome: AnswerOutcome = decideAnswer({
+    const outcome: FlowOutcome = await flow.decide({
       payload: { direction: "outbound", to: toNumber, from: fromNumber ?? (randomFrom ? "random_from_number" : undefined), uuid: dryRunId },
       nccoBytes,
-      declaration,
-      resolver,
-      policy: config.POLICY_MODE,
-      applicationId: config.VONAGE_APPLICATION_ID,
+      endpoint: "answer",
       now: new Date(clock()),
       originLatencyMs,
       verifyLatencyMs: null,
@@ -121,6 +117,10 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       }
     }
 
+    // An inline object whose branch callbacks were routed through Preflight goes to the platform routed.
+    let forwardBody = rawBody;
+    if (hasInline && outcome.rewrote.length > 0) forwardBody = JSON.stringify({ ...body, ncco: JSON.parse(outcome.responseBytes) as unknown });
+
     let placed: { status: number; bodyText: string; contentType: string | null } | undefined;
     if (outcome.decision === "pass") {
       const controller = new AbortController();
@@ -129,7 +129,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
         const res = await fetchImpl(`${config.VONAGE_API_HOST}/v1/calls`, {
           method: "POST",
           headers: { authorization, "content-type": "application/json", accept: "application/json", "user-agent": "preflight/0.1 (+https://github.com/StephenSook/preflight)" },
-          body: rawBody,
+          body: forwardBody,
           signal: controller.signal,
         });
         placed = { status: res.status, bodyText: await res.text(), contentType: res.headers.get("content-type") };
@@ -140,7 +140,10 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       }
       try {
         const v = JSON.parse(placed.bodyText) as { uuid?: unknown; conversation_uuid?: unknown };
-        if (typeof v.uuid === "string") outcome.record.callUuid = v.uuid;
+        if (typeof v.uuid === "string") {
+          outcome.record.callUuid = v.uuid;
+          await graphStore.setCallPath(v.uuid, outcome.pathNodeIds);
+        }
         if (typeof v.conversation_uuid === "string") outcome.record.conversationUuid = v.conversation_uuid;
       } catch {
         // The platform's body is returned to the caller verbatim whatever it is.
@@ -161,6 +164,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       placed: false,
       reason: outcome.reason,
       verdicts: outcome.evaluation.verdicts,
+      coverage: outcome.coverage,
       facts: { state: outcome.record.facts.state, rateCenter: outcome.record.facts.rateCenter, lineType: outcome.record.facts.lineType, zones: outcome.record.facts.zones, withinHours: outcome.record.facts.withinHours, hoursBasis: outcome.record.facts.hoursBasis },
       terminal: outcome.record.terminal,
     });

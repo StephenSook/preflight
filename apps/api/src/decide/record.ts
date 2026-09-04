@@ -1,8 +1,16 @@
+import type { Decision, Evaluation } from "@preflight/engine";
+import type { DecisionRecord } from "../store/decisionStore.js";
 import type { LedgerDraft } from "../store/ledgerStore.js";
-import type { AnswerOutcome } from "./answer.js";
 
-/** The evidence-log entry for one decision, the same shape on the webhook path and the gateway path. */
-export function ledgerDraftFor(outcome: AnswerOutcome): LedgerDraft {
+export interface DecidedOutcome {
+  decision: Decision;
+  reason: string | undefined;
+  evaluation: Evaluation;
+  record: DecisionRecord;
+}
+
+/** The evidence-log entry for one decision, the same shape on the webhook path, the hook path and the gateway path. */
+export function ledgerDraftFor(outcome: DecidedOutcome): LedgerDraft {
   const failed = outcome.evaluation.verdicts.find((v) => v.verdict === "false");
   const undecided = outcome.evaluation.verdicts.find((v) => v.verdict === "inconclusive");
   const named = outcome.decision === "block" ? failed : outcome.decision === "hold" ? undecided : undefined;

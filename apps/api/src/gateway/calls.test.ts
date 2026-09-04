@@ -5,6 +5,7 @@ import { loadConfig } from "../config.js";
 import { buildServer } from "../server.js";
 import { MemoryDecisionStore } from "../store/decisionStore.js";
 import { MemoryEventStore } from "../store/eventStore.js";
+import { MemoryGraphStore } from "../store/graphStore.js";
 import { MemoryLedgerStore } from "../store/ledgerStore.js";
 
 const NOW = Date.parse("2026-09-04T16:00:00Z"); // 12:00 in Atlanta
@@ -51,7 +52,7 @@ describe("create-call gateway", () => {
     const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_API_HOST: VONAGE, PUBLIC_BASE_URL: "https://preflight.example", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent", ...overrides });
     const decisions = new MemoryDecisionStore();
     const ledger = new MemoryLedgerStore();
-    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger, graphStore: new MemoryGraphStore(), resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
     return { server, decisions, ledger };
   }
   const call = (server: ReturnType<typeof app>["server"], body: unknown, headers: Record<string, string> = { authorization: TOKEN }) =>

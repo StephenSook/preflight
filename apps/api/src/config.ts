@@ -48,6 +48,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 const declarationSchema = z.object({
   identification: z.object({ phrases: z.array(z.string()).optional(), streamUrls: z.array(z.string()).optional() }).optional(),
   optOut: z.object({ eventUrlPatterns: z.array(z.string()).optional() }).optional(),
+  endpoints: z.array(z.string()).optional(),
 });
 
 /** The declared identification beat and opt-out handler. Absent means nothing identifies and nothing offers opt-out. */

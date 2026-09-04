@@ -1,15 +1,18 @@
+import { timingSafeEqual } from "node:crypto";
 import type { FlowDeclaration } from "@preflight/engine";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
-import { decideAnswer } from "./decide/answer.js";
+import { FlowDecider } from "./decide/flow.js";
+import { holdNcco, safeNcco } from "./decide/ncco.js";
 import { ledgerDraftFor } from "./decide/record.js";
 import { registerCallGateway } from "./gateway/calls.js";
+import { registerBranchHook } from "./hooks/branch.js";
 import { forwardToOrigin } from "./proxy/forward.js";
-import { timingSafeEqual } from "node:crypto";
 import type { DecisionStore } from "./store/decisionStore.js";
-import type { LedgerStore } from "./store/ledgerStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
+import type { GraphStore } from "./store/graphStore.js";
+import type { LedgerStore } from "./store/ledgerStore.js";
 import { verifyVonageWebhook } from "./vonage/verifyWebhook.js";
 
 export interface ServerDeps {
@@ -17,6 +20,7 @@ export interface ServerDeps {
   store: EventStore;
   decisions: DecisionStore;
   ledger: LedgerStore;
+  graphStore: GraphStore;
   resolver: NumberFactsResolver;
   declaration: FlowDeclaration;
   fetchImpl?: typeof fetch;
@@ -24,20 +28,9 @@ export interface ServerDeps {
   now?: () => number;
 }
 
-/**
- * The safe NCCO returned when Preflight cannot let the origin's flow through. It is deliberately a
- * plain spoken sentence and a hangup: no branch, no input, nothing a monitor could object to.
- */
-export function safeNcco(reason: string): unknown[] {
-  return [{ action: "talk", text: `This call was stopped by Preflight. ${reason}` }];
-}
+export { holdNcco, safeNcco } from "./decide/ncco.js";
 
-/** The object served while a call is held for a human decision under strict policy. */
-export function holdNcco(reason: string): unknown[] {
-  return [{ action: "talk", text: `This call is held for review by Preflight. ${reason}` }];
-}
-
-function rawPayloadOf(req: FastifyRequest): string {
+export function rawPayloadOf(req: FastifyRequest): string {
   if (req.method === "GET") {
     const q = req.url.indexOf("?");
     return q >= 0 ? req.url.slice(q + 1) : "";
@@ -45,7 +38,7 @@ function rawPayloadOf(req: FastifyRequest): string {
   return typeof req.body === "string" ? req.body : "";
 }
 
-function parsePayload(req: FastifyRequest, raw: string): Record<string, unknown> | undefined {
+export function parsePayload(req: FastifyRequest, raw: string): Record<string, unknown> | undefined {
   if (req.method === "GET") return Object.fromEntries(new URLSearchParams(raw).entries());
   if (!raw) return undefined;
   try {
@@ -56,14 +49,19 @@ function parsePayload(req: FastifyRequest, raw: string): Record<string, unknown>
   }
 }
 
-function str(v: unknown): string | undefined {
-  return typeof v === "string" && v.length > 0 ? v : undefined;
+const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
+
+function percentile(sorted: number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  const i = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  return Number((sorted[i] as number).toFixed(1));
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const { config, store, decisions, ledger, resolver, declaration } = deps;
+  const { config, store, decisions, ledger, graphStore, resolver, declaration } = deps;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clock = deps.now ?? Date.now;
+  const flow = new FlowDecider({ config, graphStore, declaration, resolver });
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
 
   // Keep the exact bytes: payload_hash is computed over what Vonage sent, not over a re-serialisation.
@@ -85,7 +83,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   const secretFor = (apiKey: string) => (apiKey === config.VONAGE_API_KEY ? config.VONAGE_SIGNATURE_SECRET : undefined);
 
-  async function ingress(kind: WebhookKind, req: FastifyRequest) {
+  function ingress(req: FastifyRequest) {
     const verifyStart = performance.now();
     const raw = rawPayloadOf(req);
     const verified = verifyVonageWebhook({
@@ -101,7 +99,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   function record(kind: WebhookKind, req: FastifyRequest, raw: string, payload: Record<string, unknown> | undefined, extra: Partial<StoredWebhook>): Promise<void> {
     const row: StoredWebhook = {
       kind,
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(clock()).toISOString(),
       method: req.method === "GET" ? "GET" : "POST",
       applicationId: config.VONAGE_APPLICATION_ID,
       callUuid: str(payload?.["uuid"]) ?? str(payload?.["call_uuid"]),
@@ -116,14 +114,15 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return store.append(row);
   }
 
-  // Answer webhook: verify, forward to the origin, run every armed monitor over the origin's object,
-  // return it byte for byte on pass, the safe object on block, the hold object on hold. Fail closed
-  // with the safe object if the origin does not answer.
+  // Answer webhook: verify, forward to the origin, merge the object into the discovered graph, run
+  // every armed monitor over every observed path, return the object on pass (branch callbacks routed
+  // through Preflight), the safe object on block, the hold object on hold. Fail closed with the safe
+  // object if the origin does not answer.
   app.route({
     method: ["GET", "POST"],
     url: "/v/answer",
     handler: async (req, reply) => {
-      const { verifyStart, raw, verified, payload } = await ingress("answer", req);
+      const { verifyStart, raw, verified, payload } = ingress(req);
       if (!verified.ok) {
         req.log.warn({ reason: verified.reason }, "rejected unsigned or invalid answer webhook");
         return reply.code(403).send({ error: "webhook signature rejected", reason: verified.reason });
@@ -146,33 +145,41 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
         return reply.code(200).type("application/json").send(JSON.stringify(safeNcco("The application's server did not answer in time.")));
       }
       const decideStart = performance.now();
-      const outcome = decideAnswer({
-        payload,
-        nccoBytes: forwarded.bodyText,
-        declaration,
-        resolver,
-        policy: config.POLICY_MODE,
-        applicationId: config.VONAGE_APPLICATION_ID,
-        now: new Date(clock()),
-        originLatencyMs: forwarded.originLatencyMs,
-        verifyLatencyMs,
-      });
+      const outcome = await flow.decide({ payload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs });
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
+      if (outcome.record.callUuid) await graphStore.setCallPath(outcome.record.callUuid, outcome.pathNodeIds);
       await decisions.append(outcome.record);
       await ledger.append(ledgerDraftFor(outcome));
       await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });
-      req.log.info({ decision: outcome.decision, reason: outcome.reason, callUuid: outcome.record.callUuid, terminal: outcome.record.terminal }, "answer decided");
+      req.log.info({ decision: outcome.decision, reason: outcome.reason, callUuid: outcome.record.callUuid, terminal: outcome.record.terminal, rewrote: outcome.rewrote, coverage: outcome.coverage }, "answer decided");
       reply.header("x-preflight-origin-ms", forwarded.originLatencyMs.toFixed(1));
       reply.header("x-preflight-verify-ms", totalVerifyMs.toFixed(1));
       reply.header("x-preflight-decision", outcome.decision);
-      if (outcome.decision === "pass") return reply.code(200).type(forwarded.contentType ?? "application/json").send(forwarded.bodyText);
+      if (outcome.rewrote.length > 0) reply.header("x-preflight-routed", outcome.rewrote.join(","));
+      if (outcome.decision === "pass") return reply.code(200).type(forwarded.contentType ?? "application/json").send(outcome.responseBytes);
       const body = outcome.decision === "block" ? safeNcco(outcome.reason ?? "") : holdNcco(outcome.reason ?? "");
       return reply.code(200).type("application/json").send(JSON.stringify(body));
     },
   });
 
-  registerCallGateway(app, { config, decisions, ledger, resolver, declaration, fetchImpl, clock });
+  registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
+  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, fetchImpl, clock });
+
+  // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.
+  app.get("/api/coverage", async () => flow.coverage());
+  app.get("/api/summary", async () => {
+    const recent = await decisions.recent(500);
+    const verify = recent.map((r) => r.verifyLatencyMs).filter((x): x is number => x !== null).sort((a, b) => a - b);
+    const origin = recent.map((r) => r.originLatencyMs).filter((x): x is number => x !== null).sort((a, b) => a - b);
+    return {
+      decisions: await decisions.counts(),
+      ledger: await ledger.head(),
+      coverage: await flow.coverage(),
+      latency: { sample: recent.length, verifyP50Ms: percentile(verify, 50), verifyP95Ms: percentile(verify, 95), originP50Ms: percentile(origin, 50), originP95Ms: percentile(origin, 95) },
+      policy: config.POLICY_MODE,
+    };
+  });
 
   // The evidence log, readable by anyone. The verify command a stranger runs is printed on the site.
   app.get("/api/ledger/head", async () => ledger.head());
@@ -223,7 +230,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     method: ["GET", "POST"],
     url: "/v/event",
     handler: async (req, reply) => {
-      const { verifyStart, raw, verified, payload } = await ingress("event", req);
+      const { verifyStart, raw, verified, payload } = ingress(req);
       if (!verified.ok) {
         req.log.warn({ reason: verified.reason }, "rejected unsigned or invalid event webhook");
         return reply.code(403).send({ error: "webhook signature rejected", reason: verified.reason });
@@ -254,7 +261,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     method: ["GET", "POST"],
     url: "/v/fallback",
     handler: async (req, reply) => {
-      const { raw, verified, payload } = await ingress("fallback", req);
+      const { raw, verified, payload } = ingress(req);
       if (!verified.ok) {
         return reply.code(403).send({ error: "webhook signature rejected", reason: verified.reason });
       }
