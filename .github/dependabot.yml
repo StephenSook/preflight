@@ -8,6 +8,10 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    # Major bumps land only when a person schedules them; during a build week they are noise.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
