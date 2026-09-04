@@ -1,6 +1,6 @@
 {
   "name": "every action type missing its required field, after one valid record",
-  "description": "record has no required field and parses. talk without text, stream with an empty streamUrl, input without type, connect without endpoint, notify without payload, conversation without name and pay without amount each raise exactly one error and become unknown. The record decides nothing on its own, so unknown#1 makes every property inconclusive.",
+  "description": "record has no required field and parses. talk without text, stream with an empty streamUrl, input without type, connect without endpoint, notify without payload, conversation without name and pay without amount each raise exactly one error and become unknown. The record decides nothing on its own, so unknown#1 makes every ordering property inconclusive; P1 is a fact about the call, decided at record#0, and stays true.",
   "declaration": {
     "identification": {
       "phrases": [
@@ -122,7 +122,7 @@
         "withinHours": true
       },
       "verdicts": {
-        "P1": "inconclusive",
+        "P1": "true",
         "P2": "inconclusive",
         "P3": "inconclusive",
         "P4": "inconclusive",

@@ -14,6 +14,15 @@ import { compileMonitor, type CompiledMonitor } from "./ltl/monitor.js";
  * formula obliged every synthetic utterance, which flagged a closing sentence after the opt-out and
  * the spec's own declared agent path; a live human leg satisfies the obligation because the
  * example in the spec treats the agent path as compliant.
+ *
+ * P1 is a fact about the call, not about its spoken actions. 47 CFR 64.1200(c)(1) forbids
+ * INITIATING the solicitation outside the window, and the ring is the intrusion, so a flow that goes
+ * straight to a live agent at 6 a.m., or an empty object, is a violation too. The spec's first draft
+ * wrote G( speaks -> within_hours ), which passed both; corpus object 39 pinned the gap.
+ *
+ * On an object, P2 and P5 cannot differ: the only speech an object shows is synthetic (talk, stream,
+ * pay prompts) and a live agent's words are not in it. Both stay, because they are two rules with two
+ * citations, but on observed objects their verdicts coincide. That is a stated limit, not a defect.
  */
 export type PropertyId = "P1" | "P2" | "P3" | "P4" | "P5";
 
@@ -34,8 +43,8 @@ export const PROPERTIES: readonly PropertySpec[] = [
     id: "P1",
     title: "Calling hours",
     summary: "No telephone solicitation before 8am or after 9pm local time at the called party's location.",
-    checks: "Every spoken action happens inside 8am to 9pm at the destination, resolved from the destination NPA-NXX to a rate center to a timezone against the call timestamp.",
-    formula: "G( speaks -> within_hours )",
+    checks: "The call is initiated inside 8am to 9pm at the destination, resolved from the destination NPA-NXX to a rate center to a timezone against the call timestamp. Every call, not only its spoken actions: a flow that goes straight to a live agent at 6am is still initiated at 6am.",
+    formula: "within_hours",
     citation: "47 CFR 64.1200(c)(1)",
     shape: "guard",
   },

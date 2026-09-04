@@ -1,6 +1,6 @@
 {
-  "name": "a single pay with spoken prompts",
-  "description": "pay carries prompts the platform reads aloud, but the atom vocabulary derives speaks only from talk and stream, so pay is silent to the monitors and the object passes. Recorded here so the choice is visible.",
+  "name": "a pay action alone, with prompts: the platform speaks them",
+  "description": "The pay action's prompts (and their error prompts) are read aloud by the platform's text-to-speech, so a pay with prompts speaks synthetically like a talk. Nothing identifies the caller before it, so P2 and P5 are false at pay#0. P3 holds vacuously: no identification beat means no obligation is triggered. A pay with no prompts is silent to the atoms.",
   "declaration": {
     "identification": {
       "phrases": [
@@ -48,8 +48,8 @@
     ],
     "atoms": [
       {
-        "speaks": false,
-        "synthetic": false,
+        "speaks": true,
+        "synthetic": true,
         "identifies": false,
         "offers_optout": false,
         "connects_human": false
@@ -64,12 +64,26 @@
       },
       "verdicts": {
         "P1": "true",
-        "P2": "true",
+        "P2": "false",
         "P3": "true",
         "P4": "true",
-        "P5": "true"
+        "P5": "false"
       },
-      "decision": "pass"
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "pay#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "pay#0"
+          ],
+          "atEnd": false
+        }
+      }
     }
   }
 }

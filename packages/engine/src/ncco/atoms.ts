@@ -47,19 +47,28 @@ export function normalizePhrase(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
 }
 
-function urlPath(u: string): string | undefined {
-  try {
-    return new URL(u).pathname;
-  } catch {
-    return undefined;
-  }
-}
-
+/** A pattern matches an event URL that contains it; a path such as "/webhooks/optout" is a substring of its own URL. */
 function matchesOptOut(eventUrls: readonly string[] | undefined, patterns: readonly string[] | undefined): boolean {
   if (!eventUrls || !patterns) return false;
   const pats = patterns.map((p) => p.trim()).filter((p) => p.length > 0);
   if (pats.length === 0) return false;
-  return eventUrls.some((u) => pats.some((p) => u.includes(p) || urlPath(u) === p));
+  return eventUrls.some((u) => pats.some((p) => u.includes(p)));
+}
+
+/** The texts a pay action speaks: each prompt's text, and the texts of its error prompts. */
+function payTexts(prompts: readonly unknown[] | undefined): string[] {
+  const out: string[] = [];
+  for (const p of prompts ?? []) {
+    if (typeof p !== "object" || p === null) continue;
+    const prompt = p as { text?: unknown; errors?: unknown };
+    if (typeof prompt.text === "string" && prompt.text.trim().length > 0) out.push(prompt.text);
+    if (typeof prompt.errors === "object" && prompt.errors !== null) {
+      for (const e of Object.values(prompt.errors as Record<string, unknown>)) {
+        if (typeof e === "object" && e !== null && typeof (e as { text?: unknown }).text === "string") out.push((e as { text: string }).text);
+      }
+    }
+  }
+  return out;
 }
 
 /** A valid, non-suppressed caller id: 7 to 15 digits after an optional leading plus. */
@@ -94,6 +103,17 @@ export function actionAtoms(action: NccoAction, declaration: FlowDeclaration = {
     case "connect":
       atoms.connects_human = action.endpoint.some((e) => LIVE_ENDPOINT_TYPES.includes(e.type));
       break;
+    case "pay": {
+      // The platform reads the prompts aloud with text-to-speech: synthetic speech, like a talk.
+      const texts = payTexts(action.prompts).map(normalizePhrase);
+      if (texts.length > 0) {
+        atoms.speaks = true;
+        atoms.synthetic = true;
+        const phrases = (declaration.identification?.phrases ?? []).map(normalizePhrase).filter((p) => p.length > 0);
+        atoms.identifies = phrases.some((p) => texts.some((t) => t.includes(p)));
+      }
+      break;
+    }
     default:
       break;
   }

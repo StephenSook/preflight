@@ -1,6 +1,6 @@
 {
   "name": "06:30 at a Pacific destination, silent record first",
-  "description": "A record action does not speak, so P1 survives it; the talk at index 1 is the first spoken action outside the window and the witness path includes the silent record before it. 13:30 UTC is 09:30 Eastern, inside the window there, and 06:30 Pacific, outside it: the check is local to the destination.",
+  "description": "13:30 UTC is 09:30 Eastern, inside the window there, and 06:30 Pacific, outside it: the check is local to the destination. P1 is a fact about the call, so it is false at the first action, the silent record, not at the first spoken one; the witness is record#0 alone.",
   "call": {
     "to": "12065550148",
     "at": "2026-09-04T13:30:00Z",
@@ -105,8 +105,7 @@
       "witness": {
         "P1": {
           "path": [
-            "record#0",
-            "talk#1"
+            "record#0"
           ],
           "atEnd": false
         }

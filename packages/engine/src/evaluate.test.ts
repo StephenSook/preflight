@@ -34,12 +34,14 @@ describe("P1..P5 against the labelled corpus, each object taken as one terminal 
     const c = JSON.parse(readFileSync(path.join(corpusDir, file), "utf8")) as CorpusFile;
     it(`${file}: ${c.name}`, () => {
       const label = c.expect.terminal;
-      const ev = evaluateNcco(parseNcco(c.ncco), { declaration: c.declaration, facts: label.facts, terminal: true });
+      const parsed = parseNcco(c.ncco);
+      const ev = evaluateNcco(parsed, { declaration: c.declaration, facts: label.facts, terminal: true });
       const got = byId(ev.verdicts);
       expect(Object.fromEntries(ev.verdicts.map((v) => [v.id, v.verdict]))).toEqual(label.verdicts);
       expect(ev.decision).toBe(label.decision);
       for (const v of ev.verdicts) {
-        if (v.verdict === "false") expect(v.witness?.length).toBeGreaterThan(0);
+        // A false verdict names the action that reached the prohibited state; an empty object has none, and the call itself is the witness.
+        if (v.verdict === "false") expect((v.witness?.length ?? 0) > 0 || parsed.actions.length === 0).toBe(true);
         if (v.verdict === "inconclusive") expect(v.reason).toBeTruthy();
         expect(v.citation).toBe(PROPERTIES.find((p) => p.id === v.id)?.citation);
       }
@@ -78,9 +80,10 @@ describe("what the evaluator refuses to guess", () => {
   it("holds an open path whose branch has not been observed, then decides it once the branch is seen", () => {
     const facts: CallFacts = { from: "14045550100", lineType: "wireless", withinHours: true };
     // An always-property is never true on an open prefix: a later branch could still violate it.
+    // P1 is a fact about the call, known at the first action, so it is decided even while the path is open.
     const open = evaluateNcco(compliant, { declaration: decl, facts, terminal: false });
-    for (const id of ["P1", "P3", "P4"]) expect(byId(open.verdicts)[id]).toMatchObject({ verdict: "inconclusive", reason: expect.stringContaining("not been observed") });
-    for (const id of ["P2", "P5"]) expect(byId(open.verdicts)[id]?.verdict).toBe("true");
+    for (const id of ["P3", "P4"]) expect(byId(open.verdicts)[id]).toMatchObject({ verdict: "inconclusive", reason: expect.stringContaining("not been observed") });
+    for (const id of ["P1", "P2", "P5"]) expect(byId(open.verdicts)[id]?.verdict).toBe("true");
     expect(open.decision).toBe("hold");
     expect(evaluateNcco(compliant, { declaration: decl, facts, terminal: true }).decision).toBe("pass");
     const noOptOut = parseNcco([{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "input", type: ["dtmf"], eventUrl: ["https://o.example/menu"] }]);
@@ -128,8 +131,7 @@ describe("the property table where the corpus is silent", () => {
     expect(ev.decision).toBe("pass");
   });
 
-  it("P1 blocks the first spoken action outside calling hours, and the witness is that action, not a silent one before it", () => {
-    // Every corpus object runs inside hours; this is the only place the evaluator's P1 false path runs.
+  it("P1 blocks a call outside calling hours at its first action, whatever that action is: the ring is the intrusion", () => {
     const spoken = parseNcco([{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "input", type: ["dtmf"], eventUrl: ["https://o.example/webhooks/optout"] }]);
     const ev = evaluateNcco(spoken, { declaration: decl, facts: afterHours, terminal: true });
     const got = byId(ev.verdicts);
@@ -138,10 +140,27 @@ describe("the property table where the corpus is silent", () => {
     expect(got["P1"]?.atEnd).toBeUndefined();
     for (const id of ["P2", "P3", "P4", "P5"]) expect(got[id]?.verdict).toBe("true");
     expect(ev.decision).toBe("block");
-    // A silent live leg before the spoken beat is not the violation; the spoken beat is.
+    // A flow that goes straight to a live agent at 6 a.m. was still initiated at 6 a.m.
     const humanFirst = parseNcco([{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }, { action: "talk", text: "This is a message from Preflight Demo Clinic." }]);
     const late = byId(evaluateNcco(humanFirst, { declaration: decl, facts: afterHours, terminal: true }).verdicts);
     expect(late["P1"]?.verdict).toBe("false");
-    expect(labels(late["P1"])).toEqual(["connect#0", "talk#1"]);
+    expect(labels(late["P1"])).toEqual(["connect#0"]);
+    // An empty object still places the call: false at the end of the flow, and the call itself is the witness.
+    const empty = byId(evaluateNcco(parseNcco([]), { declaration: decl, facts: afterHours, terminal: true }).verdicts);
+    expect(empty["P1"]?.verdict).toBe("false");
+    expect(empty["P1"]?.atEnd).toBe(true);
+    expect(labels(empty["P1"])).toEqual([]);
+  });
+
+  it("pay prompts are synthetic speech: a pay action before the identification beat breaks P2 and P5", () => {
+    const pay = parseNcco([{ action: "pay", amount: 9.99, prompts: [{ type: "CardNumber", text: "Please enter your card number." }] }]);
+    const got = byId(evaluateNcco(pay, { declaration: decl, facts: inHours, terminal: true }).verdicts);
+    expect(got["P2"]?.verdict).toBe("false");
+    expect(got["P5"]?.verdict).toBe("false");
+    expect(labels(got["P2"])).toEqual(["pay#0"]);
+    const silent = parseNcco([{ action: "pay", amount: 9.99 }]);
+    const quiet = byId(evaluateNcco(silent, { declaration: decl, facts: inHours, terminal: true }).verdicts);
+    expect(quiet["P2"]?.verdict).toBe("true");
+    expect(quiet["P5"]?.verdict).toBe("true");
   });
 });

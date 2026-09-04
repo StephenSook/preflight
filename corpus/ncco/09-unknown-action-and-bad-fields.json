@@ -1,6 +1,6 @@
 {
   "name": "an action the reference does not define, plus malformed fields",
-  "description": "Kept in position as unknown so ordering survives; every defect is an issue with a path.",
+  "description": "Kept in position as unknown so ordering survives; every defect is an issue with a path. P1 is a fact about the call and is decided at the first action, so it is true although the unknown action leaves P3 and P4 undecidable from there.",
   "declaration": {
     "identification": {
       "phrases": [
@@ -82,7 +82,7 @@
         "withinHours": true
       },
       "verdicts": {
-        "P1": "inconclusive",
+        "P1": "true",
         "P2": "true",
         "P3": "inconclusive",
         "P4": "inconclusive",

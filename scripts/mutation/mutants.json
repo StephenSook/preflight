@@ -28,11 +28,11 @@
     "why": "The obligation runs from identification to opt-out, not the other way; reversed, a compliant flow fails at its opt-out input."
   },
   {
-    "id": "P1-guard-unconditional",
+    "id": "P1-spoken-actions-only",
     "file": "packages/engine/src/properties.ts",
-    "find": "formula: \"G( speaks -> within_hours )\",",
-    "replace": "formula: \"G( within_hours )\",",
-    "why": "P1 constrains spoken actions only; every corpus object runs with withinHours true, so the guard's antecedent is never exercised by the labelled corpus."
+    "find": "formula: \"within_hours\",",
+    "replace": "formula: \"G( speaks -> within_hours )\",",
+    "why": "The first draft checked only spoken actions against calling hours; a call straight to a live agent at 6 a.m. passed. P1 is a fact about the call (corpus 39 and the evaluator test pin it)."
   },
   {
     "id": "P4-always-to-eventually",
