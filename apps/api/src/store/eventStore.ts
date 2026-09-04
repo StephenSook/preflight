@@ -5,7 +5,7 @@
  * implementation; MemoryEventStore serves the unit tests and a process started without DATABASE_URL.
  */
 
-export type WebhookKind = "answer" | "event" | "fallback";
+export type WebhookKind = "answer" | "event" | "fallback" | "hook";
 
 export interface StoredWebhook {
   kind: WebhookKind;
