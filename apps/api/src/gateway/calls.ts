@@ -1,0 +1,179 @@
+import { randomBytes } from "node:crypto";
+import type { FlowDeclaration } from "@preflight/engine";
+import type { NumberFactsResolver } from "@preflight/numfacts";
+import type { FastifyInstance } from "fastify";
+import type { Config } from "../config.js";
+import { decideAnswer, type AnswerOutcome } from "../decide/answer.js";
+import { ledgerDraftFor } from "../decide/record.js";
+import { forwardToOrigin } from "../proxy/forward.js";
+import type { DecisionStore } from "../store/decisionStore.js";
+import type { LedgerStore } from "../store/ledgerStore.js";
+
+export interface GatewayDeps {
+  config: Config;
+  decisions: DecisionStore;
+  ledger: LedgerStore;
+  resolver: NumberFactsResolver;
+  declaration: FlowDeclaration;
+  fetchImpl: typeof fetch;
+  clock: () => number;
+}
+
+interface CreateCallBody {
+  to?: Array<{ type?: unknown; number?: unknown }>;
+  from?: { type?: unknown; number?: unknown };
+  random_from_number?: unknown;
+  ncco?: unknown;
+  answer_url?: unknown;
+  answer_method?: unknown;
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
+
+/**
+ * The create-call gateway. Vonage fires the answer webhook only once a call is answered, so a
+ * webhook-only interlock cannot keep an outbound phone silent. Here the developer's application
+ * posts its outbound call to Preflight instead of to the platform. Preflight obtains the flow the
+ * call would run (the inline object, or a dry-run pre-fetch of the answer URL marked as such),
+ * runs every armed monitor, and only on pass forwards the request byte for byte to the platform
+ * with the caller's own bearer token, which is never stored. Block and hold return 409 with the
+ * verdicts and nothing reaches the carrier.
+ */
+export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): void {
+  const { config, decisions, ledger, resolver, declaration, fetchImpl, clock } = deps;
+
+  app.post<{ Body: string }>("/v/calls", async (req, reply) => {
+    const authorization = req.headers.authorization;
+    if (!authorization || !/^Bearer\s+\S+/i.test(authorization)) {
+      return reply.code(401).send({ error: "the calling application's Vonage JWT is required in Authorization; Preflight forwards it to the platform and never stores it" });
+    }
+    const rawBody = typeof req.body === "string" ? req.body : "";
+    let body: CreateCallBody;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!isObject(parsed)) throw new Error("not an object");
+      body = parsed as CreateCallBody;
+    } catch {
+      return reply.code(400).send({ error: "body must be a JSON create-call request" });
+    }
+    const first = Array.isArray(body.to) ? body.to[0] : undefined;
+    const toNumber = first && isObject(first) ? str(first.number) : undefined;
+    if (!toNumber || (first && first.type !== undefined && first.type !== "phone")) {
+      return reply.code(400).send({ error: "to[0] must be a phone endpoint with a number" });
+    }
+    const fromNumber = isObject(body.from) ? str(body.from.number) : undefined;
+    const randomFrom = body.random_from_number === true;
+    if (!fromNumber && !randomFrom) return reply.code(400).send({ error: "from.number or random_from_number is required" });
+    const answerUrl = Array.isArray(body.answer_url) ? str(body.answer_url[0]) : undefined;
+    const hasInline = Array.isArray(body.ncco);
+    if (!hasInline && !answerUrl) return reply.code(400).send({ error: "either ncco or answer_url is required" });
+
+    const verifyStart = performance.now();
+    const dryRunId = `preflight-dryrun-${randomBytes(6).toString("hex")}`;
+    let nccoBytes: string;
+    let originLatencyMs: number | null = null;
+    let originFailure: string | undefined;
+    if (hasInline) {
+      nccoBytes = JSON.stringify(body.ncco);
+    } else {
+      // A developer who installed Preflight points answer_url at Preflight itself; the pre-fetch
+      // then goes to the real origin, not back into this service.
+      const target = isPreflightAnswerUrl(answerUrl as string, config) ? config.ORIGIN_ANSWER_URL : (answerUrl as string);
+      const method = body.answer_method === "POST" ? "POST" : "GET";
+      const params = { to: toNumber, from: fromNumber ?? "", uuid: dryRunId, conversation_uuid: "preflight-dryrun", direction: "outbound" };
+      const forwarded = await forwardToOrigin(
+        method === "GET"
+          ? { method, url: `${target}${target.includes("?") ? "&" : "?"}${new URLSearchParams(params).toString()}`, timeoutMs: config.ORIGIN_TIMEOUT_MS, headers: { "x-preflight": "dry-run" } }
+          : { method, url: target, body: JSON.stringify(params), contentType: "application/json", timeoutMs: config.ORIGIN_TIMEOUT_MS, headers: { "x-preflight": "dry-run" } },
+        fetchImpl,
+      );
+      originLatencyMs = forwarded.originLatencyMs;
+      nccoBytes = forwarded.ok ? forwarded.bodyText : "";
+      if (!forwarded.ok) originFailure = `the application's answer URL did not return a flow during the pre-dial check (${forwarded.error ?? "error"}${forwarded.status ? ` HTTP ${forwarded.status}` : ""})`;
+    }
+
+    const outcome: AnswerOutcome = decideAnswer({
+      payload: { direction: "outbound", to: toNumber, from: fromNumber ?? (randomFrom ? "random_from_number" : undefined), uuid: dryRunId },
+      nccoBytes,
+      declaration,
+      resolver,
+      policy: config.POLICY_MODE,
+      applicationId: config.VONAGE_APPLICATION_ID,
+      now: new Date(clock()),
+      originLatencyMs,
+      verifyLatencyMs: null,
+    });
+    if (originFailure) {
+      outcome.decision = "block";
+      outcome.reason = originFailure;
+      outcome.record.decision = "block";
+      outcome.record.reason = originFailure;
+    }
+    if (randomFrom && !fromNumber) {
+      // The platform picks one of the account's own numbers: a caller id will be present.
+      for (const v of outcome.evaluation.verdicts) if (v.id === "P4" && v.verdict === "false") Object.assign(v, { verdict: "true", witness: undefined });
+      if (outcome.decision === "block" && !outcome.evaluation.verdicts.some((v) => v.verdict === "false")) {
+        outcome.decision = outcome.evaluation.verdicts.some((v) => v.verdict === "inconclusive") && config.POLICY_MODE === "strict" ? "hold" : "pass";
+        outcome.record.decision = outcome.decision;
+        outcome.reason = outcome.decision === "pass" ? undefined : outcome.reason;
+        outcome.record.reason = outcome.reason;
+      }
+    }
+
+    let placed: { status: number; bodyText: string; contentType: string | null } | undefined;
+    if (outcome.decision === "pass") {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        const res = await fetchImpl(`${config.VONAGE_API_HOST}/v1/calls`, {
+          method: "POST",
+          headers: { authorization, "content-type": "application/json", accept: "application/json", "user-agent": "preflight/0.1 (+https://github.com/StephenSook/preflight)" },
+          body: rawBody,
+          signal: controller.signal,
+        });
+        placed = { status: res.status, bodyText: await res.text(), contentType: res.headers.get("content-type") };
+      } catch (err) {
+        placed = { status: 502, bodyText: JSON.stringify({ error: "the platform did not accept the call request", detail: err instanceof Error ? err.message : String(err) }), contentType: "application/json" };
+      } finally {
+        clearTimeout(timer);
+      }
+      try {
+        const v = JSON.parse(placed.bodyText) as { uuid?: unknown; conversation_uuid?: unknown };
+        if (typeof v.uuid === "string") outcome.record.callUuid = v.uuid;
+        if (typeof v.conversation_uuid === "string") outcome.record.conversationUuid = v.conversation_uuid;
+      } catch {
+        // The platform's body is returned to the caller verbatim whatever it is.
+      }
+    }
+
+    outcome.record.verifyLatencyMs = performance.now() - verifyStart - (originLatencyMs ?? 0);
+    await decisions.append(outcome.record);
+    await ledger.append(ledgerDraftFor(outcome));
+    req.log.info({ decision: outcome.decision, reason: outcome.reason, to: toNumber, callUuid: outcome.record.callUuid, placed: placed?.status }, "create-call gateway decided");
+
+    reply.header("x-preflight-decision", outcome.decision);
+    reply.header("x-preflight-verify-ms", (outcome.record.verifyLatencyMs ?? 0).toFixed(1));
+    if (originLatencyMs !== null) reply.header("x-preflight-origin-ms", originLatencyMs.toFixed(1));
+    if (placed) return reply.code(placed.status).type(placed.contentType ?? "application/json").send(placed.bodyText);
+    return reply.code(409).send({
+      decision: outcome.decision,
+      placed: false,
+      reason: outcome.reason,
+      verdicts: outcome.evaluation.verdicts,
+      facts: { state: outcome.record.facts.state, rateCenter: outcome.record.facts.rateCenter, lineType: outcome.record.facts.lineType, zones: outcome.record.facts.zones, withinHours: outcome.record.facts.withinHours, hoursBasis: outcome.record.facts.hoursBasis },
+      terminal: outcome.record.terminal,
+    });
+  });
+}
+
+function isPreflightAnswerUrl(url: string, config: Config): boolean {
+  try {
+    const u = new URL(url);
+    if (!u.pathname.endsWith("/v/answer")) return false;
+    if (!config.PUBLIC_BASE_URL) return true;
+    return u.host === new URL(config.PUBLIC_BASE_URL).host;
+  } catch {
+    return false;
+  }
+}
