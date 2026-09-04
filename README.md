@@ -237,12 +237,15 @@ curl https://preflight-api-rc34.onrender.com/api/ledger/verify   # recomputes ev
 curl https://preflight-api-rc34.onrender.com/api/coverage        # declared versus observed endpoints
 ```
 
-The first Rekor seal of the ledger head is log index 2707849371 (entry
-`108e9186e8c5677a89510687a845024ecc717abf90d6bec4c31f4ccf22b26d840711ef8e527c9afd`), recorded back
-into the ledger as a seal entry after `rekor-cli verify` passed in the workflow:
+The production ledger's first seal is Rekor log index 2707993586 (entry
+`108e9186e8c5677a6f2d22e6fd33a4eaf81d0c5466921791cb6ead82c59202bc78ffe2d7e1e533f0`), recorded back
+into the ledger as entry 2 after `rekor-cli verify` passed in the workflow. Entry 1 is the first real
+block: the reference flow refused by the gateway. Two earlier seals (log indexes 2707849371 and
+2707971831) belong to the shared development database that was retired when CI got its own Neon
+branch; they stay in the public log, as anything sealed there does.
 
 ```bash
-rekor-cli get --log-index 2707849371 --format json
+rekor-cli get --log-index 2707993586 --format json
 ```
 
 ## Data sources and licenses
