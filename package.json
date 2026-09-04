@@ -1,0 +1,32 @@
+{
+  "name": "preflight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Preflight: a pre-dial compliance interlock for the Vonage Voice API. It reads the call flow your own server is about to serve and stops the call before the carrier sees it if that flow would break federal or Georgia telemarketing law.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "verify:engine": "pnpm --filter @preflight/engine run verify",
+    "ledger:verify": "pnpm --filter @preflight/ledger run verify",
+    "replay": "pnpm --filter @preflight/cli run replay --",
+    "dev:api": "pnpm --filter @preflight/api run dev",
+    "dev:web": "pnpm --filter @preflight/web run dev",
+    "gate:tone": "bash scripts/ai-tone-gate.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "~5.9.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.0",
+    "tsx": "^4.20.0"
+  },
+  "type": "module"
+}

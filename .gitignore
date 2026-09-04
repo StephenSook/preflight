@@ -1,0 +1,41 @@
+# --- private research material: never reaches GitHub (standing convention) ---
+*.pdf
+Sookra_Methodology*
+*Recon*
+*Strategy Brief*
+*Teardown*
+.DS_Store
+docs/aardvark-reference.html
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
+*.key
+private.key
+public.key
+*.pem
+
+# --- deps / build / results ---
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+spike/gate1/results/*.csv
+spike/gate1/results/*.json
+spike/gate1/results/*.log
+!spike/gate1/results/.gitkeep
+!spike/gate1/results/step0-evidence/
+results/
+coverage/
+npm-debug.log*
+.vercel/
+.playwright-cache/
+test-results/
+playwright-report/
+out/
+
+# --- private working docs (strategy-laden; not for the public repo) ---
+CLAUDE.md
+.claude/
