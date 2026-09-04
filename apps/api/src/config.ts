@@ -19,6 +19,20 @@ const schema = z.object({
   VONAGE_APPLICATION_PUBLIC_KEY_PATH: z.string().min(1).optional(),
   /** The same PEM inline, for hosts without a file system for secrets. Wins over the path. Backslash-n line breaks are accepted. */
   VONAGE_APPLICATION_PUBLIC_KEY_PEM: z.string().min(1).optional(),
+  /**
+   * The application's PRIVATE key, inline or as a path. With it the process mints its own application
+   * JWTs for Verify v2 and the demonstration call; without it the consent gate answers 404. The
+   * gateway never needs it: callers bring their own token.
+   */
+  VONAGE_PRIVATE_KEY_PEM: z.string().min(1).optional(),
+  VONAGE_PRIVATE_KEY_PATH: z.string().min(1).optional(),
+  /** The account number the demonstration call is placed from: digits, E.164 without the plus. */
+  VONAGE_FROM_NUMBER: z.string().regex(/^[1-9][0-9]{7,14}$/).optional(),
+  /** How long a checked consent covers one demonstration call. */
+  CONSENT_TTL_MINUTES: z.coerce.number().int().positive().max(120).default(15),
+  /** Daily allowances that bound what a public page can spend of the account's balance. */
+  VERIFY_STARTS_PER_DAY: z.coerce.number().int().nonnegative().default(40),
+  DEMO_CALLS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
   VONAGE_API_HOST: z.string().url().default("https://api.nexmo.com"),
   /** The developer's real answer URL that Preflight forwards to. */
   ORIGIN_ANSWER_URL: z.string().url(),
@@ -70,6 +84,13 @@ export function selfPingTarget(config: Pick<Config, "SELF_PING" | "PUBLIC_BASE_U
   if (config.SELF_PING !== "on" || !config.PUBLIC_BASE_URL) return undefined;
   if (!/^https:\/\//.test(config.PUBLIC_BASE_URL)) return undefined;
   return `${config.PUBLIC_BASE_URL.replace(/\/$/, "")}/health`;
+}
+
+/** The application private key PEM, inline first, else the file at the path, else nothing. */
+export function applicationPrivateKeyPem(config: Pick<Config, "VONAGE_PRIVATE_KEY_PEM" | "VONAGE_PRIVATE_KEY_PATH">): string | undefined {
+  if (config.VONAGE_PRIVATE_KEY_PEM) return config.VONAGE_PRIVATE_KEY_PEM.replace(/\\n/g, "\n");
+  if (config.VONAGE_PRIVATE_KEY_PATH) return readFileSync(config.VONAGE_PRIVATE_KEY_PATH, "utf8");
+  return undefined;
 }
 
 /** The application public key PEM: the inline value first (hosted), else the file at the path (local), else nothing. */

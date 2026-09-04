@@ -16,7 +16,11 @@ import type { GraphStore } from "./store/graphStore.js";
 import type { HoldStore } from "./store/holdStore.js";
 import { DecisionBus, publishing, registerStream } from "./stream.js";
 import type { LedgerStore } from "./store/ledgerStore.js";
+import { mintApplicationJwt } from "./vonage/mintApplicationJwt.js";
 import { verifyVonageWebhook } from "./vonage/verifyWebhook.js";
+import { registerConsent } from "./consent/routes.js";
+import { vonageVerify } from "./consent/verify.js";
+import { MemoryConsentStore, type ConsentStore } from "./store/consentStore.js";
 
 export interface ServerDeps {
   config: Config;
@@ -29,6 +33,9 @@ export interface ServerDeps {
   declaration: FlowDeclaration;
   /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
   applicationPublicKeyPem?: string | undefined;
+  /** PEM of the application's private key; with it the consent gate and the demonstration call are enabled. */
+  applicationPrivateKeyPem?: string | undefined;
+  consents?: ConsentStore;
   fetchImpl?: typeof fetch;
   /** Injected clock so tests can pin token freshness. */
   now?: () => number;
@@ -181,6 +188,12 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
   registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem });
+  // The consent gate mints the application's own tokens for Verify v2 and for the demonstration call.
+  const privateKeyPem = deps.applicationPrivateKeyPem;
+  const applicationId = config.VONAGE_APPLICATION_ID;
+  const mintToken = privateKeyPem && applicationId ? () => mintApplicationJwt(applicationId, privateKeyPem, clock()) : undefined;
+  const verify = mintToken ? vonageVerify({ apiHost: config.VONAGE_API_HOST, fetchImpl, token: mintToken }) : undefined;
+  registerConsent(app, { config, consents: deps.consents ?? new MemoryConsentStore(), ledger, verify, mintToken, clock });
   // The held queue and the stream both need the dashboard token: a phone number is personal data.
   const dashboardAuth = (authorization: string | undefined): boolean => {
     if (!config.DASHBOARD_TOKEN) return false;
