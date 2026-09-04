@@ -38,7 +38,7 @@ describe.skipIf(!url)("PgDecisionStore (integration)", () => {
       verdicts: [
         { id: "P1", citation: "47 CFR 64.1200(c)(1)", verdict: "true" },
         { id: "P3", citation: "47 CFR 64.1200(b)(3)", verdict: "false", atEnd: true, witness: [{ index: 0, label: "talk#0", atoms: { speaks: true, synthetic: true, identifies: true, offers_optout: false, connects_human: false } }] },
-        { id: "P4", citation: "O.C.G.A. 46-5-27(c)", verdict: "inconclusive", reason: "caller id unresolved" },
+        { id: "P4", citation: "O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c)", verdict: "inconclusive", reason: "caller id unresolved" },
       ],
       decidedAt: new Date().toISOString(),
       originLatencyMs: 41.2,

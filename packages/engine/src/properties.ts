@@ -54,19 +54,19 @@ export const PROPERTIES: readonly PropertySpec[] = [
   {
     id: "P4",
     title: "Caller ID integrity",
-    summary: "The call may not block or circumvent the subscriber's caller identification service.",
+    summary: "No person or entity that makes a telephone solicitation shall utilize any method to block or otherwise circumvent the subscriber's use of a caller identification service.",
     checks: "A valid, non-suppressed caller id is set on the call request.",
     formula: "G( caller_id_present )",
-    citation: "O.C.G.A. 46-5-27(c)",
+    citation: "O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c)",
     shape: "guard",
   },
   {
     id: "P5",
     title: "Georgia identification first",
-    summary: "The call must begin by clearly stating the identity of the person or entity on whose behalf it is made.",
+    summary: "A telephone solicitation shall, at the beginning of the call, state clearly the identity of the person or entity initiating it; the Commission's rule says the call shall begin by clearly stating it.",
     checks: "Nothing is spoken strictly before the declared identification beat. Stricter than P2: position, not presence.",
     formula: "(!speaks) W identifies",
-    citation: "O.C.G.A. 46-5-27(b); Ga. Comp. R. & Regs. 515-14-1-.03(b)",
+    citation: "O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b)",
     shape: "ordering",
   },
 ];
