@@ -48,3 +48,6 @@ packages/numfacts/data/raw/
 packages/rules/data/raw/
 research/
 secrets/
+
+# Third-party design reference captures (screenshots, video, extracted styles); local only
+docs/design-reference/
