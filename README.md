@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-142%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-151%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -200,7 +200,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 142 tests
+pnpm test                       # every suite, 151 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from their sources
 ```
@@ -226,6 +226,25 @@ The evidence log is verifiable by anyone with the URL: `GET /api/ledger/verify` 
 hash from genesis and reports the first broken entry, if any. The Rekor seal is verified with
 `rekor-cli` against the committed public key; the exact command is printed by the seal workflow.
 
+### On the live host
+
+No account and no key:
+
+```bash
+curl https://preflight-api-rc34.onrender.com/health              # store, decision counts, ledger head
+curl https://preflight-api-rc34.onrender.com/api/summary         # decisions, coverage, latency p50/p95
+curl https://preflight-api-rc34.onrender.com/api/ledger/verify   # recomputes every hash from genesis
+curl https://preflight-api-rc34.onrender.com/api/coverage        # declared versus observed endpoints
+```
+
+The first Rekor seal of the ledger head is log index 2707849371 (entry
+`108e9186e8c5677a89510687a845024ecc717abf90d6bec4c31f4ccf22b26d840711ef8e527c9afd`), recorded back
+into the ledger as a seal entry after `rekor-cli verify` passed in the workflow:
+
+```bash
+rekor-cli get --log-index 2707849371 --format json
+```
+
 ## Data sources and licenses
 
 | Source | Used for | Terms |
@@ -241,8 +260,11 @@ hash from genesis and reports the first broken entry, if any. The Rekor seal is 
 
 What is not built yet, so nobody has to guess:
 
-- No public deployment yet. The API deploys to Render and the web app to Vercel once the Vonage
-  credentials are in place; until then there is no live URL and no badge claims one.
+- The API is live at https://preflight-api-rc34.onrender.com (Render free tier, kept warm by the
+  keepalive workflow with a dead-man check behind it and a daily real-call job through the gateway).
+  Inbound webhook verification waits on the account's signature secret, so until it lands every
+  signed webhook is refused (403) and only the create-call gateway path is exercised live. The web
+  app is not deployed.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
 - The declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the
