@@ -24,15 +24,16 @@ export interface HookDeps {
 
 /**
  * The branch hook. When Preflight passes an object whose input or notify action names a callback,
- * it rewrites that callback to point here, carrying the branching node (n), the origin URL (u,
- * base64url) and the method (m). Vonage calls this with the input result or the notify payload,
+ * it rewrites that callback to point here, carrying the branching node (n) and the method (m).
+ * The origin URL is read back from the node, never from the query. Vonage calls this with the
+ * input result or the notify payload,
  * signed like every other webhook. Preflight verifies, forwards to the origin, observes what came
  * back (a replacement object, or nothing), and decides the continuation as a path that starts with
  * everything the call has already executed.
  */
 export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
   const { config, flow, graphStore, decisions, ledger, fetchImpl, clock, ingress, record } = deps;
-  app.route<{ Querystring: { n?: string; u?: string; m?: string } }>({
+  app.route<{ Querystring: { n?: string; m?: string } }>({
     method: ["GET", "POST"],
     url: "/v/hook",
     handler: async (req, reply) => {
@@ -42,19 +43,17 @@ export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
         return reply.code(403).send({ error: "webhook signature rejected", reason: verified.reason });
       }
       const verifyLatencyMs = performance.now() - verifyStart;
+      // The origin callback is the one the operator's own object named for this node, read back from
+      // the graph. The query string is not covered by the webhook signature, so nothing in it is
+      // trusted for a fetch target.
       const nodeId = req.query.n;
-      let originUrl: string | undefined;
-      try {
-        originUrl = req.query.u ? Buffer.from(req.query.u, "base64url").toString("utf8") : undefined;
-        if (originUrl) new URL(originUrl);
-      } catch {
-        originUrl = undefined;
-      }
-      if (!nodeId || !originUrl) return reply.code(400).send({ error: "hook needs n (branching node) and u (origin callback, base64url)" });
+      if (!nodeId) return reply.code(400).send({ error: "hook needs n (the branching node)" });
       const graph = await graphStore.load();
       const branch = graph.nodes.get(nodeId);
       if (!branch || (branch.action.action !== "input" && branch.action.action !== "notify")) return reply.code(404).send({ error: "unknown branching node" });
       const kind = branch.action.action === "input" ? "input_branch" : "notify_branch";
+      const originUrl = branch.action.eventUrl?.[0];
+      if (!originUrl || !/^https?:\/\//.test(originUrl)) return reply.code(404).send({ error: "the branching node names no callback URL" });
 
       // The query string Vonage sends on a GET callback rides along to the origin; on POST the body does.
       const forwardUrl = req.method === "GET" && raw ? `${originUrl}${originUrl.includes("?") ? "&" : "?"}${raw}` : originUrl;

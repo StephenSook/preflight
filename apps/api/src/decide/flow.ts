@@ -40,7 +40,6 @@ export interface FlowOutcome {
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
-const b64url = (s: string): string => Buffer.from(s, "utf8").toString("base64url");
 
 /** The path of a callback URL, the key the coverage report and the graph use for an endpoint. */
 export function endpointKeyOf(url: string): string {
@@ -60,12 +59,12 @@ export function endpointKeyOf(url: string): string {
 export class FlowDecider {
   constructor(private readonly deps: FlowDeps) {}
 
-  private hookUrl(nodeId: string, originEventUrl: string, method: string): string | undefined {
+  /** The hook carries only the node id and the method; the origin callback is read back from the node at call time. */
+  private hookUrl(nodeId: string, method: string): string | undefined {
     const base = this.deps.config.PUBLIC_BASE_URL;
     if (!base) return undefined;
     const u = new URL("/v/hook", base);
     u.searchParams.set("n", nodeId);
-    u.searchParams.set("u", b64url(originEventUrl));
     u.searchParams.set("m", method === "GET" ? "GET" : "POST");
     return u.toString();
   }
@@ -86,7 +85,7 @@ export class FlowDecider {
       const item = raw[a.index] as Record<string, unknown> | undefined;
       const nodeId = nodeIds[a.index];
       if (!item || !nodeId || !Array.isArray(item["eventUrl"]) || typeof item["eventUrl"][0] !== "string") continue;
-      const hook = this.hookUrl(nodeId, item["eventUrl"][0], typeof item["eventMethod"] === "string" ? item["eventMethod"] : "POST");
+      const hook = this.hookUrl(nodeId, typeof item["eventMethod"] === "string" ? item["eventMethod"] : "POST");
       if (!hook) continue;
       item["eventUrl"] = [hook];
       rewrote.push(a.index);

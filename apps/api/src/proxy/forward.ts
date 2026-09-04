@@ -27,7 +27,7 @@ export interface ForwardResult {
   contentType: string | null;
   /** Wall-clock milliseconds from request sent to headers received. */
   originLatencyMs: number;
-  error?: "timeout" | "network" | "http";
+  error?: "timeout" | "network" | "http" | "redirect";
 }
 
 export async function forwardToOrigin(req: ForwardRequest, fetchImpl: typeof fetch = fetch): Promise<ForwardResult> {
@@ -43,6 +43,9 @@ export async function forwardToOrigin(req: ForwardRequest, fetchImpl: typeof fet
         ...(req.headers ?? {}),
       },
       signal: controller.signal,
+      // A redirect from the origin is not followed: the fetch target is the one the operator
+      // configured or the one their own object named, never wherever a 3xx points.
+      redirect: "manual",
     };
     if (req.method === "POST" && req.body !== undefined) init.body = req.body;
     const res = await fetchImpl(req.url, init);
@@ -57,7 +60,10 @@ export async function forwardToOrigin(req: ForwardRequest, fetchImpl: typeof fet
       contentType: res.headers.get("content-type"),
       originLatencyMs,
     };
-    if (!res.ok) result.error = "http";
+    if (res.status >= 300 && res.status < 400) {
+      result.ok = false;
+      result.error = "redirect";
+    } else if (!res.ok) result.error = "http";
     return result;
   } catch (e) {
     const originLatencyMs = performance.now() - sentAt;

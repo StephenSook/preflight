@@ -172,7 +172,9 @@ describe("preflight api ingress", () => {
     expect(routed[0]).toEqual({ action: "talk", text: "This is a message from Preflight Demo Clinic. Press nine to stop these calls." });
     const hook = new URL(routed[1]?.eventUrl?.[0] ?? "");
     expect(hook.origin + hook.pathname).toBe("https://preflight.example/v/hook");
-    expect(Buffer.from(hook.searchParams.get("u") ?? "", "base64url").toString()).toBe("https://origin.example/webhooks/optout");
+    // Only the node id and the method travel; the origin callback is read back from the graph.
+    expect(hook.searchParams.get("u")).toBeNull();
+    expect(hook.searchParams.get("n")).toMatch(/^[0-9a-f]{24}$/);
     expect(hook.searchParams.get("m")).toBe("POST");
     expect((await advisory.decisions.recent(1))[0]).toMatchObject({ decision: "pass", terminal: false, policy: "advisory" });
   });
@@ -313,14 +315,17 @@ describe("preflight api ingress", () => {
 
   it("streams decisions as server-sent events, with a replay of recent ones on connect", async () => {
     served = FLOWS.connectOnly;
-    const { server } = app();
+    const { server } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
     await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S1" });
+    // The stream carries phone numbers: no token, no stream.
+    expect((await server.inject({ method: "GET", url: "/api/stream" })).statusCode).toBe(403);
+    expect((await app().server.inject({ method: "GET", url: "/api/stream?token=x" })).statusCode).toBe(404);
     await server.listen({ port: 0, host: "127.0.0.1" });
     try {
       const addr = server.server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
       const ac = new AbortController();
-      const res = await fetch(`http://127.0.0.1:${port}/api/stream?replay=5`, { signal: ac.signal });
+      const res = await fetch(`http://127.0.0.1:${port}/api/stream?replay=5&token=dashboard-token-for-tests-1`, { signal: ac.signal });
       expect(res.headers.get("content-type")).toContain("text/event-stream");
       const reader = res.body?.getReader();
       let text = "";
@@ -345,6 +350,20 @@ describe("preflight api ingress", () => {
     } finally {
       await server.close();
     }
+  });
+
+  it("ignores a forged origin on the hook and refuses a node that names no callback", async () => {
+    served = FLOWS.syntheticWithOptOut;
+    const { server } = app({ POLICY_MODE: "advisory" });
+    const first = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-F1" });
+    const hookUrl = new URL((first.json() as Array<{ eventUrl?: string[] }>)[1]?.eventUrl?.[0] ?? "");
+    const raw = JSON.stringify({ uuid: "call-F1", dtmf: { digits: "9" } });
+    // A forged u parameter changes nothing: the origin is the node's own callback.
+    const forged = await server.inject({ method: "POST", url: `${hookUrl.pathname}${hookUrl.search}&u=${Buffer.from("http://127.0.0.1:1/evil").toString("base64url")}`, payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
+    expect(forged.statusCode).not.toBe(400);
+    expect([200, 204]).toContain(forged.statusCode);
+    const unknown = await server.inject({ method: "POST", url: "/v/hook?n=000000000000000000000000&m=POST", payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
+    expect(unknown.statusCode).toBe(404);
   });
 
   it("fails closed with a safe object when the origin exceeds the timeout", async () => {
