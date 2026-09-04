@@ -1,0 +1,20 @@
+{
+  "name": "gate1-vonage-routing-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway spike: can Vonage canSpeak/canHear be changed on a LIVE conversation leg, and how fast?",
+  "scripts": {
+    "start": "node server.js",
+    "selftest": "node tools/selftest.mjs",
+    "analyze": "node tools/analyze.mjs",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.3",
+    "playwright": "^1.62.1",
+    "uuid": "^9.0.1"
+  }
+}
