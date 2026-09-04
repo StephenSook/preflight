@@ -27,3 +27,5 @@ export { LtlSyntaxError, parseLtl } from "./ltl/parse.js";
 export { compileMonitor, letterOf, MonitorRun, type CompiledMonitor, type Verdict } from "./ltl/monitor.js";
 export { PROPERTIES, compiledProperties, propertySpec, type PropertyId, type PropertySpec } from "./properties.js";
 export { decide, evaluateNcco, evaluatePath, labelOf, type Decision, type Evaluation, type EvaluationContext, type PropertyVerdict, type WitnessStep } from "./evaluate.js";
+export { FlowGraph, isBranching, nodeIdOf, payloadHashOf, type Coverage, type EdgeKind, type FlowEdge, type FlowNode, type FlowPath, type ObserveResult } from "./graph/graph.js";
+export { evaluateGraph, type GraphEvaluation, type PathEvaluation } from "./graph/evaluateGraph.js";
