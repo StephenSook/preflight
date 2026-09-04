@@ -1,0 +1,134 @@
+{
+  "name": "every action type missing its required field, after one valid record",
+  "description": "record has no required field and parses. talk without text, stream with an empty streamUrl, input without type, connect without endpoint, notify without payload, conversation without name and pay without amount each raise exactly one error and become unknown. The record decides nothing on its own, so unknown#1 makes every property inconclusive.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "record",
+      "format": "mp3"
+    },
+    {
+      "action": "talk"
+    },
+    {
+      "action": "stream",
+      "streamUrl": []
+    },
+    {
+      "action": "input"
+    },
+    {
+      "action": "connect"
+    },
+    {
+      "action": "notify",
+      "eventUrl": [
+        "https://origin.example/webhooks/notify"
+      ]
+    },
+    {
+      "action": "conversation"
+    },
+    {
+      "action": "pay",
+      "currency": "usd"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "record",
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown",
+      "unknown"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 7,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "inconclusive",
+        "P3": "inconclusive",
+        "P4": "inconclusive",
+        "P5": "inconclusive"
+      },
+      "decision": "hold"
+    }
+  }
+}

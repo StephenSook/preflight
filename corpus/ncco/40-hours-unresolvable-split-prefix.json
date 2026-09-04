@@ -1,0 +1,93 @@
+{
+  "name": "the destination prefix spans two timezones that disagree right now",
+  "description": "208-555 sits under the 1208-5 map entry, which spans Boise (Mountain) and Los Angeles (Pacific). At 14:30 UTC it is 08:30 in one and 07:30 in the other, so withinHours is null. P1 is inconclusive with the timezone reason and nothing else is wrong, so the call is held, not blocked.",
+  "call": {
+    "to": "12085550157",
+    "at": "2026-09-04T14:30:00Z",
+    "resolver": {
+      "nationalNumber": "2085550157",
+      "state": "ID",
+      "rateCenter": "DIR ASST",
+      "ocn": "MULT",
+      "lineType": "landline",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/Boise",
+        "America/Los_Angeles"
+      ],
+      "withinHours": null,
+      "hoursBasis": "prefix spans America/Boise, America/Los_Angeles and they disagree at this instant"
+    },
+    "why": "Fictional 555-01XX number in the 208 area, chosen because tz-map.txt lists 12085 with two zones. At 16:00 UTC both zones would agree and the same number would resolve true."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "landline",
+        "withinHours": null
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "hold"
+    }
+  }
+}

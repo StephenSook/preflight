@@ -1,0 +1,102 @@
+{
+  "name": "identification phrase and prompts in Spanish and Japanese",
+  "description": "Phrase matching keeps letters from every script (\\p{L}) and drops punctuation, so the inverted exclamation mark and the accented i do not break the match. The Japanese thank-you line is ordinary speech after the opt-out and is not a violation.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "Este es un mensaje de la Clínica Demo Preflight"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "¡Hola! Este es un mensaje de la Clínica Demo Preflight. Su cita es mañana a las nueve.",
+      "language": "es-ES",
+      "style": 1
+    },
+    {
+      "action": "talk",
+      "text": "Presione nueve para dejar de recibir estas llamadas.",
+      "language": "es-ES"
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    },
+    {
+      "action": "talk",
+      "text": "ありがとうございます。さようなら。",
+      "language": "ja-JP"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "talk",
+      "input",
+      "talk"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

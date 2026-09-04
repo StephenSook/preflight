@@ -1,0 +1,75 @@
+{
+  "name": "a single pay with spoken prompts",
+  "description": "pay carries prompts the platform reads aloud, but the atom vocabulary derives speaks only from talk and stream, so pay is silent to the monitors and the object passes. Recorded here so the choice is visible.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "pay",
+      "amount": 12.5,
+      "currency": "usd",
+      "eventUrl": [
+        "https://origin.example/webhooks/pay"
+      ],
+      "prompts": [
+        {
+          "type": "CardNumber",
+          "text": "Please enter your card number.",
+          "errors": {
+            "InvalidCardNumber": {
+              "text": "That number is not valid."
+            }
+          }
+        },
+        {
+          "type": "ExpirationDate",
+          "text": "Enter the expiry date."
+        }
+      ],
+      "voice": {
+        "language": "en-US",
+        "style": 0
+      }
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "pay"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

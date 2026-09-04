@@ -1,0 +1,88 @@
+{
+  "name": "a declaration exists but no beat matches it",
+  "description": "Unlike 08 the developer declared a phrase; the spoken text just never contains it. The first talk is synthetic speech before any identification, so P2 and P5 fail at index 0. P3 stays vacuously true because nothing identifies.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "Hello. This is your appointment reminder line. Your visit is tomorrow at nine."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "false",
+        "P3": "true",
+        "P4": "true",
+        "P5": "false"
+      },
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

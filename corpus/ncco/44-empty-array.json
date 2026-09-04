@@ -1,0 +1,37 @@
+{
+  "name": "an empty NCCO",
+  "description": "Valid shape, zero actions, one warning (the platform hangs up), no error. With nothing to step, every property is decided by the end-of-flow rule on the silent letter: no speech, caller id present, so all true and the object passes.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [],
+  "expect": {
+    "kinds": [],
+    "atoms": [],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

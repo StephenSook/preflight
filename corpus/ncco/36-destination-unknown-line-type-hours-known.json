@@ -1,0 +1,104 @@
+{
+  "name": "destination exchange is unassigned: line type unknown, timezone still known",
+  "description": "943-304 has no NANPA row, so the line type is unknown, but the 943 overlay maps to New York time and the hours resolve. Nothing in P1 to P5 reads the line-type atoms, so an unknown line type does not hold the call; only unknown hours or a missing caller id can. Speech after the opt-out is not a violation.",
+  "call": {
+    "to": "19433040100",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": "9433040100",
+      "state": null,
+      "rateCenter": null,
+      "ocn": null,
+      "lineType": "unknown",
+      "lineTypeSource": "none",
+      "zones": [
+        "America/New_York"
+      ],
+      "withinHours": true,
+      "hoursBasis": "America/New_York by prefix 943"
+    },
+    "why": "Found the way the numfacts tests find their gap: the first 943-NXX from 200 upward with no row in co-codes.tsv is 304. An unassigned exchange cannot be anyone's number. 12:00 EDT."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    },
+    {
+      "action": "talk",
+      "text": "Thank you. Goodbye."
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "input",
+      "talk"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "unknown",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

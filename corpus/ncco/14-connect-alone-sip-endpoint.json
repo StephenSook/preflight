@@ -1,0 +1,76 @@
+{
+  "name": "a single connect to a SIP endpoint",
+  "description": "A SIP URI is a live endpoint, like phone, app and vbc. Nothing is spoken by the platform, so no property has anything to fail on; the call goes straight to a person. Every connect field is exercised.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "connect",
+      "endpoint": [
+        {
+          "type": "sip",
+          "uri": "sip:scheduler@origin.example",
+          "headers": {
+            "X-Campaign": "fall"
+          }
+        }
+      ],
+      "from": "14045550100",
+      "randomFromNumber": false,
+      "eventType": "synchronous",
+      "timeout": 45,
+      "limit": 3600,
+      "machineDetection": "continue",
+      "advancedMachineDetection": {
+        "behavior": "continue",
+        "mode": "detect",
+        "beep_timeout": 45
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/connect"
+      ],
+      "eventMethod": "POST",
+      "ringbackTone": "https://origin.example/audio/ringback.mp3"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

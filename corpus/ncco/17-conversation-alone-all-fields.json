@@ -1,0 +1,68 @@
+{
+  "name": "a single conversation with every reference field",
+  "description": "Joining a named conversation is not speech and not a live endpoint in the atom vocabulary. Music on hold, canSpeak and canHear lists and transcription are all accepted.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "conversation",
+      "name": "preflight-room-7",
+      "musicOnHoldUrl": [
+        "https://origin.example/audio/hold.mp3"
+      ],
+      "startOnEnter": false,
+      "endOnExit": true,
+      "record": false,
+      "canSpeak": [
+        "6a4d6af0-55a6-4667-be90-8614e4c8e83c"
+      ],
+      "canHear": [
+        "6a4d6af0-55a6-4667-be90-8614e4c8e83c"
+      ],
+      "mute": false,
+      "transcription": {
+        "language": "en-US"
+      }
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "conversation"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "a single identifying talk and nothing else",
+  "description": "One synthetic beat that is the declared identification, then the object ends. P2 and P5 are true at index 0; P3 is anchored on that beat and nothing later offers opt-out or connects a person, so it is false when the flow ends.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. Your order has shipped and will arrive on Thursday."
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "false",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P3": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": true
+        }
+      }
+    }
+  }
+}

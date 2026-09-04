@@ -1,0 +1,76 @@
+{
+  "name": "06:00 at the destination, but the call goes straight to a person",
+  "description": "P1 checks spoken actions only. A connect does not speak, so with nothing spoken the guard is never triggered and holds at the end of the flow: this object passes at 6 am. Recorded as a pin on what P1 does and does not cover; the rule itself forbids any solicitation outside the window.",
+  "call": {
+    "to": "18085550120",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": "8085550120",
+      "state": "HI",
+      "rateCenter": "DIR ASST",
+      "ocn": "MULT",
+      "lineType": "landline",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "Pacific/Honolulu"
+      ],
+      "withinHours": false,
+      "hoursBasis": "Pacific/Honolulu by prefix 808"
+    },
+    "why": "Fictional 555-01XX number in the 808 area; 16:00 UTC is 06:00 HST, two hours before the open, while it is noon in Georgia."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "connect",
+      "from": "14045550100",
+      "endpoint": [
+        {
+          "type": "phone",
+          "number": "14045550123"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "landline",
+        "withinHours": false
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

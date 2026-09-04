@@ -1,0 +1,103 @@
+{
+  "name": "recorded identification by declared stream URL, then a declared opt-out",
+  "description": "The identification is an audio file matched by exact URL. The declaration has no phrase, so the later talk that prompts for the key press identifies nothing, which is fine: P2 and P5 were decided true at index 0 and P3 is satisfied by the input at index 3.",
+  "declaration": {
+    "identification": {
+      "streamUrls": [
+        "https://origin.example/audio/ident.mp3"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/ident.mp3"
+      ]
+    },
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/reminder.mp3"
+      ],
+      "loop": 2
+    },
+    {
+      "action": "talk",
+      "text": "Press nine to stop receiving these calls."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "stream",
+      "stream",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

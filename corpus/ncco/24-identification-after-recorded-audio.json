@@ -1,0 +1,102 @@
+{
+  "name": "a jingle plays before the identification",
+  "description": "Recorded audio counts as speech. Three seconds of branding before the identification beat is speech strictly before it, so P2 and P5 fail on the stream. The opt-out after the identification keeps P3 true.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/jingle.mp3"
+      ]
+    },
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "stream",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "false",
+        "P3": "true",
+        "P4": "true",
+        "P5": "false"
+      },
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

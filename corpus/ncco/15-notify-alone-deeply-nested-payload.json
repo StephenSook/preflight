@@ -1,0 +1,91 @@
+{
+  "name": "a single notify carrying a deeply nested payload",
+  "description": "notify is silent. The payload is an object nested nine levels deep with arrays, numbers, booleans and null inside; the parser keeps it as an opaque object and raises nothing.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "notify",
+      "payload": {
+        "level1": {
+          "level2": {
+            "level3": {
+              "level4": {
+                "level5": {
+                  "level6": {
+                    "level7": {
+                      "level8": {
+                        "level9": {
+                          "leaf": "deep",
+                          "list": [
+                            1,
+                            2,
+                            [
+                              3,
+                              [
+                                4,
+                                [
+                                  5
+                                ]
+                              ]
+                            ]
+                          ],
+                          "flag": true,
+                          "nothing": null
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/notify"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "notify"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

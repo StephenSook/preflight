@@ -1,0 +1,88 @@
+{
+  "name": "destination resolves to a VoIP line",
+  "description": "A number the NANPA prior classes as VoIP, identification then a live agent. As with wireless, the line type is recorded and does not feed any armed property.",
+  "call": {
+    "to": "14702000000",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": "4702000000",
+      "state": "GA",
+      "rateCenter": "CONYERS",
+      "ocn": "909E",
+      "lineType": "voip",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/New_York"
+      ],
+      "withinHours": true,
+      "hoursBasis": "America/New_York by prefix 470"
+    },
+    "why": "470-200 is the VoIP exchange the numfacts package's own tests use; the number is that fixture, reused so the corpus introduces no new number. 12:00 EDT."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. Please hold for a scheduler."
+    },
+    {
+      "action": "connect",
+      "from": "14045550100",
+      "endpoint": [
+        {
+          "type": "phone",
+          "number": "14045550123"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "voip",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "name": "destination resolves to a wireless line",
+  "description": "A compliant flow to a number the NANPA prior classes as wireless. None of P1 to P5 reads dest_wireless or dest_residential, so the line type is recorded but cannot change the decision.",
+  "call": {
+    "to": "14042010000",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": "4042010000",
+      "state": "GA",
+      "rateCenter": "ATLANTA",
+      "ocn": "6214",
+      "lineType": "wireless",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/New_York"
+      ],
+      "withinHours": true,
+      "hoursBasis": "America/New_York by prefix 404"
+    },
+    "why": "404-201 is the wireless exchange the numfacts package's own tests use; the number is the fixture from those tests, reused so the corpus introduces no new number. 12:00 EDT is inside the window."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

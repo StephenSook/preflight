@@ -1,0 +1,91 @@
+{
+  "name": "the declaration names the identification but no opt-out handler",
+  "description": "The input points at /webhooks/optout, but with no optOut section in the declaration no input offers opt-out, however its URL reads. P3 is false when the flow ends. The identification half of the declaration still works, so P2 and P5 are true.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "talk",
+      "text": "Press nine to stop receiving these calls."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "false",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P3": {
+          "path": [
+            "talk#0",
+            "talk#1",
+            "input#2"
+          ],
+          "atEnd": true
+        }
+      }
+    }
+  }
+}

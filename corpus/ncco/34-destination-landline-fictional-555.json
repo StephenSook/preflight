@@ -1,0 +1,94 @@
+{
+  "name": "destination resolves to a landline",
+  "description": "Every 555 exchange in the committed NANPA table is a directory-assistance landline row, so a fictional 555-01XX number resolves to landline with a real timezone. Recorded identification by URL, then the declared opt-out.",
+  "call": {
+    "to": "14045550142",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": "4045550142",
+      "state": "GA",
+      "rateCenter": "DIR ASST",
+      "ocn": "MULT",
+      "lineType": "landline",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/New_York"
+      ],
+      "withinHours": true,
+      "hoursBasis": "America/New_York by prefix 404"
+    },
+    "why": "555-0100 to 555-0199 is the NANPA fictional range, so this number belongs to nobody; the resolver still finds the 404-555 row (landline) and the 404 timezone. 12:00 EDT."
+  },
+  "declaration": {
+    "identification": {
+      "streamUrls": [
+        "https://origin.example/audio/ident.mp3"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/ident.mp3"
+      ]
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "stream",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "landline",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

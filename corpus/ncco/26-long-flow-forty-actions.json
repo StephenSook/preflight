@@ -1,0 +1,545 @@
+{
+  "name": "forty actions with the opt-out at the very end",
+  "description": "Identification at index 0, thirty-five talk segments and three notify checkpoints, then the declared opt-out at index 39. P3 is discharged by the last action; the weak-until properties were decided at index 0. A length regression: nothing in the monitors depends on flow size.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. This update has several parts."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 1 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 2 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 3 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 4 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 5 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 6 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 7 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 8 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 9 of the account update."
+    },
+    {
+      "action": "notify",
+      "payload": {
+        "segment": 10
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/progress"
+      ]
+    },
+    {
+      "action": "talk",
+      "text": "Segment 11 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 12 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 13 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 14 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 15 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 16 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 17 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 18 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 19 of the account update."
+    },
+    {
+      "action": "notify",
+      "payload": {
+        "segment": 20
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/progress"
+      ]
+    },
+    {
+      "action": "talk",
+      "text": "Segment 21 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 22 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 23 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 24 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 25 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 26 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 27 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 28 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 29 of the account update."
+    },
+    {
+      "action": "notify",
+      "payload": {
+        "segment": 30
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/progress"
+      ]
+    },
+    {
+      "action": "talk",
+      "text": "Segment 31 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 32 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 33 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 34 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 35 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 36 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 37 of the account update."
+    },
+    {
+      "action": "talk",
+      "text": "Segment 38 of the account update."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "notify",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "notify",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "notify",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

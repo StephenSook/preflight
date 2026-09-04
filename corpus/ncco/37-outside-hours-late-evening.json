@@ -1,0 +1,100 @@
+{
+  "name": "21:30 at the destination",
+  "description": "The same compliant flow as 33, placed at 21:30 Eastern. P1 is G(speaks -> within_hours): the first spoken action violates it, so the witness is that one action and the flow is blocked before anything else matters.",
+  "call": {
+    "to": "14045550142",
+    "at": "2026-09-05T01:30:00Z",
+    "resolver": {
+      "nationalNumber": "4045550142",
+      "state": "GA",
+      "rateCenter": "DIR ASST",
+      "ocn": "MULT",
+      "lineType": "landline",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/New_York"
+      ],
+      "withinHours": false,
+      "hoursBasis": "America/New_York by prefix 404"
+    },
+    "why": "01:30 UTC on 2026-09-05 is 21:30 EDT on 2026-09-04, thirty minutes after the 9 pm close."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "landline",
+        "withinHours": false
+      },
+      "verdicts": {
+        "P1": "false",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P1": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

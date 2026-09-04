@@ -1,0 +1,66 @@
+{
+  "name": "caller id set to the word anonymous, straight to a person",
+  "description": "A suppression keyword is treated as no caller id. Unlike P1, which only fires on spoken actions, P4 fires on the first action of any kind, so a call with no synthetic speech at all is still blocked on the connect.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "connect",
+      "from": "14045550100",
+      "endpoint": [
+        {
+          "type": "phone",
+          "number": "14045550123"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "anonymous",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "false",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P4": {
+          "path": [
+            "connect#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

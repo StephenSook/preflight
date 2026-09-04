@@ -1,0 +1,90 @@
+{
+  "name": "a stream URL that differs from the declared one by a query string",
+  "description": "Stream identification is an exact string match, unlike phrases (normalised) and opt-out patterns (substring). A cache-busting query string on the same file is a different URL, so the first action speaks without identifying and P2 and P5 fail there.",
+  "declaration": {
+    "identification": {
+      "streamUrls": [
+        "https://origin.example/audio/ident.mp3"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/ident.mp3?v=2"
+      ]
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "stream",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "false",
+        "P3": "true",
+        "P4": "true",
+        "P5": "false"
+      },
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

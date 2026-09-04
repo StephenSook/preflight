@@ -1,0 +1,76 @@
+{
+  "name": "required fields present with the wrong type",
+  "description": "A wrong-typed required field raises two issues: the field reader reports the type, then the action reports the field as missing. text as a number, amount as a string and type as a bare string give six errors over three actions, all unknown, so the call is held.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": 42
+    },
+    {
+      "action": "pay",
+      "amount": "9.99"
+    },
+    {
+      "action": "input",
+      "type": "dtmf"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "unknown",
+      "unknown",
+      "unknown"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 6,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "inconclusive",
+        "P3": "inconclusive",
+        "P4": "inconclusive",
+        "P5": "inconclusive"
+      },
+      "decision": "hold"
+    }
+  }
+}

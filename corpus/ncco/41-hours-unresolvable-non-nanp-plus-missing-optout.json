@@ -1,0 +1,74 @@
+{
+  "name": "a non-NANP destination with a flow that also lacks an opt-out",
+  "description": "The resolver refuses a UK number: no line type, no timezone, so P1 is inconclusive. The flow also identifies and never offers opt-out, so P3 is false at the end. A false verdict blocks even when another property is held: block beats hold.",
+  "call": {
+    "to": "+442079460000",
+    "at": "2026-09-04T16:00:00Z",
+    "resolver": {
+      "nationalNumber": null,
+      "unsupported": "not a North American number; number facts cover NANP destinations only",
+      "lineType": "unknown",
+      "lineTypeSource": "none",
+      "zones": [],
+      "withinHours": null,
+      "hoursBasis": "no timezone: not a NANP number"
+    },
+    "why": "020 7946 0000 to 0999 is the range the UK regulator reserves for drama, and the numfacts tests already use this exact number."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. Your order has shipped."
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "unknown",
+        "withinHours": null
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "true",
+        "P3": "false",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P3": {
+          "path": [
+            "talk#0"
+          ],
+          "atEnd": true
+        }
+      }
+    }
+  }
+}

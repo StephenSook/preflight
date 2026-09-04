@@ -1,0 +1,90 @@
+{
+  "name": "opt-out collected by a speech-only input",
+  "description": "The opt-out atom depends on the eventUrl matching the declared pattern, not on the input type. A speech-only asynchronous input pointed at the opt-out handler offers opt-out.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "talk",
+      "text": "Say stop at any time to be removed from this list."
+    },
+    {
+      "action": "input",
+      "type": [
+        "speech"
+      ],
+      "mode": "asynchronous",
+      "speech": {
+        "language": "en-US",
+        "context": [
+          "stop",
+          "remove"
+        ],
+        "endOnSilence": 1
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ]
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

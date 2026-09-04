@@ -1,0 +1,75 @@
+{
+  "name": "one connect with a websocket and a phone endpoint",
+  "description": "connects_human holds when any endpoint in the list is live. A media websocket beside a phone number still reaches a person, so the connect discharges P3; compare 06, where the websocket stood alone.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. Please hold."
+    },
+    {
+      "action": "connect",
+      "from": "14045550100",
+      "endpoint": [
+        {
+          "type": "websocket",
+          "uri": "wss://origin.example/media",
+          "content-type": "audio/l16;rate=16000"
+        },
+        {
+          "type": "phone",
+          "number": "14045550123"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

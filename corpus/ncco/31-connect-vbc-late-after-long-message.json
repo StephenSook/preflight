@@ -1,0 +1,109 @@
+{
+  "name": "a long synthetic message, a recording, then a VBC extension",
+  "description": "The live leg arrives at index 4, after three spoken beats and a record. A vbc extension is a live endpoint, so P3 is discharged there. Late is fine: the rule anchors the opt-out to the identification, not to a deadline.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic. This call is about your account."
+    },
+    {
+      "action": "talk",
+      "text": "Your statement is ready and your balance is unchanged."
+    },
+    {
+      "action": "talk",
+      "text": "Stay on the line and an agent will pick up."
+    },
+    {
+      "action": "record",
+      "format": "mp3",
+      "eventUrl": [
+        "https://origin.example/webhooks/recording"
+      ]
+    },
+    {
+      "action": "connect",
+      "endpoint": [
+        {
+          "type": "vbc",
+          "extension": "4021"
+        }
+      ],
+      "from": "14045550100"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "talk",
+      "talk",
+      "talk",
+      "record",
+      "connect"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": true
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

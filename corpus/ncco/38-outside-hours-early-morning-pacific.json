@@ -1,0 +1,116 @@
+{
+  "name": "06:30 at a Pacific destination, silent record first",
+  "description": "A record action does not speak, so P1 survives it; the talk at index 1 is the first spoken action outside the window and the witness path includes the silent record before it. 13:30 UTC is 09:30 Eastern, inside the window there, and 06:30 Pacific, outside it: the check is local to the destination.",
+  "call": {
+    "to": "12065550148",
+    "at": "2026-09-04T13:30:00Z",
+    "resolver": {
+      "nationalNumber": "2065550148",
+      "state": "WA",
+      "rateCenter": "DIR ASST",
+      "ocn": "MULT",
+      "lineType": "landline",
+      "lineTypeSource": "nanpa",
+      "zones": [
+        "America/Los_Angeles"
+      ],
+      "withinHours": false,
+      "hoursBasis": "America/Los_Angeles by prefix 206"
+    },
+    "why": "Fictional 555-01XX number in the 206 area; 13:30 UTC is 06:30 PDT, ninety minutes before the 8 am open."
+  },
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "record",
+      "format": "mp3",
+      "eventUrl": [
+        "https://origin.example/webhooks/recording"
+      ]
+    },
+    {
+      "action": "talk",
+      "text": "This is a message from Preflight Demo Clinic."
+    },
+    {
+      "action": "input",
+      "type": [
+        "dtmf"
+      ],
+      "dtmf": {
+        "maxDigits": 1,
+        "timeOut": 5
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST"
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "record",
+      "talk",
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": true,
+        "offers_optout": false,
+        "connects_human": false
+      },
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "landline",
+        "withinHours": false
+      },
+      "verdicts": {
+        "P1": "false",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "block",
+      "witness": {
+        "P1": {
+          "path": [
+            "record#0",
+            "talk#1"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "a JSON null where the array should be",
+  "description": "Valid JSON, not an NCCO. Zero actions, one error, ok is false, and an object that did not parse is held with every property inconclusive. Compare 10, where the body was an object.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": null,
+  "expect": {
+    "kinds": [],
+    "atoms": [],
+    "errors": 1,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "inconclusive",
+        "P2": "inconclusive",
+        "P3": "inconclusive",
+        "P4": "inconclusive",
+        "P5": "inconclusive"
+      },
+      "decision": "hold"
+    }
+  }
+}

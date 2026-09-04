@@ -1,0 +1,73 @@
+{
+  "name": "a single opt-out input and nothing spoken",
+  "description": "Nothing speaks, so nothing has to identify. The weak-until properties never see speech and hold at the end; P3 has no identification to anchor to. Every field of input is exercised.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "input",
+      "type": [
+        "dtmf",
+        "speech"
+      ],
+      "dtmf": {
+        "timeOut": 8,
+        "maxDigits": 1,
+        "submitOnHash": true
+      },
+      "eventUrl": [
+        "https://origin.example/webhooks/optout"
+      ],
+      "eventMethod": "POST",
+      "mode": "synchronous",
+      "speech": {
+        "language": "en-US",
+        "context": [
+          "stop",
+          "remove me"
+        ],
+        "endOnSilence": 1.5
+      }
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "input"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": true,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

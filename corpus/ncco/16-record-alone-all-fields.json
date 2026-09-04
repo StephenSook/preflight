@@ -1,0 +1,69 @@
+{
+  "name": "a single record with every reference field",
+  "description": "record has no required field and is silent (the beep is not a message). Every optional field is present and well typed, so zero issues.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "record",
+      "format": "wav",
+      "split": "conversation",
+      "channels": 2,
+      "endOnSilence": 3,
+      "endOnKey": "#",
+      "timeOut": 120,
+      "beepStart": true,
+      "eventUrl": [
+        "https://origin.example/webhooks/recording"
+      ],
+      "eventMethod": "POST",
+      "transcription": {
+        "language": "en-US",
+        "eventUrl": [
+          "https://origin.example/webhooks/transcript"
+        ],
+        "sentimentAnalysis": false
+      }
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "record"
+    ],
+    "atoms": [
+      {
+        "speaks": false,
+        "synthetic": false,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "true",
+        "P3": "true",
+        "P4": "true",
+        "P5": "true"
+      },
+      "decision": "pass"
+    }
+  }
+}

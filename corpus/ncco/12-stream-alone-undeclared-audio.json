@@ -1,0 +1,71 @@
+{
+  "name": "a single recorded audio stream that is not the declared identification",
+  "description": "Recorded audio speaks and is synthetic exactly like talk. The declaration names an identification phrase but no stream URL, so this stream identifies nothing: P2 and P5 fail on the first action. P3 has no identification to anchor to and is vacuously true.",
+  "declaration": {
+    "identification": {
+      "phrases": [
+        "This is a message from Preflight Demo Clinic"
+      ]
+    },
+    "optOut": {
+      "eventUrlPatterns": [
+        "/webhooks/optout"
+      ]
+    }
+  },
+  "ncco": [
+    {
+      "action": "stream",
+      "streamUrl": [
+        "https://origin.example/audio/promo.mp3"
+      ],
+      "bargeIn": false,
+      "loop": 1,
+      "level": 0
+    }
+  ],
+  "expect": {
+    "kinds": [
+      "stream"
+    ],
+    "atoms": [
+      {
+        "speaks": true,
+        "synthetic": true,
+        "identifies": false,
+        "offers_optout": false,
+        "connects_human": false
+      }
+    ],
+    "errors": 0,
+    "terminal": {
+      "facts": {
+        "from": "14045550100",
+        "lineType": "wireless",
+        "withinHours": true
+      },
+      "verdicts": {
+        "P1": "true",
+        "P2": "false",
+        "P3": "true",
+        "P4": "true",
+        "P5": "false"
+      },
+      "decision": "block",
+      "witness": {
+        "P2": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        },
+        "P5": {
+          "path": [
+            "stream#0"
+          ],
+          "atEnd": false
+        }
+      }
+    }
+  }
+}
