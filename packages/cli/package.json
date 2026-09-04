@@ -1,23 +1,50 @@
 {
-  "name": "@preflight/cli",
+  "name": "preflight-interlock",
   "version": "0.1.0",
-  "private": true,
-  "description": "npx preflight: replay the released webhook corpus offline, verify a ledger, check a single NCCO.",
+  "private": false,
+  "description": "npx preflight: check a Vonage call-control object against the federal and Georgia telemarketing rules, replay the labelled corpus, verify a Preflight evidence log. No account, no data tables.",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "files": ["dist"],
+  "main": "./dist/preflight.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=esm --conditions=development --outfile=dist/preflight.js --banner:js=\"#!/usr/bin/env node\" --log-level=warning && chmod +x dist/preflight.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "replay": "tsx src/index.ts replay"
+    "replay": "tsx --conditions=development src/cli.ts replay",
+    "check": "tsx --conditions=development src/cli.ts check",
+    "verify-ledger": "tsx --conditions=development src/cli.ts verify-ledger"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@preflight/engine": "workspace:*",
-    "@preflight/ledger": "workspace:*",
-    "@preflight/rules": "workspace:*"},
-  "devDependencies": {}
+    "@preflight/ledger": "workspace:*"
+  },
+  "bin": {
+    "preflight": "./dist/preflight.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StephenSook/preflight.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/StephenSook/preflight#readme",
+  "keywords": [
+    "vonage",
+    "voice-api",
+    "tcpa",
+    "compliance",
+    "ncco",
+    "runtime-verification",
+    "ltl3"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
