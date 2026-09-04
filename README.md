@@ -265,9 +265,8 @@ What is not built yet, so nobody has to guess:
 
 - The API is live at https://preflight-api-rc34.onrender.com (Render free tier, kept warm by the
   keepalive workflow with a dead-man check behind it and a daily real-call job through the gateway).
-  Inbound webhook verification waits on the account's signature secret, so until it lands every
-  signed webhook is refused (403) and only the create-call gateway path is exercised live. The web
-  app is not deployed.
+  Signed webhooks are verified live on both legs of a real call, and the answer-webhook timing that
+  shaped the design is measured, not assumed (docs/fact-sheet.md). The web app is not deployed.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
 - The declared-versus-actual diff, the rate properties P6 to P8, Vonage Identity Insights as the
