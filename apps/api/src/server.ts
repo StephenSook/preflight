@@ -103,7 +103,16 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   const clock = deps.now ?? Date.now;
   const bus = new DecisionBus();
   const decisions = publishing(deps.decisions, bus);
-  const app = Fastify({ logger: { level: config.LOG_LEVEL } });
+  // The event stream carries the dashboard token in its query string (EventSource cannot send a
+  // header), so the request log redacts it: a token must never land in the host's logs.
+  const app = Fastify({
+    logger: {
+      level: config.LOG_LEVEL,
+      serializers: {
+        req: (req) => ({ method: req.method, url: (req.url ?? "").replace(/([?&]token=)[^&]*/g, "$1[redacted]"), hostname: req.hostname, remoteAddress: req.ip }),
+      },
+    },
+  });
   // The web app lives on its own origin (Vercel) and the dev server on localhost; the API answers those
   // cross-origin and nobody else. Same-origin callers (curl, a judge's browser on the API host) are unaffected.
   void app.register(cors, { origin: [config.PUBLIC_WEB_URL, "http://localhost:5173", "http://127.0.0.1:5173"].filter((o): o is string => typeof o === "string"), methods: ["GET", "POST", "PUT", "DELETE"], allowedHeaders: ["authorization", "content-type"], maxAge: 600 });

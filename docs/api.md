@@ -16,6 +16,10 @@ Base URL of the reference deployment: `https://preflight-api-rc34.onrender.com`.
 | dashboard token (`DASHBOARD_TOKEN`) | `Authorization: Bearer <token>` (`?token=` on the stream) | `/api/held*`, `/api/stream`, `/api/setup*`, `/api/push/subscribe`, `/api/push/test`, `/api/softphone/token` (scheduler) |
 | workflow token (`SEAL_TOKEN`) | `Authorization: Bearer <token>` | `POST /api/ledger/seals`, `POST /api/reconcile` |
 
+Cross-origin callers: the web app's origin (`PUBLIC_WEB_URL`) and the local dev server receive CORS
+headers (methods GET, POST, PUT, DELETE; headers `authorization` and `content-type`); any other
+origin receives none. Same-origin and non-browser callers are unaffected.
+
 A route whose feature is not configured on a deployment answers 404 with a sentence saying which
 setting is absent, never a pretend success; the create-call gateway alone answers 503, because it
 refuses everyone until it can verify callers.

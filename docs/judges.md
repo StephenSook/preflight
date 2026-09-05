@@ -1,8 +1,9 @@
 # A three-minute itinerary for a stranger
 
 Everything below works with no account, no key and nothing installed except a terminal. The
-numbers you see are recomputed by the host when you ask; nothing is a screenshot. The web app
-(dashboard and public site) is a separate surface; this page is the one that needs nothing.
+numbers you see are recomputed by the host when you ask; nothing is a screenshot. The web app is
+a separate surface, https://preflight-web-nine.vercel.app (the public site; `/app/` is the cockpit,
+whose flow graph and evidence log need no token); this page is the one that needs nothing.
 
 Host: `https://preflight-api-rc34.onrender.com`. The first request after a quiet spell can take a
 few seconds while the free host wakes; the second is fast.

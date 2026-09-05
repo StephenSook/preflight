@@ -98,6 +98,18 @@ const campaign = await getJson("/api/campaign");
 note(campaign.status === 200 && Array.isArray(campaign.body?.properties) && campaign.body.properties.length === 3, "GET /api/campaign answers P6 to P8", campaign.body?.properties?.map((p) => `${p.id} ${p.verdict}`).join(", "));
 note(summary.body?.reconciliation === null || typeof summary.body?.reconciliation?.leaks === "number", "the summary carries the last reconciliation", summary.body?.reconciliation ? `${summary.body.reconciliation.carrier_records} records, ${summary.body.reconciliation.leaks} leaks` : "none yet");
 
+// 6. the web app: the site serves the hero marker and the cockpit's public screens answer
+const webUrl = (process.env.PREFLIGHT_WEB_URL || "https://preflight-web-nine.vercel.app").replace(/\/$/, "");
+try {
+  const site = await fetch(`${webUrl}/`, { signal: AbortSignal.timeout(30000) });
+  const html = await site.text();
+  note(site.status === 200 && html.includes("evaluated by the engine in this browser"), "the web app's site serves its hero", `${site.status} ${webUrl}`);
+  const cockpit = await fetch(`${webUrl}/app/`, { signal: AbortSignal.timeout(30000) });
+  note(cockpit.status === 200, "the cockpit answers", `${cockpit.status} ${webUrl}/app/`);
+} catch (err) {
+  note(false, "the web app", String(err.message).slice(0, 200));
+}
+
 // The page also names the VAPID key and the softphone; a stranger can read the key.
 const vapid = await getJson("/api/push/vapid");
 note(vapid.status === 200 && typeof vapid.body?.publicKey === "string", "GET /api/push/vapid serves the public key");

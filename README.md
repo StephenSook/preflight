@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-305%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-306%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -112,6 +112,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | One-click install and rollback | From Setup, `POST /api/setup/install` (dashboard token) reads the application through the Application API with the account credentials the person enters, records its current answer, event and fallback hooks, points all three at this host with signed callbacks on, reads the application back and reports success only when the read-back matches what was written; `POST /api/setup/rollback` writes the recorded hooks back the same way. Both are evidence-log entries carrying the hooks before and after; the credentials are kept nowhere | `apps/api/src/setup/application.ts`, `apps/api/src/server.ts` |
 | Held-queue push notifications | With VAPID keys configured, a hold under strict policy is pushed to every subscribed phone after the response has gone out (the decision never waits on a push service): the number masked, the first inconclusive property and its reason, a link to the row. `GET /api/push/vapid` serves the public key; subscribing, unsubscribing and a test push (`/api/push/test`, the pipe proven end to end on a real phone) need the dashboard token; a push service answering 404 or 410 retires that subscription; the table is bounded (`PUSH_SUBSCRIPTIONS_MAX`) and no send waits more than ten seconds. The dashboard page that subscribes a phone is part of the web app | `apps/api/src/push/notify.ts`, `apps/api/src/push/routes.ts`, `apps/api/src/store/pushStore.ts` |
 | Softphone tokens | `POST /api/softphone/token` mints a Client SDK user token from the application's private key: a judge token (public, capped per day by a durable slot taken under a database lock before the platform is asked and released if it refuses, a fresh `judge-` user created through the Users API) so a person with no phone at hand places the demonstration call from the page, or the scheduler's token (dashboard token) so the fixed flow's live leg is answered in the browser. Each is the application token plus a subject and the ACL Vonage's own backend guide gives a voice user, with a short life. The application carries the RTC capability (`scripts/vonage/enable-rtc.mjs`); RTC events land on `/v/rtc` and are not stored. The page that runs the softphone is part of the web app | `apps/api/src/softphone/routes.ts`, `scripts/vonage/enable-rtc.mjs` |
+| Web app | One Vite app, three entries, deployed to the dedicated Vercel project `preflight-web`: the public site (the hero draws the reference flow from the engine in the browser and lights the branch that breaks 47 CFR 64.1200(b)(3); live counters, the ledger head, the last reconciliation and seal and the rate properties are read from the host on every load; the sandbox runs the same engine on a pasted object; the consent gate in three steps), the cockpit (`/app/`: live monitor, block detail, flow graph, held queue, evidence log, setup; the token stays in the tab's session), and the phone page (`/phone/`: push subscription with a service worker, the browser softphone). Motion follows the design checkpoint: a data-attribute library with a reduced-motion branch in every module | `apps/web/` |
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
@@ -177,7 +178,7 @@ recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-shee
 
 ```
 apps/api/            Fastify service: ingress, forwarder, decision layer, stores, ledger endpoints, migrations
-apps/web/            Vite front end (dashboard and public site; not started, see the honest status)
+apps/web/            Vite front end: the public site, the cockpit (/app/) and the phone page (/phone/); live at https://preflight-web-nine.vercel.app
 apps/reference/      the deliberately non-compliant reference application (a Fastify plugin, mounted by the api)
 packages/engine/     NCCO parser, atoms, LTL parser, LTL3 monitor construction, properties, evaluator
 packages/numfacts/   NANPA table, prefix timezone map, calling-hours resolver, committed data + manifest
@@ -208,7 +209,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 305 tests
+pnpm test                       # every suite, 306 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
@@ -305,11 +306,12 @@ What is not built yet, so nobody has to guess:
 - The API is live at https://preflight-api-rc34.onrender.com (Render free tier, kept warm by the
   keepalive workflow with a dead-man check behind it and a daily real-call job through the gateway).
   Signed webhooks are verified live on both legs of a real call, and the answer-webhook timing that
-  shaped the design is measured, not assumed (docs/fact-sheet.md). The web app is not deployed.
-- The web app is not started: the dashboard's six screens over server-sent events, the public
-  site, the browser sandbox, the page that places the in-browser call, and the page where a phone
-  subscribes to held-queue notifications. Their server halves are live (tokens, subscriptions,
-  the test push), so no phone has received a notification and no in-browser call has been placed.
+  shaped the design is measured, not assumed (docs/fact-sheet.md).
+- The web app is deployed at https://preflight-web-nine.vercel.app: the public site (the sandbox
+  runs the engine in the browser; every number on the page is read from the host on load), the
+  cockpit's six screens over server-sent events, and the phone page. Two of its lines are built
+  and not yet proven on a device: no phone has received a held-queue notification, and no
+  in-browser call has been placed through the Client SDK.
 - The rate properties P6 to P8 stand on the calls this host has seen; until the scripted batch of
   human-answered calls runs, the figures rest on a handful of calls and the basis line says how many.
 

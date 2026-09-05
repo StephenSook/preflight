@@ -1,0 +1,30 @@
+name: web app, as a visitor meets it
+
+# Every page of the deployed web app at desktop and phone widths: no console error, no failed
+# request, no horizontal overflow, the live counters filled from the API host cross-origin. Runs
+# daily on an offset minute and on demand; a failure is GitHub's failure email.
+on:
+  schedule:
+    - cron: "37 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @preflight/web exec playwright install --with-deps chromium
+      - name: every page, both widths, reading the host
+        run: node apps/web/tests/live-check.mjs "${PREFLIGHT_WEB_URL:-https://preflight-web-nine.vercel.app}"
+        env:
+          PREFLIGHT_WEB_URL: ${{ vars.PREFLIGHT_WEB_URL }}
