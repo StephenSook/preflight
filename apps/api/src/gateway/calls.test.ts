@@ -1,4 +1,4 @@
-import { createSign, generateKeyPairSync } from "node:crypto";
+import { createHash, createHmac, createSign, generateKeyPairSync } from "node:crypto";
 import { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -27,6 +27,13 @@ function appToken(privateKey = keys.privateKey, applicationId = APP_ID): string 
   return `Bearer ${head}.${body}.${signer.sign(privateKey).toString("base64url")}`;
 }
 const TOKEN = appToken();
+/** A platform webhook signed the way Vonage signs them (HS256 over the api key and the payload hash). */
+function webhookAuth(raw: string): string {
+  const b64url = (s: string) => Buffer.from(s).toString("base64url");
+  const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = b64url(JSON.stringify({ iat: Math.floor(NOW / 1000), jti: "j", iss: "Vonage", payload_hash: createHash("sha256").update(raw).digest("hex"), api_key: "k" }));
+  return `Bearer ${head}.${body}.${createHmac("sha256", "s").update(`${head}.${body}`).digest("base64url")}`;
+}
 
 const NONCOMPLIANT = [{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "talk", text: "Your appointment is tomorrow." }];
 const CONNECT_ONLY = [{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }];
@@ -232,7 +239,7 @@ describe("create-call gateway", () => {
   });
 
   it("puts a held call in the queue, and places it only after a named person decides and the caller re-submits with the override", async () => {
-    const { server, ledger } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
+    const { server, ledger, holds, decisions } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
     const held = await call(server, { ...BASE, ncco: OPEN });
     expect(held.statusCode).toBe(409);
     const { holdId } = held.json() as { holdId: string };
@@ -252,6 +259,22 @@ describe("create-call gateway", () => {
     const placed = await call(server, { ...BASE, ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
     expect(placed.statusCode).toBe(201);
     expect(placed.headers["x-preflight-decision"]).toBe("pass");
+    // The override travels with the call. The platform then asks for the flow at answer time, and that
+    // decision runs on the same override: what strict policy would hold passes, for this call only.
+    expect(await holds.forCall("vonage-uuid-1", undefined)).toMatchObject({ holdId, placedCallUuid: "vonage-uuid-1", placedConversationUuid: "CON-vonage-1" });
+    const answer = (payload: Record<string, unknown>) => {
+      const raw = JSON.stringify(payload);
+      return server.inject({ method: "POST", url: "/v/answer", payload: raw, headers: { "content-type": "application/json", authorization: webhookAuth(raw) } });
+    };
+    served = JSON.stringify(OPEN);
+    const leg = await answer({ uuid: "leg-2", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" });
+    expect(leg.headers["x-preflight-decision"]).toBe("pass");
+    expect((await decisions.recent(1))[0]).toMatchObject({ policy: "advisory", decision: "pass", reason: expect.stringContaining(holdId) });
+    // A leg of some other conversation is held as before, and a false verdict still blocks on the override.
+    expect((await answer({ uuid: "leg-3", conversation_uuid: "CON-other", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("hold");
+    served = JSON.stringify(NONCOMPLIANT);
+    expect((await answer({ uuid: "leg-4", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("block");
+    served = JSON.stringify(CONNECT_ONLY);
     // An override is bound to its destination.
     const other = await call(server, { ...BASE, to: [{ type: "phone", number: "14042000000" }], ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
     expect(other.statusCode).toBe(409);

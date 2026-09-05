@@ -26,7 +26,7 @@ import { forwardToOrigin } from "./proxy/forward.js";
 import type { DecisionStore } from "./store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
 import type { GraphStore } from "./store/graphStore.js";
-import type { HoldStore } from "./store/holdStore.js";
+import { overrideFor, type HoldStore } from "./store/holdStore.js";
 import { DecisionBus, publishing, registerStream } from "./stream.js";
 import type { LedgerStore } from "./store/ledgerStore.js";
 import { mintApplicationJwt } from "./vonage/mintApplicationJwt.js";
@@ -206,7 +206,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
         return reply.code(200).type("application/json").send(JSON.stringify(safeNcco("The application's server did not answer in time.")));
       }
       const decideStart = performance.now();
-      const outcome = await flow.decide({ payload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs });
+      const override = await overrideFor(holds, payload);
+      const outcome = await flow.decide({ payload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override });
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
       if (outcome.record.callUuid) await graphStore.setCallPath(outcome.record.callUuid, outcome.pathNodeIds);
@@ -230,7 +231,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     void app.register(referenceApp, { prefix: "/reference", selfBaseUrl: `${config.PUBLIC_BASE_URL ?? `http://127.0.0.1:${config.PORT}`}/reference`, mode: config.REFERENCE_MODE, agent: config.REFERENCE_AGENT, adminToken: config.REFERENCE_ADMIN_TOKEN });
   }
 
-  registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
+  registerBranchHook(app, { config, flow, graphStore, decisions, ledger, holds, store, fetchImpl, clock, ingress, record });
   // Web Push for the held queue: on only when all three VAPID values are configured. A hold's push is
   // fire-and-forget from the gateway; the decision never waits on it.
   const pushStore = deps.pushStore ?? new MemoryPushStore();

@@ -131,7 +131,12 @@ Server-sent events of decisions, with a replay of the last `n` (up to 100) on co
 
 ### `POST /api/held/:id/decide`
 Body `{ "action": "place"|"cancel", "by": "<name>" }`. Writes an `override` evidence-log entry;
-404 when no open hold has that id.
+404 when no open hold has that id. A placed hold is used by re-submitting the same create-call
+request with `x-preflight-override: <hold id>`; the override is bound to the hold's destination.
+The override travels with the call: the platform's answer webhook and every branch hook for that
+call (matched by call or conversation uuid) run on it, so a verdict strict policy would hold passes
+for that call only, a false verdict still blocks, and each branch the call reaches is observed.
+The decision record says `policy: advisory` and names the hold and the person.
 
 ### `GET /api/setup`
 The three URLs to point an application at, the origin, the policy, and the declaration in force

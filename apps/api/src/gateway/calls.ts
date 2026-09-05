@@ -178,6 +178,8 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
           await graphStore.setCallPath(v.uuid, outcome.pathNodeIds);
         }
         if (typeof v.conversation_uuid === "string") outcome.record.conversationUuid = v.conversation_uuid;
+        // The override travels with the call: its answer webhook and branch hooks find the hold by these ids.
+        if (override && (typeof v.uuid === "string" || typeof v.conversation_uuid === "string")) await holds.placed(override.holdId, typeof v.uuid === "string" ? v.uuid : undefined, typeof v.conversation_uuid === "string" ? v.conversation_uuid : undefined);
       } catch {
         // The platform's body is returned to the caller verbatim whatever it is.
       }

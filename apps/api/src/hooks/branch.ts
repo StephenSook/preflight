@@ -6,6 +6,7 @@ import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "../store/eventStore.js";
 import type { GraphStore } from "../store/graphStore.js";
+import { overrideFor, type HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 import { holdNcco, safeNcco } from "../decide/ncco.js";
 
@@ -15,6 +16,7 @@ export interface HookDeps {
   graphStore: GraphStore;
   decisions: DecisionStore;
   ledger: LedgerStore;
+  holds: HoldStore;
   store: EventStore;
   fetchImpl: typeof fetch;
   clock: () => number;
@@ -32,7 +34,7 @@ export interface HookDeps {
  * everything the call has already executed.
  */
 export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
-  const { config, flow, graphStore, decisions, ledger, fetchImpl, clock, ingress, record } = deps;
+  const { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, ingress, record } = deps;
   app.route<{ Querystring: { n?: string; m?: string } }>({
     method: ["GET", "POST"],
     url: "/v/hook",
@@ -75,8 +77,9 @@ export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
       const callUuid = typeof payload?.["uuid"] === "string" ? payload["uuid"] : undefined;
       const prefix = callUuid ? (await graphStore.callPath(callUuid)) ?? [] : [];
       const decideStart = performance.now();
+      const override = await overrideFor(holds, payload);
       const outcome = await flow.decide(
-        { payload, nccoBytes: forwarded.bodyText, endpoint: endpointKeyOf(originUrl), from: { nodeId, kind }, now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs },
+        { payload, nccoBytes: forwarded.bodyText, endpoint: endpointKeyOf(originUrl), from: { nodeId, kind }, now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override },
         prefix,
       );
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);

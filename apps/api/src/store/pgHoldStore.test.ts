@@ -25,5 +25,10 @@ describe.skipIf(!url)("PgHoldStore (integration)", () => {
     expect(decided).toMatchObject({ holdId: id, status: "placed", decidedBy: "S. Sookra" });
     expect(await store.decide(id, "cancelled", "x", new Date().toISOString())).toBeUndefined();
     expect((await store.get(id))?.verdicts[0]).toMatchObject({ id: "P3", verdict: "inconclusive" });
+    await store.placed(id, `${id}-call`, `${id}-conv`);
+    expect(await store.forCall(`${id}-call`, undefined)).toMatchObject({ holdId: id, placedCallUuid: `${id}-call`, placedConversationUuid: `${id}-conv` });
+    expect(await store.forCall(undefined, `${id}-conv`)).toMatchObject({ holdId: id });
+    expect(await store.forCall(`${id}-nope`, `${id}-nope`)).toBeUndefined();
+    expect(await store.forCall(undefined, undefined)).toBeUndefined();
   }, 30000);
 });

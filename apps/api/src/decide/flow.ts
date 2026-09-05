@@ -26,6 +26,8 @@ export interface FlowInput {
   endpoint: string;
   /** The branching node whose callback produced this object, for a branch callback. */
   from?: { nodeId: string; kind: "input_branch" | "notify_branch" } | undefined;
+  /** The released hold this call runs on: an inconclusive verdict passes for this call only, a false verdict still blocks. */
+  override?: { holdId: string; by: string } | undefined;
   now: Date;
   originLatencyMs: number | null;
   verifyLatencyMs: number | null;
@@ -109,6 +111,8 @@ export class FlowDecider {
   async decide(input: FlowInput, prefixNodeIds: readonly string[] = []): Promise<FlowOutcome> {
     const { config, resolver } = this.deps;
     const declaration = await this.currentDeclaration();
+    // A person released a hold on this call: what strict policy would hold, this call passes. What it would block, it still blocks.
+    const policy: "strict" | "advisory" = input.override ? "advisory" : config.POLICY_MODE;
     const p = input.payload ?? {};
     const rawDirection = str(p["direction"]);
     // An application user's leg (the browser softphone, a Client SDK call) carries `endpoint_type: "app"`
@@ -150,17 +154,21 @@ export class FlowDecider {
       reason = `the application's server returned something that is not a call-control object: ${parsed.issues[0]?.message ?? "unknown defect"}`;
     } else if (!rootId) {
       // An empty callback at the end of an object: the call ends here. Evaluate the executed path as terminal.
-      const ev = evaluateGraphFromPrefix(prefixActions, prefixLabels, callFacts, declaration, config.POLICY_MODE);
+      const ev = evaluateGraphFromPrefix(prefixActions, prefixLabels, callFacts, declaration, policy);
       evaluation = ev.evaluation;
       decision = ev.decision;
       reason = ev.reason;
       terminal = true;
     } else {
-      const ge = evaluateGraph(graph, rootId, { declaration, facts: callFacts, policy: config.POLICY_MODE, prefix: { actions: prefixActions, labels: prefixLabels } });
+      const ge = evaluateGraph(graph, rootId, { declaration, facts: callFacts, policy, prefix: { actions: prefixActions, labels: prefixLabels } });
       evaluation = { verdicts: ge.verdicts, callAtoms: { dest_wireless: null, dest_residential: null, within_hours: facts.withinHours, caller_id_present: callerIdPresent(callFacts.from) }, steps: [], decision: ge.decision };
       decision = ge.decision;
       terminal = ge.paths.every((x) => x.path.end === "terminal");
       reason = reasonFor(decision, ge.verdicts);
+    }
+
+    if (input.override && decision === "pass" && evaluation.verdicts.some((v) => v.verdict === "inconclusive")) {
+      reason = `runs on the override recorded for hold ${input.override.holdId} by ${input.override.by}; ${evaluation.verdicts.filter((v) => v.verdict === "inconclusive").map((v) => `${v.id}: ${v.reason ?? "undecided"}`).join("; ")}`;
     }
 
     // A hold the free tables could not resolve (timezone unknown or split) schedules the paid lookup for after
@@ -182,7 +190,7 @@ export class FlowDecider {
       toNumber,
       humanParty,
       facts,
-      policy: config.POLICY_MODE,
+      policy,
       terminal,
       nccoHash: `sha256:${createHash("sha256").update(input.nccoBytes).digest("hex")}`,
       decision,

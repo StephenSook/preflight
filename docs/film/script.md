@@ -41,10 +41,15 @@ SCREEN: the live monitor. The phone on the table, in frame. A number is submitte
 consent gate; the verification call is answered; the code is entered; the call is requested.
 
 > [Film prep, not spoken: the broken flow ends at an open input branch, and strict policy HOLDS an
-> open branch it has never observed. Before this take, let the menu time out once on an inbound
-> call to the public number (no keypress) so the timeout branch is on the graph; then the gateway
-> BLOCKS on (b)(3) as the line says. Confirm `openBranches` is empty on `/api/flow` and record it in
-> the fact sheet at film time. Filmed with the branch unobserved, the row reads held, not blocked.]
+> open branch it has never observed; a held call never runs, so no call can observe the branch on
+> its own. The branch reaches the graph the way the product intends: a request through the gateway
+> is held, a named person releases it from the held queue, the request is re-submitted with the
+> override, the call runs on that override, the menu times out (no keypress), and the hook catches
+> the untraced branch mid-call. From the command line, `node --env-file=.env
+> scripts/ops/release-hold.mjs latest "<name>"` does the release and the re-submit. Then the
+> gateway BLOCKS on (b)(3) as the line says. Confirm `openBranches` is empty on `/api/flow` and
+> record it in the fact sheet at film time. Filmed with the branch unobserved, the row reads held,
+> not blocked.]
 >
 > This is my phone. Preflight is also the create-call gateway, because the platform only asks for
 > the flow once a call is answered; I measured that: the call was answered at 868 milliseconds and
