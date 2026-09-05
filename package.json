@@ -19,7 +19,9 @@
     "replay": "tsx --conditions=development packages/cli/src/cli.ts replay",
     "dev:api": "pnpm --filter @preflight/api run dev",
     "dev:web": "pnpm --filter @preflight/web run dev",
-    "gate:tone": "bash scripts/ai-tone-gate.sh"
+    "gate:tone": "bash scripts/ai-tone-gate.sh",
+    "fact-sheet": "tsx --conditions=development scripts/fact-sheet.ts",
+    "fact-sheet:check": "tsx --conditions=development scripts/fact-sheet.ts --check"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

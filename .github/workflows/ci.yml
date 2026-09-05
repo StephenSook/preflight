@@ -35,6 +35,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: AI-tone gate (prose surfaces)
         run: bash scripts/ai-tone-gate.sh
+      - name: fact sheet and README counts agree with the repository
+        run: pnpm fact-sheet:check
 
   secrets:
     name: gitleaks (full history)
