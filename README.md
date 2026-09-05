@@ -15,6 +15,13 @@ monitor built from the statute does, and it holds rather than guesses.
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
 
+**Live:** the site at [preflight-web-nine.vercel.app](https://preflight-web-nine.vercel.app) (the sandbox runs the
+engine in your browser; every number on the page is read from the host on load), the cockpit at
+[/app/](https://preflight-web-nine.vercel.app/app/), the API at
+[preflight-api-rc34.onrender.com](https://preflight-api-rc34.onrender.com/api/summary), the CLI on
+[npm](https://www.npmjs.com/package/preflight-interlock), and a
+[three-minute itinerary](./docs/judges.md) a stranger can walk with a terminal and nothing installed.
+
 Built for the DIALED IN Builder Challenge (CreateHER Fest x Vonage, Atlanta cohort). This README
 describes what runs today; anything not yet built is listed under [Honest status](#honest-status),
 never implied.
@@ -110,8 +117,8 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Passive graph discovery | Every served object merges into a transition system (nodes per action, sequential, branch and continue edges, observation counts); paths from a node end terminal, open or cyclic; coverage reports declared endpoints observed, states, edges, branch points and open branches | `packages/engine/src/graph/`, `apps/api/src/store/graphStore.ts` |
 | Declared-versus-actual diff | The developer declares, per endpoint, the action sequences they believe it serves (Setup: `GET /api/setup`, `PUT /api/setup/declaration`, both behind the dashboard token; every change names who made it and is an evidence-log entry carrying the declaration's hash, and the next decision uses it without a restart). `GET /api/flow` colours every discovered node declared or undeclared, names the undeclared ones that speak synthetically, and lists the declared endpoints and actions discovery has never seen | `packages/engine/src/graph/diff.ts`, `apps/api/src/store/declarationStore.ts`, `apps/api/src/server.ts` |
 | One-click install and rollback | From Setup, `POST /api/setup/install` (dashboard token) reads the application through the Application API with the account credentials the person enters, records its current answer, event and fallback hooks, points all three at this host with signed callbacks on, reads the application back and reports success only when the read-back matches what was written; `POST /api/setup/rollback` writes the recorded hooks back the same way. Both are evidence-log entries carrying the hooks before and after; the credentials are kept nowhere | `apps/api/src/setup/application.ts`, `apps/api/src/server.ts` |
-| Held-queue push notifications | With VAPID keys configured, a hold under strict policy is pushed to every subscribed phone after the response has gone out (the decision never waits on a push service): the number masked, the first inconclusive property and its reason, a link to the row. `GET /api/push/vapid` serves the public key; subscribing, unsubscribing and a test push (`/api/push/test`, the pipe proven end to end on a real phone) need the dashboard token; a push service answering 404 or 410 retires that subscription; the table is bounded (`PUSH_SUBSCRIPTIONS_MAX`) and no send waits more than ten seconds. The dashboard page that subscribes a phone is part of the web app | `apps/api/src/push/notify.ts`, `apps/api/src/push/routes.ts`, `apps/api/src/store/pushStore.ts` |
-| Softphone tokens | `POST /api/softphone/token` mints a Client SDK user token from the application's private key: a judge token (public, capped per day by a durable slot taken under a database lock before the platform is asked and released if it refuses, a fresh `judge-` user created through the Users API) so a person with no phone at hand places the demonstration call from the page, or the scheduler's token (dashboard token) so the fixed flow's live leg is answered in the browser. Each is the application token plus a subject and the ACL Vonage's own backend guide gives a voice user, with a short life. The application carries the RTC capability (`scripts/vonage/enable-rtc.mjs`); RTC events land on `/v/rtc` and are not stored. The page that runs the softphone is part of the web app | `apps/api/src/softphone/routes.ts`, `scripts/vonage/enable-rtc.mjs` |
+| Held-queue push notifications | With VAPID keys configured, a hold under strict policy is pushed to every subscribed phone after the response has gone out (the decision never waits on a push service): the number masked, the first inconclusive property and its reason, a link to the row. `GET /api/push/vapid` serves the public key; subscribing, unsubscribing and a test push (`/api/push/test`, the pipe proven end to end on a real phone) need the dashboard token; a push service answering 404 or 410 retires that subscription; the table is bounded (`PUSH_SUBSCRIPTIONS_MAX`) and no send waits more than ten seconds. The page that subscribes a phone is `/phone/` on the web app | `apps/api/src/push/notify.ts`, `apps/api/src/push/routes.ts`, `apps/api/src/store/pushStore.ts` |
+| Softphone tokens | `POST /api/softphone/token` mints a Client SDK user token from the application's private key: a judge token (public, capped per day by a durable slot taken under a database lock before the platform is asked and released if it refuses, a fresh `judge-` user created through the Users API) so a person with no phone at hand places the demonstration call from the page, or the scheduler's token (dashboard token) so the fixed flow's live leg is answered in the browser. Each is the application token plus a subject and the ACL Vonage's own backend guide gives a voice user, with a short life. The application carries the RTC capability (`scripts/vonage/enable-rtc.mjs`); RTC events land on `/v/rtc` and are not stored. The page that runs the softphone is `/phone/` on the web app | `apps/api/src/softphone/routes.ts`, `scripts/vonage/enable-rtc.mjs` |
 | Web app | One Vite app, three entries, deployed to the dedicated Vercel project `preflight-web`: the public site (the hero draws the reference flow from the engine in the browser and lights the branch that breaks 47 CFR 64.1200(b)(3); live counters, the ledger head, the last reconciliation and seal and the rate properties are read from the host on every load; the sandbox runs the same engine on a pasted object; the consent gate in three steps), the cockpit (`/app/`: live monitor, block detail, flow graph, held queue, evidence log, setup; the token stays in the tab's session), and the phone page (`/phone/`: push subscription with a service worker, the browser softphone). Motion follows the design checkpoint: a data-attribute library with a reduced-motion branch in every module | `apps/web/` |
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
@@ -120,7 +127,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Consent gate | `POST /api/consent/start` calls the visitor's phone with a four-digit code over Verify v2's voice channel; `/api/consent/check` grants a single-use, fifteen-minute consent, written to the ledger with a keyed hash of the number (HMAC under the application's private key, so the public log cannot be walked back to a number) and never its digits; `/api/demo/call` places one call to that number through the create-call gateway with a token the process mints from its own application key, so the interlock decides it like any other call. A block does not spend the consent; a placed call does, once. Daily allowances bound what a public page can spend | `apps/api/src/consent/` |
 | Decision stream | `/api/stream` serves decisions as server-sent events with a replay of recent ones on connect, behind the dashboard token because it carries phone numbers; the dashboard's transport | `apps/api/src/stream.ts` |
 | CLI | `npx preflight-interlock` (binary `preflight`): check one object, replay the labelled corpus, verify a ledger from a host or a file; one bundled file, no data tables, no account | `packages/cli/` |
-| Public recompute endpoints | `/api/summary` (decision counts, ledger head, coverage, verify and origin latency p50 and p95), `/api/coverage`, `/api/ledger/head`, `/api/ledger/entries`, `/api/ledger/verify`, all unauthenticated | `apps/api/src/server.ts` |
+| Public recompute endpoints | `/api/summary` (decision counts, ledger head, coverage, verify and origin latency p50 and p95, the last reconciliation), `/api/coverage`, `/api/flow`, `/api/campaign`, `/api/ledger/head`, `/api/ledger/entries`, `/api/ledger/verify`, all unauthenticated and answered cross-origin to the web app | `apps/api/src/server.ts` |
 | Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
 | Transparency-log seal | Daily workflow signs the chain head with a P-256 key, uploads a `hashedrekord` to Sigstore Rekor, verifies it back from the public log, and records the seal in the ledger | `.github/workflows/seal.yml`, `packages/ledger/keys/preflight-ledger-public.pem` |
@@ -154,9 +161,9 @@ never a network call. And the graph of a real call flow is distributed across yo
 (an `input` or `notify` callback can return a replacement object), so it cannot be known from any
 one document; an open branch is held until it has been observed.
 
-## Four corrections to the specification, found by construction
+## Nine corrections to the specification, found by construction
 
-The product specification was written before the code. Building it found four defects, each
+The product specification was written before the code. Building it found nine defects, each
 recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
 
 - **Answer-webhook timing.** Vonage fires the answer webhook when a call is answered, so a
@@ -173,6 +180,19 @@ recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-shee
   rule anchors the opt-out to the identification, so P3 is
   `G( identifies -> F (offers_optout | connects_human) )`, and the graph test replays the spec's
   example with the agent path passing and the untraced branch failing.
+- **The Georgia penalty figures.** The spec called them omitted and conflicting. The codified post-SB 73
+  text settles them: up to 2,000 USD per violation in Attorney General proceedings, actual loss or up
+  to 1,000 USD per violation privately, no cap in a class action; the citation test asserts the wording.
+- **P1's scope.** `G( speaks -> within_hours )` checked only spoken actions, so a flow that goes
+  straight to a live agent at 6am passed. Calling hours are a fact about the call, decided at its
+  first action; corpus objects pin it.
+- **The pay action.** The spec left it silent to the atoms, but the platform reads a pay action's
+  prompts aloud, so a pay with prompts speaks synthetically and, before the identification beat,
+  breaks P2 and P5.
+- **P4's scope.** Caller id is set on the call request, so it is a fact about the call like P1, not an
+  always over the actions; an open path with a caller id no longer holds on P4.
+- **The P8 citation.** "Vonage AUP item 18" names nothing: the policy page renders its prohibitions as
+  unnumbered bullets. P8 cites the section and the page date instead.
 
 ## Repo layout
 
@@ -186,10 +206,10 @@ packages/ledger/     canonical JSON, hash chain, verification, the public seal k
 packages/rules/      committed statute texts at a pinned vintage, verbatim quoted clauses, two-direction citation enforcement
 packages/cli/        npx preflight-interlock: check, replay, verify-ledger (bundled, no dependencies)
 corpus/ncco/         labelled call-control objects with expected atoms, verdicts and witness paths
-scripts/             fact-sheet.ts, ai-tone-gate.sh, mutation/ (the harness), ops/ (itinerary, Render env), vonage/ (account and call helpers)
+scripts/             fact-sheet.ts, ai-tone-gate.sh, mutation/ (the harness), ops/ (itinerary, Render env, the web deploy), vonage/ (account and call helpers), design/ (fonts, tokens)
 spike/gate1/         the measurement rig that killed the previous candidate (kept as evidence)
-docs/                fact sheet (single source for every number on every surface)
-.github/workflows/   ci.yml, seal.yml, keepalive.yml, deadman.yml, daily-call.yml, reconcile.yml, itinerary.yml
+docs/                fact-sheet.md (the only source for any number), api.md, judges.md, adr/, design/, film/, submission/
+.github/workflows/   ci.yml, seal.yml, keepalive.yml, deadman.yml, daily-call.yml, reconcile.yml, itinerary.yml, web-e2e.yml
 ```
 
 ## Quickstart
@@ -203,6 +223,7 @@ cd preflight
 pnpm install --frozen-lockfile
 cp .env.example .env            # fill in the Vonage values from your dashboard
 pnpm dev:api                    # http://localhost:3131/health
+pnpm dev:web                    # http://localhost:5173, proxying /api to the deployed host
 ```
 
 Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v/event` and
@@ -218,10 +239,14 @@ pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from
 
 ## Verification
 
-CI runs on every push to `main`: lint, typecheck, the full vitest suite, an AI-tone gate over every
-prose surface, gitleaks over the full history, and Socket's dependency report. The Postgres
-integration suites (event store, decision store, ledger) run against a real database in CI and are
-written to fail, never skip, when `DATABASE_URL` is missing.
+CI runs on every push to `main`: lint, typecheck, the web app's build, the full vitest suite, an
+AI-tone gate over every prose surface, the fact-sheet check (the README's counts and the recorded
+mutation run must match the tree), gitleaks over the full history, and Socket's dependency report.
+The Postgres integration suites (event store, decision store, ledger, softphone slots) run against
+a real database in CI and are written to fail, never skip, when `DATABASE_URL` is missing. Beyond
+CI, scheduled jobs exercise the deployed system rather than assert it: the seal daily, the carrier
+reconciliation nightly, the judge itinerary daily from a clean runner, a real call through the
+gateway daily, and the web app visited daily at desktop and phone widths with axe.
 
 The engine's own guarantees are tests, not claims:
 
@@ -243,7 +268,8 @@ The engine's own guarantees are tests, not claims:
 
 The evidence log is verifiable by anyone with the URL: `GET /api/ledger/verify` recomputes every
 hash from genesis and reports the first broken entry, if any. The Rekor seal is verified with
-`rekor-cli` against the committed public key; the exact command is printed by the seal workflow.
+`rekor-cli`; [`docs/judges.md`](./docs/judges.md) carries the recipe that ties a Rekor entry to
+this ledger's head, and the host refuses a seal whose head is not an entry of its own log.
 
 ### On the live host
 
@@ -294,14 +320,17 @@ its publish; until it lands, replay the corpus from a clone with `pnpm replay co
 
 ## Reference
 
+- `docs/judges.md`: a three-minute itinerary for a stranger with a terminal, executed daily.
 - `docs/api.md`: every route the host serves, who may call it, what it answers.
 - `docs/adr/`: the decisions with their alternatives and consequences (the create-call gateway,
   the free host kept warm, the hand-built three-valued engine, the declared flow).
 - `docs/fact-sheet.md`: the only source for any number quoted anywhere.
+- `docs/design/`: the design checkpoint with its measured inventory and the seven decisions, the token
+  file the site's custom properties are generated from, the section copy.
 
 ## Honest status
 
-What is not built yet, so nobody has to guess:
+What is live, what stands on little data, and what is built but not yet proven, so nobody has to guess:
 
 - The API is live at https://preflight-api-rc34.onrender.com (Render free tier, kept warm by the
   keepalive workflow with a dead-man check behind it and a daily real-call job through the gateway).

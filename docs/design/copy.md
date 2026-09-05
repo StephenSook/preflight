@@ -104,8 +104,8 @@ call through. Your number is kept as a hash, never as digits.
 
 **Buttons:** Call me with the code · I have the code
 
-**Below:** No phone at hand? The browser softphone places the same call from this page. (This line
-ships only if the Client SDK softphone is built; it is not built yet.)
+**Below:** No phone at hand? The browser softphone places the same call from this page. (Built on
+`/phone/`; the call itself has not yet been placed from a browser, and the README says so.)
 
 ## 6. Sandbox (paper, mono)
 

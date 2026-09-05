@@ -10,9 +10,15 @@ Run exactly what CI runs, each on its own exit code:
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm --filter @preflight/web build
 pnpm test                        # needs DATABASE_URL for the Postgres integration suites; they skip locally without it and fail in CI
 bash scripts/ai-tone-gate.sh     # prose surfaces: no em-dashes, no curly quotes, no marketing words
+pnpm fact-sheet:check            # the README's counts and the recorded mutation run must match the tree
 ```
+
+After any change to `scripts/mutation/mutants.json` or to a source file it mutates, run `pnpm mutate`
+and commit `scripts/mutation/last-run.json`; the fact-sheet check refuses a stale record. After a
+change to tests, workflows or migrations, run `pnpm fact-sheet` and commit the regenerated sheet.
 
 ## What a good change looks like
 
