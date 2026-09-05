@@ -285,6 +285,13 @@ npx -y preflight-interlock@0.1.0 replay corpus/ncco        # the labelled corpus
 | Ga. Comp. R. & Regs. 515-14-1-.03 (via Cornell LII) | the Public Service Commission's identification and caller-id rules | regulatory text |
 | Vonage Voice API reference | NCCO field names, webhook shapes, signed callbacks | documentation |
 
+## Reference
+
+- `docs/api.md`: every route the host serves, who may call it, what it answers.
+- `docs/adr/`: the decisions with their alternatives and consequences (the create-call gateway,
+  the free host kept warm, the hand-built three-valued engine, the declared flow).
+- `docs/fact-sheet.md`: the only source for any number quoted anywhere.
+
 ## Honest status
 
 What is not built yet, so nobody has to guess:
