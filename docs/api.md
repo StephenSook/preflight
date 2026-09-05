@@ -51,7 +51,10 @@ or 402 from the platform comes back as such, and the evidence-log entry then car
 and `platform_status`); 409 `{ "decision": "block"|"hold", "reason", "verdicts",
 "holdId"? , "placed": false }` on refusal, nothing reaching the carrier; 400 on a malformed
 request; 401 on a token this application did not sign. `X-Preflight-Override: <holdId>` places a
-held request a named person has approved, for that destination only.
+held request a named person has approved, for that destination only. The entry's `ncco_hash` is
+the SHA-256 of the object's bytes as the origin served them; for an inline object it is over the
+object's compact JSON re-serialisation (`JSON.stringify`), not the request's raw bytes, so a
+stranger reproduces it from the object, not from the wire.
 
 ### `GET|POST /v/rtc`
 The RTC event sink for the browser softphone; 204, nothing stored.
