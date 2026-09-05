@@ -10,7 +10,7 @@ per figure and is opened source by source before the film renders.
 Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block or the README counts drift, `pnpm fact-sheet:check`):
 
 <!-- generated:static -->
-- Tests: 295 across 81 suites (vitest, `pnpm test`)
+- Tests: 298 across 83 suites (vitest, `pnpm test`)
 - Mutants: 48 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
@@ -29,7 +29,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T09:20:25.368Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Read at 2026-09-05T09:26:39.943Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
 - Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
 - Evidence log: 12 entries, head `sha256:c0dcc776f228b4478cf33037269359e43146c0766b485a32e9f0ea27ce7e4cd1`, verify ok (12 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)
@@ -74,6 +74,7 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | Carrier-side reconciliation on the corrected classifier | Window 2026-09-04T07:11:12Z to 2026-09-05T09:11:12Z: the same 2 carrier records (records hash unchanged, sha256:be254677...), 2 matched, 0 outside the window, 0 placed around the interlock, 0 leaked, and 2 gateway refusals in the window, neither of which reached the carrier; ledger entry 12, entry hash sha256:c0dcc776f228b4478cf33037269359e43146c0766b485a32e9f0ea27ce7e4cd1 | .github/workflows/reconcile.yml run 33957286886 (workflow_dispatch), deploy of commit 68526fe | 2026-09-05 |
 | Silence after a refusal, measured daily | The gateway refused the broken flow (HTTP 409, block, P1 Calling hours, 510 ms, no call uuid in the response) and the signed-event count stayed at 18 for the 60 seconds that followed: nothing was created at the platform | .github/workflows/daily-call.yml run 33955576129 (workflow_dispatch), scripts/vonage/daily-call.mjs | 2026-09-05 |
 | One-click install and rollback, round trip on the real application | `POST /api/setup/install` against application 0634d503 (gate1-spike): read, written, read back in 652 ms, signed callbacks on, ledger entry 10 (kind `setup`, sha256:7104e819e879f1e6b623f416de8a3eb37c9e2cff8bac47cf68e585cdbac5327d); `POST /api/setup/rollback` with the recorded hooks: 384 ms, ledger entry 11 (sha256:bc0e6e58fdbd88e04df1bc10bdb04fc1945c1990851489afd338c83d682c7c26); `/api/ledger/verify` ok at 11 entries; an independent Application API read afterwards showed answer GET, event POST, fallback GET on the deployed host and signed_callbacks true. The account credentials appeared in no response and no entry | node script against https://preflight-api-rc34.onrender.com with the dashboard token, deploy dep-dadtf8p7lnhs73eb3lkg (commit 8843144) | 2026-09-05 |
+| RTC capability added to the application for the browser softphone | Before: capabilities [voice]. After: [voice, rtc], rtc event_url https://preflight-api-rc34.onrender.com/v/rtc (POST), voice webhooks read back unchanged (answer GET, event POST, fallback GET) with signed callbacks still on; the platform reports signed_callbacks false on the rtc capability by default | scripts/vonage/enable-rtc.mjs against application 0634d503 through the Application API; the prior state saved under results/ (ignored) | 2026-09-05 |
 | GET answer webhook refused before the fix | Every real GET answer webhook was refused with payload_hash_mismatch (first call, 07:00:46 UTC; the callee leg went busy after the fallback was refused too) because the verifier hashed the raw query string. Vonage hashes the query parameters serialised as a compact JSON object in URL order (support article 19033783342876). Fixed in commit dbd1b68 with tests; events (POST) had verified all along | Render application log; apps/api/src/vonage/verifyWebhook.test.ts | 2026-09-04 |
 
 ## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)

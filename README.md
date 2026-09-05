@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-295%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-298%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -111,6 +111,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Declared-versus-actual diff | The developer declares, per endpoint, the action sequences they believe it serves (Setup: `GET /api/setup`, `PUT /api/setup/declaration`, both behind the dashboard token; every change names who made it and is an evidence-log entry carrying the declaration's hash, and the next decision uses it without a restart). `GET /api/flow` colours every discovered node declared or undeclared, names the undeclared ones that speak synthetically, and lists the declared endpoints and actions discovery has never seen | `packages/engine/src/graph/diff.ts`, `apps/api/src/store/declarationStore.ts`, `apps/api/src/server.ts` |
 | One-click install and rollback | From Setup, `POST /api/setup/install` (dashboard token) reads the application through the Application API with the account credentials the person enters, records its current answer, event and fallback hooks, points all three at this host with signed callbacks on, reads the application back and reports success only when the read-back matches what was written; `POST /api/setup/rollback` writes the recorded hooks back the same way. Both are evidence-log entries carrying the hooks before and after; the credentials are kept nowhere | `apps/api/src/setup/application.ts`, `apps/api/src/server.ts` |
 | Held-queue push notifications | With VAPID keys configured, a hold under strict policy is pushed to every subscribed phone after the response has gone out (the decision never waits on a push service): the number masked, the first inconclusive property and its reason, a link to the row. `GET /api/push/vapid` serves the public key; subscribing, unsubscribing and a test push (`/api/push/test`, the pipe proven end to end on a real phone) need the dashboard token; a push service answering 404 or 410 retires that subscription. The dashboard page that subscribes a phone is part of the web app | `apps/api/src/push/notify.ts`, `apps/api/src/push/routes.ts`, `apps/api/src/store/pushStore.ts` |
+| Softphone tokens | `POST /api/softphone/token` mints a Client SDK user token from the application's private key: a judge token (public, capped per day, a fresh `judge-` user created through the Users API) so a person with no phone at hand places the demonstration call from the page, or the scheduler's token (dashboard token) so the fixed flow's live leg is answered in the browser. Each is the application token plus a subject and the ACL Vonage's own backend guide gives a voice user, with a short life. The application carries the RTC capability (`scripts/vonage/enable-rtc.mjs`); RTC events land on `/v/rtc` and are not stored. The page that runs the softphone is part of the web app | `apps/api/src/softphone/routes.ts`, `scripts/vonage/enable-rtc.mjs` |
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
@@ -207,7 +208,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 295 tests
+pnpm test                       # every suite, 298 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
@@ -288,9 +289,10 @@ What is not built yet, so nobody has to guess:
   keepalive workflow with a dead-man check behind it and a daily real-call job through the gateway).
   Signed webhooks are verified live on both legs of a real call, and the answer-webhook timing that
   shaped the design is measured, not assumed (docs/fact-sheet.md). The web app is not deployed.
-- The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
-  softphone are not started; the web app is where a phone subscribes to held-queue pushes, so no
-  phone has received one yet.
+- The web app is not started: the dashboard's six screens over server-sent events, the public
+  site, the browser sandbox, the page that places the in-browser call, and the page where a phone
+  subscribes to held-queue notifications. Their server halves are live (tokens, subscriptions,
+  the test push), so no phone has received a notification and no in-browser call has been placed.
 - The rate properties P6 to P8 stand on the calls this host has seen; until the scripted batch of
   human-answered calls runs, the figures rest on a handful of calls and the basis line says how many.
 

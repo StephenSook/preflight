@@ -34,6 +34,9 @@ const schema = z.object({
   VERIFY_STARTS_PER_DAY: z.coerce.number().int().nonnegative().default(40),
   DEMO_CALLS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
   // Identity Insights: the paid lookup that resolves a hold the free tables could not. Off by default; costs money per lookup.
+  // The browser softphone: judge tokens are public and capped per day; each token lives this long.
+  SOFTPHONE_TOKENS_PER_DAY: z.coerce.number().int().nonnegative().default(50),
+  SOFTPHONE_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().max(240).default(30),
   // Where the web app lives (the Vercel project), for links in notifications; the API host when absent.
   PUBLIC_WEB_URL: z.string().url().optional(),
   // Web Push for the held queue: all three present turns it on. Generate with `web-push generate-vapid-keys`.

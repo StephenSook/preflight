@@ -10,6 +10,7 @@ import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { InsightLookups } from "./insights/lookups.js";
 import { PushNotifier, type PushSender } from "./push/notify.js";
 import { registerPush } from "./push/routes.js";
+import { registerSoftphone } from "./softphone/routes.js";
 import { MemoryPushStore, type PushStore } from "./store/pushStore.js";
 import { preflightWebhooks, readApplication, writeWebhooks, type Credentials, type Hook, type VoiceWebhooks } from "./setup/application.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
@@ -231,6 +232,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   };
   registerStream(app, bus, (presented) => (!config.DASHBOARD_TOKEN ? "disabled" : dashboardAuth(presented ? `Bearer ${presented}` : undefined) ? "ok" : "forbidden"));
   registerPush(app, { store: pushStore, notifier, dashboardAuth, dashboardEnabled: Boolean(config.DASHBOARD_TOKEN), clock });
+  registerSoftphone(app, { config, fetchImpl, clock, applicationPrivateKeyPem: privateKeyPem, dashboardAuth });
   app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
     const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";

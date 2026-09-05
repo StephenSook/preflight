@@ -26,8 +26,8 @@ const CLAIMS: Array<{ term: RegExp; evidence: () => boolean; where: string }> = 
   { term: /eCFR/, evidence: () => existsSync(path.join(root, "packages/rules/data/47-cfr-64.1200.txt")), where: "packages/rules/data/47-cfr-64.1200.txt" },
   { term: /libphonenumber/, evidence: () => existsSync(path.join(root, "packages/numfacts/data/tz-map.txt")), where: "packages/numfacts/data/tz-map.txt" },
   { term: /@vonage\/jwt/, evidence: () => has("apps/api/src/vonage/verifyWebhook.ts", "@vonage/jwt"), where: "apps/api/src/vonage/verifyWebhook.ts" },
-  { term: /Client SDK|softphone/, evidence: () => has("apps/web/src/softphone.ts", "@vonage/client-sdk"), where: "apps/web/src/softphone.ts (not built yet)" },
-  { term: /Web Push|PWA/, evidence: () => has("apps/api/src/push/routes.ts", "web-push"), where: "apps/api/src/push/routes.ts (not built yet)" },
+  { term: /Client SDK|softphone/, evidence: () => has("apps/api/src/softphone/routes.ts", "acl") && has("apps/api/src/softphone/routes.ts", "/v1/users"), where: "apps/api/src/softphone/routes.ts" },
+  { term: /Web Push|PWA/, evidence: () => has("apps/api/src/push/notify.ts", "web-push"), where: "apps/api/src/push/notify.ts" },
   { term: /GSAP|Lenis/, evidence: () => has("apps/web/package.json", "gsap"), where: "apps/web/package.json (not built yet)" },
 ];
 
