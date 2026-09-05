@@ -1,0 +1,26 @@
+name: judge itinerary
+# Walks docs/judges.md daily the way a stranger would, from a clean runner with nothing installed
+# but Node: every public endpoint, the evidence log recomputed by an independent npx run, the offline
+# check on a file. A failing step is a broken promise on the judge-facing page; GitHub's failure email
+# is the alarm. Offset minute: :00 and */N schedules are throttled.
+on:
+  schedule:
+    - cron: "52 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  walk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: every command on the judge page, executed
+        env:
+          PREFLIGHT_API_URL: ${{ vars.PREFLIGHT_API_URL }}
+        run: node scripts/ops/itinerary.mjs
