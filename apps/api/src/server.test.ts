@@ -409,6 +409,54 @@ describe("preflight api ingress", () => {
     expect(await insights.get("2083250100")).toBeUndefined();
   });
 
+  it("installs and rolls back an application through the Application API from Setup, records both in the ledger, and keeps the secret nowhere", async () => {
+    const APP_ID = "0634d503-32c0-4160-be3e-8c31f50e5bd6";
+    const origin = { answer: { address: "https://app.example/answer", http_method: "POST" }, event: { address: "https://app.example/event", http_method: "POST" }, fallback: { address: "https://app.example/fallback", http_method: "POST" } };
+    let application: Record<string, unknown> = { id: APP_ID, name: "gate1-spike", capabilities: { voice: { signed_callbacks: true, webhooks: { answer_url: origin.answer, event_url: origin.event, fallback_answer_url: origin.fallback } }, rtc: { webhooks: {} } } };
+    const platform: Array<{ method: string; auth: string | undefined }> = [];
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).startsWith(`https://api.nexmo.com/v2/applications/${APP_ID}`)) {
+        const method = init?.method ?? "GET";
+        platform.push({ method, auth: (init?.headers as Record<string, string> | undefined)?.["authorization"] });
+        if (method === "PUT") {
+          const body = JSON.parse(String(init?.body)) as { name: string; capabilities: unknown };
+          application = { ...application, name: body.name, capabilities: body.capabilities };
+        }
+        return new Response(JSON.stringify(application), { status: 200 });
+      }
+      return fetch(url, init);
+    }) as typeof fetch;
+    const token = "dashboard-token-for-tests-3";
+    const ledger = new MemoryLedgerStore();
+    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", PUBLIC_BASE_URL: "https://preflight.example", LOG_LEVEL: "silent", DASHBOARD_TOKEN: token });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions: new MemoryDecisionStore(), ledger, graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, fetchImpl, now: () => NOW });
+    const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    const body = { application_id: APP_ID, api_key: "4d4ed5c0", api_secret: "s3cr3t-value", by: "S. Sookra" };
+    expect((await server.inject({ method: "POST", url: "/api/setup/install", payload: JSON.stringify(body), headers: { "content-type": "application/json" } })).statusCode).toBe(403);
+    expect((await server.inject({ method: "POST", url: "/api/setup/install", payload: JSON.stringify({ ...body, api_secret: "" }), headers })).statusCode).toBe(400);
+    expect((await server.inject({ method: "POST", url: "/api/setup/install", payload: JSON.stringify({ ...body, application_id: "not-a-uuid" }), headers })).statusCode).toBe(400);
+
+    const install = await server.inject({ method: "POST", url: "/api/setup/install", payload: JSON.stringify(body), headers });
+    expect(install.statusCode).toBe(200);
+    const preflight = { answer: { address: "https://preflight.example/v/answer", http_method: "GET" }, event: { address: "https://preflight.example/v/event", http_method: "POST" }, fallback: { address: "https://preflight.example/v/fallback", http_method: "GET" } };
+    expect(install.json()).toMatchObject({ action: "install", application: { id: APP_ID, name: "gate1-spike" }, previous: origin, current: preflight, signed_callbacks: true, ledger: { seq: 1 } });
+    expect(install.body).not.toContain("s3cr3t-value");
+    const e1 = (await ledger.entries(0, 1))[0];
+    expect(e1).toMatchObject({ kind: "setup", detail: { action: "install", application_id: APP_ID, by: "S. Sookra", previous: origin, current: preflight } });
+    expect(JSON.stringify(e1)).not.toContain("s3cr3t-value");
+    expect(((application["capabilities"] as Record<string, unknown>)["voice"] as Record<string, unknown>)["webhooks"]).toMatchObject({ answer_url: preflight.answer, event_url: preflight.event, fallback_answer_url: preflight.fallback });
+    expect((application["capabilities"] as Record<string, unknown>)["rtc"]).toEqual({ webhooks: {} });
+
+    expect((await server.inject({ method: "POST", url: "/api/setup/rollback", payload: JSON.stringify({ ...body, previous: { answer: origin.answer } }), headers })).statusCode).toBe(400);
+    const rollback = await server.inject({ method: "POST", url: "/api/setup/rollback", payload: JSON.stringify({ ...body, previous: (install.json() as { previous: unknown }).previous }), headers });
+    expect(rollback.statusCode).toBe(200);
+    expect(rollback.json()).toMatchObject({ action: "rollback", previous: preflight, current: origin, ledger: { seq: 2 } });
+    expect(((application["capabilities"] as Record<string, unknown>)["voice"] as Record<string, unknown>)["webhooks"]).toMatchObject({ answer_url: origin.answer });
+    expect(platform.map((p) => p.method)).toEqual(["GET", "PUT", "GET", "GET", "PUT", "GET"]);
+    expect(platform.every((p) => p.auth === `Basic ${Buffer.from("4d4ed5c0:s3cr3t-value").toString("base64")}`)).toBe(true);
+    expect((await ledger.verify()).ok).toBe(true);
+  });
+
   it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
     served = FLOWS.syntheticWithOptOut;
     const off = app();

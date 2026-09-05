@@ -7,6 +7,7 @@ import type { Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { InsightLookups } from "./insights/lookups.js";
+import { preflightWebhooks, readApplication, writeWebhooks, type Credentials, type Hook, type VoiceWebhooks } from "./setup/application.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
 import { MemoryInsightStore, type InsightStore } from "./store/insightStore.js";
 import { FlowDecider } from "./decide/flow.js";
@@ -362,6 +363,85 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     });
     req.log.info({ by, hash: rec.hash, seq: entry.seq }, "flow declaration replaced");
     return { ...(await setupView()), ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
+  });
+
+  // One-click install and rollback through the Application API (plan addition A5). The account
+  // credentials travel through for two or three platform requests and are kept nowhere: not in a
+  // store, not in the log, not in the ledger. What the ledger keeps is what the hooks were and are.
+  const parseSetupBody = (raw: unknown): Record<string, unknown> | undefined => {
+    try {
+      const v = JSON.parse(typeof raw === "string" ? raw : "{}") as unknown;
+      return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const credentialsOf = (body: Record<string, unknown>): { creds: Credentials; by: string } | { error: string } => {
+    const applicationId = typeof body["application_id"] === "string" ? body["application_id"].trim() : "";
+    const apiKey = typeof body["api_key"] === "string" ? body["api_key"].trim() : "";
+    const apiSecret = typeof body["api_secret"] === "string" ? body["api_secret"] : "";
+    const by = typeof body["by"] === "string" ? body["by"].trim() : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(applicationId) || apiKey.length === 0 || apiSecret.length === 0 || by.length === 0) {
+      return { error: 'expected {"application_id": "<uuid>", "api_key": "...", "api_secret": "...", "by": "<name>"}: the credentials are used for the requests and kept nowhere; every change names who made it' };
+    }
+    return { creds: { applicationId, apiKey, apiSecret }, by };
+  };
+  const hookOf = (v: unknown): Hook | undefined => {
+    const r = typeof v === "object" && v !== null ? (v as { address?: unknown; http_method?: unknown }) : undefined;
+    if (!r || typeof r.address !== "string" || !/^https?:\/\/\S+$/.test(r.address) || (r.http_method !== "GET" && r.http_method !== "POST")) return undefined;
+    return { address: r.address, http_method: r.http_method };
+  };
+  const setupEntry = async (action: "install" | "rollback", creds: Credentials, by: string, previous: VoiceWebhooks | undefined, current: VoiceWebhooks | undefined) =>
+    ledger.append({
+      ts: new Date(clock()).toISOString(),
+      kind: "setup",
+      call_uuid: null,
+      decision: null,
+      property: null,
+      citation: null,
+      witness: [],
+      ncco_hash: null,
+      line_type: null,
+      detail: { action, application_id: creds.applicationId, by, previous: previous ? hooksCanonical(previous) : null, current: current ? hooksCanonical(current) : null, signed_callbacks: true },
+    });
+  function hooksCanonical(w: VoiceWebhooks): Canonical {
+    return { answer: { address: w.answer.address, http_method: w.answer.http_method }, event: { address: w.event.address, http_method: w.event.http_method }, fallback: { address: w.fallback.address, http_method: w.fallback.http_method } };
+  }
+  app.post<{ Body: string }>("/api/setup/install", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    if (!config.PUBLIC_BASE_URL) return reply.code(409).send({ error: "PUBLIC_BASE_URL is not set on this deployment, so there is no address to point the application at" });
+    const body = parseSetupBody(req.body);
+    if (!body) return reply.code(400).send({ error: "body must be a JSON object" });
+    const parsed = credentialsOf(body);
+    if ("error" in parsed) return reply.code(400).send({ error: parsed.error });
+    const before = await readApplication(parsed.creds, { fetchImpl });
+    if (!before.ok) return reply.code(502).send({ error: `the platform refused to read the application: ${before.error}`, platform_status: before.status });
+    const target = preflightWebhooks(config.PUBLIC_BASE_URL);
+    const after = await writeWebhooks(parsed.creds, before.raw, target, { fetchImpl });
+    if (!after.ok) return reply.code(502).send({ error: `the install did not verify: ${after.error}`, platform_status: after.status, previous: before.view.webhooks ?? null });
+    const entry = await setupEntry("install", parsed.creds, parsed.by, before.view.webhooks, after.view.webhooks);
+    req.log.info({ applicationId: parsed.creds.applicationId, by: parsed.by, seq: entry.seq }, "application pointed at preflight");
+    return { action: "install", application: { id: after.view.id, name: after.view.name }, previous: before.view.webhooks ?? null, current: after.view.webhooks, signed_callbacks: after.view.signedCallbacks, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
+  });
+  app.post<{ Body: string }>("/api/setup/rollback", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    const body = parseSetupBody(req.body);
+    if (!body) return reply.code(400).send({ error: "body must be a JSON object" });
+    const parsed = credentialsOf(body);
+    if ("error" in parsed) return reply.code(400).send({ error: parsed.error });
+    const prev = typeof body["previous"] === "object" && body["previous"] !== null ? (body["previous"] as Record<string, unknown>) : undefined;
+    const answer = hookOf(prev?.["answer"]);
+    const event = hookOf(prev?.["event"]);
+    const fallback = hookOf(prev?.["fallback"]);
+    if (!answer || !event || !fallback) return reply.code(400).send({ error: "expected previous {answer, event, fallback}, each {address: http(s) URL, http_method: GET | POST}, as the install returned them" });
+    const previous: VoiceWebhooks = { answer, event, fallback };
+    const before = await readApplication(parsed.creds, { fetchImpl });
+    if (!before.ok) return reply.code(502).send({ error: `the platform refused to read the application: ${before.error}`, platform_status: before.status });
+    const after = await writeWebhooks(parsed.creds, before.raw, previous, { fetchImpl });
+    if (!after.ok) return reply.code(502).send({ error: `the rollback did not verify: ${after.error}`, platform_status: after.status });
+    const entry = await setupEntry("rollback", parsed.creds, parsed.by, before.view.webhooks, after.view.webhooks);
+    req.log.info({ applicationId: parsed.creds.applicationId, by: parsed.by, seq: entry.seq }, "application webhooks restored");
+    return { action: "rollback", application: { id: after.view.id, name: after.view.name }, previous: before.view.webhooks ?? null, current: after.view.webhooks, signed_callbacks: after.view.signedCallbacks, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
   });
   app.get("/api/summary", async () => {
     const recent = await decisions.recent(500);
