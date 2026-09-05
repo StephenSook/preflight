@@ -457,6 +457,36 @@ describe("preflight api ingress", () => {
     expect((await ledger.verify()).ok).toBe(true);
   });
 
+  it("computes the rate properties from the stored event webhooks and the paths the calls actually ran", async () => {
+    const { server } = app({ POLICY_MODE: "advisory" });
+    const at = (s: number) => new Date(NOW + s * 1000).toISOString();
+    const event = (uuid: string, status: string, s: number, extra: Record<string, unknown> = {}) => post(server, "/v/event", { uuid, conversation_uuid: `CON-${uuid}`, status, direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to, timestamp: at(s), ...extra });
+    // A: a flow that connects a person; answered, detected human, forty seconds of talk.
+    served = FLOWS.connectOnly;
+    expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-A" })).headers["x-preflight-decision"]).toBe("pass");
+    for (const [status, s, extra] of [["started", 0, {}], ["ringing", 0.5, {}], ["answered", 3, {}], ["human", 3.2, {}], ["completed", 43, { duration: "40" }]] as const) expect((await event("call-A", status, s, extra)).statusCode).toBe(204);
+    // B: synthetic speech with an opt-out input and no live leg; a person answered and was never connected: abandoned.
+    served = FLOWS.syntheticWithOptOut;
+    expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-B" })).headers["x-preflight-decision"]).toBe("pass");
+    for (const [status, s, extra] of [["ringing", 0, {}], ["answered", 2, {}], ["completed", 10, { duration: "8" }]] as const) expect((await event("call-B", status, s, extra)).statusCode).toBe(204);
+    // C rang twenty seconds before the timeout; D was cut off after five.
+    for (const [status, s] of [["ringing", 0], ["timeout", 20]] as const) expect((await event("call-C", status, s)).statusCode).toBe(204);
+    for (const [status, s] of [["ringing", 0], ["timeout", 5]] as const) expect((await event("call-D", status, s)).statusCode).toBe(204);
+
+    const res = await server.inject({ method: "GET", url: `/api/campaign?since=${encodeURIComponent(at(-3600))}&until=${encodeURIComponent(at(3600))}` });
+    expect(res.statusCode).toBe(200);
+    const c = res.json() as { events: number; calls: number; outbound: number; answered: number; answeredByPerson: number; abandoned: number; unanswered: number; medianAnsweredDurationSeconds: number; properties: Array<{ id: string; verdict: string; figure: number | null; n: number; basis: string; citation: string }> };
+    expect(c).toMatchObject({ events: 12, calls: 4, outbound: 4, answered: 2, answeredByPerson: 2, abandoned: 1, unanswered: 2, medianAnsweredDurationSeconds: 24 });
+    expect(c.properties.map((p) => [p.id, p.verdict, p.n])).toEqual([["P6", "false", 2], ["P7", "false", 2], ["P8", "true", 4]]);
+    expect(c.properties[0]!.figure).toBe(0.5);
+    expect(c.properties[0]!.basis).toContain("1 of 2 calls answered by a person ran no connect");
+    expect(c.properties[1]!.basis).toContain("shortest 5.0 s");
+    expect(c.properties[2]!.basis).toContain("2 of 4 outbound calls went unanswered (50.0%)");
+    // The default window is the last thirty days; a malformed one is refused.
+    expect(((await server.inject({ method: "GET", url: "/api/campaign" })).json() as { calls: number }).calls).toBe(4);
+    expect((await server.inject({ method: "GET", url: "/api/campaign?since=yesterday" })).statusCode).toBe(400);
+  });
+
   it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
     served = FLOWS.syntheticWithOptOut;
     const off = app();

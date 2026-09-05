@@ -1,0 +1,14 @@
+Vonage Acceptable Use Policy, https://www.vonage.com/legal/acceptable-use-policy/ (page states: Updated: February 3, 2025; footer: 2/4/2025, 12:30:32 PM | V6.0). Excerpt of the section quoted by the rate property P8; the page's list is unnumbered in the rendered text. Rendered with Chromium (Playwright) on 2026-09-05 because the page returns navigation chrome to plain fetches. Copyright Vonage; excerpted for citation.
+
+Users shall not, and shall not authorize, encourage, assist, or enable any other party to engage in, any of the following in connection with the Services:
+
+Telecommunications-Specific Limitations
+
+Violating applicable standards, policies, or guidelines published by generally-recognized industry associations, such as, but not limited to, the Cellular Telecommunications Industry Association (including the CTIA Short Code Monitoring Handbook and Messaging Principles and Best Practices) and the Canadian Wireless Telecommunications Association (including the Canadian Common Short Code Application Guidelines). 
+Violating telecommunications provider or other service provider requirements as communicated by Vonage.
+Using long virtual numbers or voice numbers to receive messages for the purposes of identity verification, bulk messaging, automated messaging, messages using automated dialing, or pre-recorded messaging, and the like.
+Forwarding from a virtual number to a dead endpoint (i.e., if User forwards from a virtual number, User must make a reasonable attempt to receive or answer the message or call, as applicable).
+Artificially inflating traffic (e.g., generating traffic that has been artificially increased to boost the revenue of an entity or network without offering any real benefit to the originator of the call), including inducement of third-party inbound calls or calls to toll-free numbers without a legitimate business purpose.
+Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length.
+Using long virtual numbers provided by Vonage as identifiers for outbound calls, SMS messages, or other communications sent through providers other than Vonage.
+Transmitting caller or sender identification for outbound communications via the Services where the originating User’s right to use such identification has not been validated.

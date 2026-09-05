@@ -5,6 +5,7 @@ import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
+import { campaignWindow } from "./campaign.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { InsightLookups } from "./insights/lookups.js";
 import { preflightWebhooks, readApplication, writeWebhooks, type Credentials, type Hook, type VoiceWebhooks } from "./setup/application.js";
@@ -308,6 +309,13 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.
   app.get("/api/coverage", async () => flow.coverage());
+  // The rate properties (P6 to P8) over a window, default the last thirty days (the rule's own period). Counts only.
+  app.get<{ Querystring: { since?: string; until?: string } }>("/api/campaign", async (req, reply) => {
+    const until = req.query.until ?? new Date(clock()).toISOString();
+    const since = req.query.since ?? new Date(Date.parse(until) - 30 * 86_400_000).toISOString();
+    if (!Number.isFinite(Date.parse(since)) || !Number.isFinite(Date.parse(until)) || Date.parse(since) > Date.parse(until)) return reply.code(400).send({ error: "since and until must be ISO times, since before until" });
+    return campaignWindow({ store, graphStore, declaration: () => flow.currentDeclaration() }, since, until);
+  });
   // The declared-versus-actual diff: the discovered graph coloured against what the developer declared.
   // No phone numbers here, only the application's own call-control objects.
   app.get("/api/flow", async () => flow.diff());

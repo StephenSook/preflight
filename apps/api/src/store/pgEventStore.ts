@@ -47,6 +47,12 @@ export class PgEventStore implements EventStore {
     return rows.map(toStored);
   }
 
+  async eventsBetween(startIso: string, endIso: string, limit: number): Promise<StoredWebhook[]> {
+    const rows = await this.sql<Row[]>`select kind, received_at, method, application_id, call_uuid, conversation_uuid, raw, payload, origin_latency_ms, verify_latency_ms, decision from webhooks
+      where kind = 'event' and received_at >= ${startIso} and received_at <= ${endIso} order by received_at asc, id asc limit ${limit}`;
+    return rows.map(toStored);
+  }
+
   async count(): Promise<number> {
     const [r] = await this.sql<{ n: string }[]>`select count(*)::text as n from webhooks`;
     return Number(r?.n ?? 0);

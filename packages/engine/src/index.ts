@@ -30,3 +30,4 @@ export { decide, evaluateNcco, evaluatePath, labelOf, type Decision, type Evalua
 export { FlowGraph, isBranching, nodeIdOf, payloadHashOf, type Coverage, type EdgeKind, type FlowEdge, type FlowNode, type FlowPath, type ObserveResult } from "./graph/graph.js";
 export { evaluateGraph, type GraphEvaluation, type PathEvaluation } from "./graph/evaluateGraph.js";
 export { declaredEndpointsOf, diffDeclared, type DiffEdge, type DiffMissing, type DiffNode, type DiffStatus, type FlowDiff } from "./graph/diff.js";
+export { ABANDONMENT_SAFE_HARBOUR, MIN_RING_SECONDS, RATE_PROPERTIES, SHORT_CALL_SECONDS, campaignRates, telemetryFromEvents, type CallTelemetry, type CampaignRates, type EventLike, type RateProperty, type RateVerdict } from "./rates.js";

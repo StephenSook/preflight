@@ -1,8 +1,10 @@
-import { PROPERTIES } from "@preflight/engine";
+import { PROPERTIES, RATE_PROPERTIES } from "@preflight/engine";
 import { describe, expect, it } from "vitest";
 import { citationParts, citationsFor, loadRules, sha256Hex } from "./index.js";
 
 const rules = loadRules();
+/** Tier 1 monitors and Tier 2 rate properties alike: every citation either kind carries is enforced. */
+const ALL_PROPERTIES: ReadonlyArray<{ id: string; citation: string }> = [...PROPERTIES, ...RATE_PROPERTIES];
 
 describe("the committed statute texts", () => {
   it("match the manifest hash by hash, so a text cannot change without the manifest changing", () => {
@@ -44,16 +46,20 @@ describe("citation enforcement (HR163: a quoted clause is either used by a live 
     }
   });
 
-  it("every citation a property carries resolves to a quoted clause that names that property", () => {
-    for (const p of PROPERTIES) {
+  it("every citation a property carries resolves to at least one quoted clause per part, each naming that property", () => {
+    for (const p of ALL_PROPERTIES) {
       const parts = citationParts(p.citation);
       expect(parts.length).toBeGreaterThan(0);
-      for (const clause of citationsFor(rules, p.citation)) expect(clause.usedBy, `${clause.id} does not list ${p.id}`).toContain(p.id);
+      for (const part of parts) {
+        const clauses = rules.citations.filter((c) => c.citation === part);
+        expect(clauses.length, `${p.id}: no quoted clause for "${part}"`).toBeGreaterThan(0);
+        for (const clause of clauses) expect(clause.usedBy, `${clause.id} does not list ${p.id}`).toContain(p.id);
+      }
     }
   });
 
   it("every quoted clause is used by a property or excused with a reason, never merely decorative", () => {
-    const propertyIds = new Set(PROPERTIES.map((p) => p.id));
+    const propertyIds = new Set(ALL_PROPERTIES.map((p) => p.id));
     for (const c of rules.citations) {
       const byProperty = c.usedBy.filter((u) => propertyIds.has(u as never));
       const byDoc = c.usedBy.filter((u) => !propertyIds.has(u as never));
@@ -61,7 +67,7 @@ describe("citation enforcement (HR163: a quoted clause is either used by a live 
         expect(byDoc.length, `${c.id} is used by nothing`).toBeGreaterThan(0);
         expect(c.reason, `${c.id} needs a written reason`).toBeTruthy();
       }
-      for (const id of byProperty) expect(citationParts(PROPERTIES.find((p) => p.id === id)?.citation ?? "")).toContain(c.citation);
+      for (const id of byProperty) expect(citationParts(ALL_PROPERTIES.find((p) => p.id === id)?.citation ?? "")).toContain(c.citation);
     }
     expect(new Set(rules.citations.map((c) => c.id)).size).toBe(rules.citations.length);
   });

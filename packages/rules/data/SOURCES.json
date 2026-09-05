@@ -36,6 +36,24 @@
       "terms": "public record",
       "extraction": "pdftotext -layout; struck-through words are NOT distinguishable in this extraction, so quote the codified text, not this file",
       "sha256": "d66d18b2ef2e4fec64569ec6867298bc7dfa5b7976ff140a6686a48d21d7d229"
+    },
+    "16-cfr-310.4.txt": {
+      "title": "16 CFR 310.4 Abusive telemarketing acts or practices (Telemarketing Sales Rule)",
+      "url": "https://www.ecfr.gov/api/versioner/v1/full/2026-09-02/title-16.xml?part=310&section=310.4",
+      "vintage": "eCFR up to date as of 2026-09-02",
+      "kind": "primary",
+      "terms": "U.S. Government work",
+      "extraction": "XML tags removed, whitespace collapsed",
+      "sha256": "9c85582aba2bdaf790d54ed4392a94fb6354516833bccf7e4bef31a88bb3eea7"
+    },
+    "vonage-aup-2025-02-03.txt": {
+      "title": "Vonage Acceptable Use Policy, Telecommunications-Specific Limitations (excerpt)",
+      "url": "https://www.vonage.com/legal/acceptable-use-policy/",
+      "vintage": "page states Updated: February 3, 2025 (footer 2/4/2025 V6.0); rendered 2026-09-05",
+      "kind": "platform policy via a Chromium render (the page returns navigation chrome to plain fetches)",
+      "terms": "copyright Vonage; a short excerpt committed for citation, the list is unnumbered in the rendered text",
+      "extraction": "rendered page innerText, the chapeau and the Telecommunications-Specific Limitations items only; refreshed by hand",
+      "sha256": "9faf426d830e8f7855f9c07eb0a7ae2d5905d1c1fb9a10088d98d40e5fe33278"
     }
   }
 }

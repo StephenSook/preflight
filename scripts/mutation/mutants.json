@@ -63,6 +63,20 @@
     "why": "The diff is positional: a talk declared first does not license a talk that turns up third, and the missing list must name the position the developer expected."
   },
   {
+    "id": "rates-abandonment-over-all-answered",
+    "file": "packages/engine/src/rates.ts",
+    "find": "const abandoned = byPerson.filter((c) => !c.connectedHuman);",
+    "replace": "const abandoned = answered.filter((c) => !c.connectedHuman);",
+    "why": "The denominator is the point: abandonment is measured over calls answered by a person, and a machine-answered call is neither abandoned nor in the denominator."
+  },
+  {
+    "id": "rates-ring-threshold-fourteen",
+    "file": "packages/engine/src/rates.ts",
+    "find": "export const MIN_RING_SECONDS = 15;",
+    "replace": "export const MIN_RING_SECONDS = 14;",
+    "why": "The rule says fifteen seconds or four rings; a fourteen-second cut-off would pass a call the rule fails."
+  },
+  {
     "id": "evaluate-null-fact-passes",
     "file": "packages/engine/src/evaluate.ts",
     "find": "if (nullFact) return { id: p.id, citation: p.citation, verdict: \"inconclusive\", reason: REASON_FOR_NULL[nullFact] };",

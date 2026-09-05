@@ -10,8 +10,8 @@ per figure and is opened source by source before the film renders.
 Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block or the README counts drift, `pnpm fact-sheet:check`):
 
 <!-- generated:static -->
-- Tests: 277 across 73 suites (vitest, `pnpm test`)
-- Mutants: 46 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
+- Tests: 289 across 77 suites (vitest, `pnpm test`)
+- Mutants: 48 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
 - Properties (Tier 1, armed by default):
@@ -21,7 +21,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
   - P4 Caller ID integrity: `caller_id_present` (O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c))
   - P5 Georgia identification first: `(!speaks) W identifies` (O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b))
 - Migrations: 0001_webhooks.sql, 0002_calls_verdicts.sql, 0003_ledger.sql, 0004_flow_graph.sql, 0005_holds.sql, 0006_consents.sql, 0007_flow_declarations.sql, 0008_number_insights.sql
-- HTTP routes: `POST /api/consent/check`, `POST /api/consent/start`, `GET /api/coverage`, `POST /api/demo/call`, `GET /api/flow`, `GET /api/held`, `POST /api/held/:id/decide`, `GET /api/ledger/entries`, `GET /api/ledger/head`, `POST /api/ledger/seals`, `GET /api/ledger/verify`, `POST /api/reconcile`, `GET /api/setup`, `PUT /api/setup/declaration`, `POST /api/setup/install`, `POST /api/setup/rollback`, `GET /api/stream`, `GET /api/summary`, `GET /health`, `GET/POST /v/answer`, `POST /v/calls`, `GET/POST /v/event`, `GET/POST /v/fallback`, `GET/POST /v/hook`
+- HTTP routes: `GET /api/campaign`, `POST /api/consent/check`, `POST /api/consent/start`, `GET /api/coverage`, `POST /api/demo/call`, `GET /api/flow`, `GET /api/held`, `POST /api/held/:id/decide`, `GET /api/ledger/entries`, `GET /api/ledger/head`, `POST /api/ledger/seals`, `GET /api/ledger/verify`, `POST /api/reconcile`, `GET /api/setup`, `PUT /api/setup/declaration`, `POST /api/setup/install`, `POST /api/setup/rollback`, `GET /api/stream`, `GET /api/summary`, `GET /health`, `GET/POST /v/answer`, `POST /v/calls`, `GET/POST /v/event`, `GET/POST /v/fallback`, `GET/POST /v/hook`
 - Scheduled and CI workflows: ci.yml (on push and pull request); daily-call.yml (cron `41 17 * * *` UTC); deadman.yml (cron `23 */6 * * *` UTC); keepalive.yml (cron `7,17,27,37,47,57 * * * *` UTC); reconcile.yml (cron `33 3 * * *` UTC); seal.yml (cron `17 4 * * *` UTC)
 - CLI: `preflight-interlock@0.1.0` (`npx preflight-interlock`)
 <!-- /generated:static -->
@@ -29,7 +29,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T08:55:52.140Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Read at 2026-09-05T09:07:59.040Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
 - Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
 - Evidence log: 11 entries, head `sha256:bc0e6e58fdbd88e04df1bc10bdb04fc1945c1990851489afd338c83d682c7c26`, verify ok (11 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)
@@ -50,6 +50,7 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | Public number | +1 943 244 5023 (Atlanta overlay, on the account since 2026-09-03); +1 201 613 1021 bought 2026-09-04 as the outbound caller id (1.09 USD setup, 1.09 USD per month each) | Vonage dashboard purchase receipt (toast: "has now been added to your account for use"); balance 16.66 to 15.57 USD | 2026-09-04 |
 | Atlanta workshop coupon | `ATLDICHF26`, 15 USD credit | https://developer.vonage.com/en/events/register/dialedin-atlanta-a-createher-fest-tech-series (linked from the Devpost welcome email of 2026-08-14) | 2026-09-04 |
 | Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
+| Platform acceptable-use line on unanswered and short calls | "Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length." Under Telecommunications-Specific Limitations; the policy gives no number for "high volume" | https://www.vonage.com/legal/acceptable-use-policy/ (Updated: February 3, 2025), quoted in packages/rules/data/citations.json (id vonage-aup-telecom-unanswered-short) | 2026-09-05 |
 | Deployed API | https://preflight-api-rc34.onrender.com (Render free plan, virginia, service srv-dad5t10n74is73ddjmu0, auto-deploy from main); the signature secret on the host is a placeholder until the real one is set | Render API response at creation, 2026-09-04 06:00 UTC | 2026-09-04 |
 | Published CLI | `preflight-interlock@0.1.0` on npm, published 2026-09-04 18:27 UTC by the account owner (web 2FA with a security key), tarball shasum a4641e76037f18981688ef06dfe94d3da7ff7224, 3 files, 51.1 kB unpacked. From an empty directory, `npx -y preflight-interlock@0.1.0` checked an object, replayed the 10-object corpus (10 match their labels) and verified the live ledger (4 entries, every hash and link recomputed from genesis) | registry.npmjs.org (`npm view preflight-interlock`); the clean-seat run in this session | 2026-09-04 |
 
@@ -86,3 +87,4 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | P1 scope | `G( speaks -> within_hours )`: only spoken actions are checked against calling hours, so a flow that goes straight to a live agent at 6am, or an empty object, passes | 47 CFR 64.1200(c)(1) forbids initiating the solicitation outside the window; the ring is the intrusion. Encoding: `within_hours`, a fact about the call, false at the first action or at the end of an empty flow | corpus object 39 (06:00 at the destination, connect only), labelled by hand, pinned the gap; packages/engine/src/evaluate.test.ts | 2026-09-04 |
 | Pay action | silent to the atoms | a pay action's prompts and error prompts are read aloud by the platform's text-to-speech, so a pay with prompts speaks synthetically; before the identification beat it breaks P2 and P5 | corpus object 18; packages/engine/src/evaluate.test.ts | 2026-09-04 |
 | P4 scope | `G( caller_id_present )`, an always over the actions | caller id is set on the call request, so it is a fact about the call like P1: decided at the first action whatever it is, true on an open path that has one, false at the end of an empty object without one. The always form held every open path on P4 until its last branch was observed, for a fact already known. Encoding: `caller_id_present` | packages/engine/src/evaluate.test.ts, "P4 is a fact about the call"; mutant P4-always-over-actions | 2026-09-05 |
+| P8 citation | "Vonage AUP item 18" | The policy page (https://www.vonage.com/legal/acceptable-use-policy/, updated February 3, 2025, V6.0) renders its prohibitions as unnumbered bullets under headings; the clause sits under "Telecommunications-Specific Limitations" and reads, verbatim, "Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length." By count from the first prohibition it is the seventeenth, not the eighteenth, and no number is printed, so P8 cites the section and the date. The excerpt is committed with its hash (packages/rules/data/vonage-aup-2025-02-03.txt) and the quote is enforced like the statutes | Chromium render of the page (plain fetches return navigation chrome only, as the specification's own verification pass noted) | 2026-09-05 |

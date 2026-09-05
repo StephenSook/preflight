@@ -29,6 +29,8 @@ export interface EventStore {
   append(row: StoredWebhook): Promise<void>;
   /** Most recent rows first. */
   recent(limit: number): Promise<StoredWebhook[]>;
+  /** Event webhooks received inside [startIso, endIso], oldest first, at most `limit`: the rate properties' input. */
+  eventsBetween(startIso: string, endIso: string, limit: number): Promise<StoredWebhook[]>;
   count(): Promise<number>;
 }
 
@@ -40,6 +42,9 @@ export class MemoryEventStore implements EventStore {
   }
   async recent(limit: number): Promise<StoredWebhook[]> {
     return this.rows.slice(-limit).reverse();
+  }
+  async eventsBetween(startIso: string, endIso: string, limit: number): Promise<StoredWebhook[]> {
+    return this.rows.filter((r) => r.kind === "event" && r.receivedAt >= startIso && r.receivedAt <= endIso).slice(0, limit);
   }
   async count(): Promise<number> {
     return this.rows.length;

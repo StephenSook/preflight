@@ -91,5 +91,41 @@
     ],
     "reason": "the vicarious-liability wording added by SB 73 (on behalf of any person or entity), quoted in the write-up; a Tier 3 no-call-list matter, not a monitored property",
     "quote": "(c) No person or entity shall make or cause to be made on behalf of any person or entity any telephone solicitation to the telephone line of any residential, mobile, or wireless subscriber in this state who has given notice to the commission, in accordance with regulations promulgated under subsection"
+  },
+  {
+    "id": "cfr-310.4-b-1-iv",
+    "citation": "16 CFR 310.4(b)(1)(iv)",
+    "source": "16-cfr-310.4.txt",
+    "usedBy": [
+      "P6"
+    ],
+    "quote": "(iv) Abandoning any outbound telephone call. An outbound telephone call is “abandoned” under this section if a person answers it and the telemarketer does not connect the call to a sales representative within two (2) seconds of the person's completed greeting."
+  },
+  {
+    "id": "cfr-310.4-b-4-i",
+    "citation": "16 CFR 310.4(b)(4)(i)",
+    "source": "16-cfr-310.4.txt",
+    "usedBy": [
+      "P6"
+    ],
+    "quote": "(i) The seller or telemarketer employs technology that ensures abandonment of no more than three (3) percent of all calls answered by a person, measured over the duration of a single calling campaign, if less than 30 days, or separately over each successive 30-day period or portion thereof that the campaign continues."
+  },
+  {
+    "id": "cfr-310.4-b-4-ii",
+    "citation": "16 CFR 310.4(b)(4)(ii)",
+    "source": "16-cfr-310.4.txt",
+    "usedBy": [
+      "P7"
+    ],
+    "quote": "(ii) The seller or telemarketer, for each telemarketing call placed, allows the telephone to ring for at least fifteen (15) seconds or four (4) rings before disconnecting an unanswered call;"
+  },
+  {
+    "id": "vonage-aup-telecom-unanswered-short",
+    "citation": "Vonage Acceptable Use Policy, Telecommunications-Specific Limitations (updated 2025-02-03)",
+    "source": "vonage-aup-2025-02-03.txt",
+    "usedBy": [
+      "P8"
+    ],
+    "quote": "Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length."
   }
 ]

@@ -49,6 +49,21 @@ await refresh("47-cfr-64.1200.txt", async () => {
   return xml.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x2014;|&mdash;/g, "—").replace(/\s+/g, " ").trim();
 });
 
+await refresh("16-cfr-310.4.txt", async () => {
+  const titles = await (await fetch("https://www.ecfr.gov/api/versioner/v1/titles.json", { headers: ua })).json();
+  const date = titles.titles.find((t) => t.number === 16).up_to_date_as_of;
+  const url = `https://www.ecfr.gov/api/versioner/v1/full/${date}/title-16.xml?part=310&section=310.4`;
+  const res = await fetch(url, { headers: ua });
+  if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+  const xml = await res.text();
+  manifest.files["16-cfr-310.4.txt"].url = url;
+  manifest.files["16-cfr-310.4.txt"].vintage = `eCFR up to date as of ${date}`;
+  return xml.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x2014;|&mdash;/g, "—").replace(/\s+/g, " ").trim();
+});
+
+// The Vonage Acceptable Use Policy (vonage-aup-2025-02-03.txt) renders only in a browser and is an
+// excerpt of a copyrighted page, committed by hand from a Chromium render; it is not refreshed here.
+
 await refresh("ga-comp-r-regs-515-14-1-03.txt", async () => {
   const res = await fetch(manifest.files["ga-comp-r-regs-515-14-1-03.txt"].url, { headers: { ...ua, accept: "text/html" } });
   if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
