@@ -78,7 +78,17 @@ if (!trigger.ok) {
   console.error(`deploy trigger failed: ${trigger.status} ${(await trigger.text()).slice(0, 200)}`);
   process.exit(1);
 }
-const deploy = await trigger.json();
+// The trigger has answered with an empty body before (the deploy was created all the same); fall back to the newest deploy.
+const triggerText = await trigger.text();
+let deploy = triggerText ? JSON.parse(triggerText) : undefined;
+if (!deploy?.id) {
+  const list = await (await fetch(`${base}/deploys?limit=1`, { headers })).json();
+  deploy = Array.isArray(list) ? list[0]?.deploy : undefined;
+  if (!deploy?.id) {
+    console.error("deploy trigger answered without a deploy id and none could be listed");
+    process.exit(1);
+  }
+}
 console.log(`deploy ${deploy.id} ${deploy.status}`);
 let last = "";
 for (let i = 0; i < 40; i++) {
