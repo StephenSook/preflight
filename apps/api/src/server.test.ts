@@ -487,6 +487,30 @@ describe("preflight api ingress", () => {
     expect((await server.inject({ method: "GET", url: "/api/campaign?since=yesterday" })).statusCode).toBe(400);
   });
 
+  it("serves the push routes only when the VAPID keys are configured, gates subscriptions with the dashboard token, and proves the pipe with a test push", async () => {
+    expect((await app().server.inject({ method: "GET", url: "/api/push/vapid" })).statusCode).toBe(404);
+    const token = "dashboard-token-for-tests-4";
+    const sent: Array<{ endpoint: string; kind: string }> = [];
+    const pushSender = async (sub: { endpoint: string }, payload: string) => {
+      sent.push({ endpoint: sub.endpoint, kind: (JSON.parse(payload) as { kind: string }).kind });
+      return { statusCode: 201 };
+    };
+    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", PUBLIC_BASE_URL: "https://preflight.example", LOG_LEVEL: "silent", DASHBOARD_TOKEN: token, VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "k".repeat(43), VAPID_SUBJECT: "mailto:ops@example.com" });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions: new MemoryDecisionStore(), ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, pushSender, now: () => NOW });
+    expect((await server.inject({ method: "GET", url: "/api/push/vapid" })).json()).toEqual({ publicKey: "B".repeat(87) });
+    const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    const sub = { endpoint: "https://push.example/s1", keys: { p256dh: "p", auth: "a" }, expirationTime: null };
+    expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify(sub), headers: { "content-type": "application/json" } })).statusCode).toBe(403);
+    expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: "http://insecure.example/s", keys: { p256dh: "p", auth: "a" } }), headers })).statusCode).toBe(400);
+    const created = await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ subscription: sub, label: "Stephen's phone" }), headers });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toEqual({ subscribed: true, endpoint: sub.endpoint, subscriptions: 1 });
+    expect((await server.inject({ method: "POST", url: "/api/push/test", headers })).json()).toEqual({ attempted: 1, delivered: 1, retired: 0, failed: 0 });
+    expect(sent).toEqual([{ endpoint: sub.endpoint, kind: "test" }]);
+    expect((await server.inject({ method: "DELETE", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: sub.endpoint }), headers })).json()).toEqual({ removed: true });
+    expect((await server.inject({ method: "POST", url: "/api/push/test", headers })).json()).toEqual({ attempted: 0, delivered: 0, retired: 0, failed: 0 });
+  });
+
   it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
     served = FLOWS.syntheticWithOptOut;
     const off = app();

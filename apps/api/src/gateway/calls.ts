@@ -6,7 +6,7 @@ import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
 import type { GraphStore } from "../store/graphStore.js";
-import type { HoldStore } from "../store/holdStore.js";
+import type { Hold, HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 import { verifyApplicationJwt } from "../vonage/verifyApplicationJwt.js";
 
@@ -20,6 +20,8 @@ export interface GatewayDeps {
   fetchImpl: typeof fetch;
   clock: () => number;
   applicationPublicKeyPem?: string | undefined;
+  /** Called after a hold is queued, fire-and-forget: the person's phone hears about it. */
+  onHold?: ((hold: Hold) => void) | undefined;
 }
 
 interface CreateCallBody {
@@ -184,7 +186,9 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
     let holdId: string | undefined;
     if (outcome.decision === "hold") {
       holdId = `hold-${randomBytes(8).toString("hex")}`;
-      await holds.create({ holdId, callUuid: outcome.record.callUuid, humanParty: toNumber, reason: outcome.reason ?? "undecided", verdicts: outcome.evaluation.verdicts, status: "open", createdAt: outcome.record.decidedAt, decidedBy: undefined, decidedAt: undefined });
+      const hold: Hold = { holdId, callUuid: outcome.record.callUuid, humanParty: toNumber, reason: outcome.reason ?? "undecided", verdicts: outcome.evaluation.verdicts, status: "open", createdAt: outcome.record.decidedAt, decidedBy: undefined, decidedAt: undefined };
+      await holds.create(hold);
+      deps.onHold?.(hold);
     }
     outcome.record.verifyLatencyMs = performance.now() - verifyStart - (originLatencyMs ?? 0);
     await decisions.append(outcome.record);

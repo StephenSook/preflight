@@ -8,6 +8,9 @@ import { declarationSchema, type Config } from "./config.js";
 import { campaignWindow } from "./campaign.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { InsightLookups } from "./insights/lookups.js";
+import { PushNotifier, type PushSender } from "./push/notify.js";
+import { registerPush } from "./push/routes.js";
+import { MemoryPushStore, type PushStore } from "./store/pushStore.js";
 import { preflightWebhooks, readApplication, writeWebhooks, type Credentials, type Hook, type VoiceWebhooks } from "./setup/application.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
 import { MemoryInsightStore, type InsightStore } from "./store/insightStore.js";
@@ -42,6 +45,10 @@ export interface ServerDeps {
   declarations?: DeclarationStore;
   /** Cached Identity Insights answers; used only when IDENTITY_INSIGHTS is on and the application key is present. */
   insights?: InsightStore;
+  /** Web Push subscriptions for the held queue; used only when the VAPID keys are configured. */
+  pushStore?: PushStore;
+  /** Injected push transport, so tests never reach a push service. */
+  pushSender?: PushSender;
   /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
   applicationPublicKeyPem?: string | undefined;
   /** PEM of the application's private key; with it the consent gate and the demonstration call are enabled. */
@@ -207,7 +214,12 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   }
 
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
-  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem });
+  // Web Push for the held queue: on only when all three VAPID values are configured. A hold's push is
+  // fire-and-forget from the gateway; the decision never waits on it.
+  const pushStore = deps.pushStore ?? new MemoryPushStore();
+  const vapid = config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY && config.VAPID_SUBJECT ? { publicKey: config.VAPID_PUBLIC_KEY, privateKey: config.VAPID_PRIVATE_KEY, subject: config.VAPID_SUBJECT } : undefined;
+  const notifier = vapid ? new PushNotifier({ store: pushStore, vapid, dashboardBaseUrl: config.PUBLIC_WEB_URL ?? config.PUBLIC_BASE_URL ?? "", send: deps.pushSender, now: clock, log: app.log }) : undefined;
+  registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem, onHold: notifier ? (hold) => notifier.holdCreated(hold) : undefined });
   // The consent gate mints the application's own tokens for Verify v2 and for the demonstration call.
   const verify = mintToken ? vonageVerify({ apiHost: config.VONAGE_API_HOST, fetchImpl, token: mintToken }) : undefined;
   registerConsent(app, { config, consents: deps.consents ?? new MemoryConsentStore(), ledger, verify, mintToken, clock });
@@ -218,6 +230,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return presented.length === config.DASHBOARD_TOKEN.length && timingSafeEqual(Buffer.from(presented), Buffer.from(config.DASHBOARD_TOKEN));
   };
   registerStream(app, bus, (presented) => (!config.DASHBOARD_TOKEN ? "disabled" : dashboardAuth(presented ? `Bearer ${presented}` : undefined) ? "ok" : "forbidden"));
+  registerPush(app, { store: pushStore, notifier, dashboardAuth, dashboardEnabled: Boolean(config.DASHBOARD_TOKEN), clock });
   app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
     const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";

@@ -190,6 +190,30 @@ describe("create-call gateway", () => {
     expect(placed.headers["x-preflight-decision"]).toBe("pass");
   });
 
+  it("a hold pushes to every subscribed phone after the response, with the number masked, and never waits on the push service", async () => {
+    const { MemoryPushStore } = await import("../store/pushStore.js");
+    const pushStore = new MemoryPushStore();
+    await pushStore.upsert({ endpoint: "https://push.example/phone", keys: { p256dh: "p", auth: "a" } }, "phone", new Date(NOW).toISOString());
+    const pushes: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => { release = r; });
+    const pushSender = async (sub: { endpoint: string }, payload: string) => {
+      await gate; // the push service is slow; the decision must not wait for it
+      pushes.push({ endpoint: sub.endpoint, payload: JSON.parse(payload) as Record<string, unknown> });
+      return { statusCode: 201 };
+    };
+    const config = loadConfig({ VONAGE_API_KEY: "k", VONAGE_SIGNATURE_SECRET: "s", VONAGE_APPLICATION_ID: APP_ID, VONAGE_API_HOST: VONAGE, PUBLIC_BASE_URL: "https://preflight.example", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent", VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "k".repeat(43), VAPID_SUBJECT: "mailto:ops@example.com", PUBLIC_WEB_URL: "https://preflight-web.example" });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions: new MemoryDecisionStore(), ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), pushStore, pushSender, resolver, declaration: DECLARATION, fetchImpl, now: () => NOW, applicationPublicKeyPem: APP_PUBLIC_PEM });
+    const held = await call(server, { ...BASE, ncco: OPEN });
+    expect(held.statusCode).toBe(409);
+    expect(pushes).toHaveLength(0); // answered before the push service did
+    release();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]).toMatchObject({ endpoint: "https://push.example/phone", payload: { kind: "hold", title: "Held: xxxxxxx0000", url: expect.stringMatching(/^https:\/\/preflight-web\.example\/held\/hold-/) } });
+    expect(String(pushes[0]?.payload["body"])).toContain("P3 inconclusive");
+  });
+
   it("puts a held call in the queue, and places it only after a named person decides and the caller re-submits with the override", async () => {
     const { server, ledger } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
     const held = await call(server, { ...BASE, ncco: OPEN });

@@ -28,13 +28,16 @@
     "@preflight/engine": "workspace:*",
     "@preflight/ledger": "workspace:*",
     "@preflight/numfacts": "workspace:*",
+    "@preflight/reference": "workspace:*",
     "@preflight/rules": "workspace:*",
     "@vonage/jwt": "^1.17.0",
     "fastify": "^5.12.0",
     "pino": "^10.0.0",
     "postgres": "^3.4.0",
-    "zod": "^4.0.0",
-    "@preflight/reference": "workspace:*"
+    "web-push": "3.6.7",
+    "zod": "^4.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
+  }
 }

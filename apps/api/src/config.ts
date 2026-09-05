@@ -34,6 +34,12 @@ const schema = z.object({
   VERIFY_STARTS_PER_DAY: z.coerce.number().int().nonnegative().default(40),
   DEMO_CALLS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
   // Identity Insights: the paid lookup that resolves a hold the free tables could not. Off by default; costs money per lookup.
+  // Where the web app lives (the Vercel project), for links in notifications; the API host when absent.
+  PUBLIC_WEB_URL: z.string().url().optional(),
+  // Web Push for the held queue: all three present turns it on. Generate with `web-push generate-vapid-keys`.
+  VAPID_PUBLIC_KEY: z.string().min(80).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(40).optional(),
+  VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)/).optional(),
   IDENTITY_INSIGHTS: z.enum(["on", "off"]).default("off"),
   IDENTITY_INSIGHTS_HOST: z.string().url().default("https://api-eu.vonage.com"),
   INSIGHTS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
