@@ -43,12 +43,18 @@ export type EnsureUser = { ok: true; created: boolean } | { ok: false; status: n
 
 /** Creates the user through the Users API; an existing user (409) is treated as present. */
 export async function ensureUser(name: string, displayName: string, appToken: string, fetchImpl: typeof fetch, host = "https://api.nexmo.com"): Promise<EnsureUser> {
-  const res = await fetchImpl(`${host.replace(/\/$/, "")}/v1/users`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${appToken}`, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ name, display_name: displayName }),
-    signal: AbortSignal.timeout(10000),
-  });
+  let res: Response;
+  try {
+    res = await fetchImpl(`${host.replace(/\/$/, "")}/v1/users`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${appToken}`, "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ name, display_name: displayName }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (err) {
+    // A platform that cannot be reached, or does not answer in ten seconds, is a refusal, never a crash.
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
+  }
   if (res.status === 201 || res.status === 200) return { ok: true, created: true };
   if (res.status === 409) return { ok: true, created: false };
   const text = await res.text();
@@ -84,15 +90,20 @@ export function registerSoftphone(app: FastifyInstance, deps: SoftphoneDeps): vo
     // nobody can create platform users past the allowance. A platform refusal gives the slot back.
     const slot = await store.tryRecord(role, user, new Date(now).toISOString(), role === "judge" ? { since: dayStart.toISOString(), max: config.SOFTPHONE_TOKENS_PER_DAY } : undefined);
     if (!slot.ok) return reply.code(429).send({ error: "no more softphone sessions today; dial the public number instead" });
-    const appToken = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, 300);
-    const ensured = await ensureUser(user, role === "scheduler" ? "Scheduler" : "Judge", appToken, fetchImpl, config.VONAGE_API_HOST);
-    if (!ensured.ok) {
-      await store.release(slot.id);
-      return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
+    // Whatever happens after the slot is taken, only an issued token keeps it: a platform refusal, an
+    // unreachable platform, or a throw on this path gives the slot back.
+    let issued = false;
+    try {
+      const appToken = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, 300);
+      const ensured = await ensureUser(user, role === "scheduler" ? "Scheduler" : "Judge", appToken, fetchImpl, config.VONAGE_API_HOST);
+      if (!ensured.ok) return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
+      const ttl = config.SOFTPHONE_TOKEN_TTL_MINUTES * 60;
+      const token = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, ttl, { sub: user, acl: CLIENT_ACL });
+      issued = true;
+      req.log.info({ role, user, created: ensured.created, ttl }, "softphone token minted");
+      return reply.code(201).send({ role, user, token, expires_at: new Date(now + ttl * 1000).toISOString(), application_id: applicationId, created: ensured.created });
+    } finally {
+      if (!issued) await store.release(slot.id);
     }
-    const ttl = config.SOFTPHONE_TOKEN_TTL_MINUTES * 60;
-    const token = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, ttl, { sub: user, acl: CLIENT_ACL });
-    req.log.info({ role, user, created: ensured.created, ttl }, "softphone token minted");
-    return reply.code(201).send({ role, user, token, expires_at: new Date(now + ttl * 1000).toISOString(), application_id: applicationId, created: ensured.created });
   });
 }

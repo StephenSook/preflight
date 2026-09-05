@@ -26,8 +26,11 @@ function decode(token: string): { header: Record<string, unknown>; claims: Recor
 
 describe("the browser softphone's user tokens", () => {
   const users: Array<{ name: string; auth: string | undefined }> = [];
+  /** When set, the platform cannot be reached: fetch rejects the way undici does. */
+  let platformDown = false;
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
     if (String(url) === `${VONAGE}/v1/users`) {
+      if (platformDown) throw new TypeError("fetch failed");
       const body = JSON.parse(String(init?.body)) as { name: string };
       users.push({ name: body.name, auth: (init?.headers as Record<string, string> | undefined)?.["authorization"] });
       const seen = users.filter((u) => u.name === body.name).length;
@@ -66,6 +69,18 @@ describe("the browser softphone's user tokens", () => {
     expect(burst.map((r) => r.statusCode).sort()).toEqual([201, 201, 429, 429, 429, 429, 429, 429]);
     // A spent day never reaches the platform: exactly two users were created for the two tokens.
     expect(users.length - usersBefore).toBe(2);
+    // An unreachable platform is a 502, not a crash, and gives the slot back: the day still issues its two.
+    const again = build();
+    platformDown = true;
+    try {
+      const down = await again.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } });
+      expect(down.statusCode).toBe(502);
+      expect(down.json()).toMatchObject({ platform_status: 0, error: expect.stringContaining("fetch failed") });
+    } finally {
+      platformDown = false;
+    }
+    const after = await Promise.all(Array.from({ length: 3 }, () => again.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } })));
+    expect(after.map((r) => r.statusCode).sort()).toEqual([201, 201, 429]);
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "scheduler" }), headers: { "content-type": "application/json" } })).statusCode).toBe(404);
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "pilot" }), headers: { "content-type": "application/json" } })).statusCode).toBe(400);
   });
