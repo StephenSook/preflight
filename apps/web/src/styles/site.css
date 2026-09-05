@@ -144,6 +144,8 @@ html.reduced .hero .visual { opacity: 1; }
 .section-sky-pale { background: var(--site-sky-pale); }
 .section-paper { background: var(--site-paper-deep); }
 .section-cobalt { background: var(--site-cobalt); color: var(--site-white); }
+.section-cobalt .kicker,
+.section-cobalt .muted { opacity: 0.96; }
 .section-ink { background: var(--cockpit-canvas); color: var(--cockpit-text); }
 .section .inner { padding-inline: clamp(1.5em, 5vw, 6em); }
 .section h2 { visibility: hidden; }

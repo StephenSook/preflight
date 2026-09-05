@@ -70,7 +70,7 @@
           </div>
           <div class="hero-graph-wrap stack">
             <p class="kicker">The reference application's flow, evaluated by the engine in this browser</p>
-            <div data-hero-graph></div>
+            <div data-hero-graph tabindex="0" role="region" aria-label="The flow graph, scrollable"></div>
             <div data-hero-verdicts></div>
           </div>
         </div>
@@ -87,7 +87,7 @@
             <p class="body max-30">Liability accrues per call, not per campaign: 500 USD for each violation under 47 U.S.C. 227(b)(3), up to three times that at the court's discretion for a willful or knowing violation. Georgia removed the knowledge requirement from its own statute on July 1, 2024 and extended liability to whoever the call is made on behalf of: up to 2,000 USD for each violation in Attorney General proceedings, up to 1,000 USD for each violation in a private action, no cap in a class action.</p>
           </div>
           <div class="stack" style="grid-column: 7 / -1">
-            <pre class="object" data-object aria-label="The answer object and the timeout branch's reply, as the reference application serves them"></pre>
+            <pre class="object" data-object tabindex="0" role="region" aria-label="The answer object and the timeout branch's reply, as the reference application serves them"></pre>
             <p><span class="hand" data-handwritten aria-hidden="true">this line breaks 47 CFR 64.1200(b)(3)</span><span class="visually-hidden">The highlighted line breaks 47 CFR 64.1200(b)(3).</span></p>
           </div>
         </div>
@@ -232,10 +232,10 @@
           <p class="kicker">The evidence</p>
           <h2 id="evidence-title" class="display display-l" data-stamp>You cannot rewrite this, and neither can we.</h2>
           <p class="lead max-40">Every decision is an entry. Each entry hashes its own canonical form together with the previous entry's hash. The head is signed and uploaded to a public transparency log once a day. Anyone with the URL recomputes the chain from genesis:</p>
-          <pre><code>npx preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com</code></pre>
+          <pre tabindex="0" role="region" aria-label="The verify command"><code>npx preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com</code></pre>
           <p class="body max-40"><strong>Last carrier reconciliation:</strong> <span data-live-reconciliation>reading the host…</span></p>
           <p class="body max-40"><strong>The last seal, verified against the public log:</strong></p>
-          <pre><code data-live-rekor>rekor-cli verify --uuid &lt;the last seal's uuid, read from the log&gt;</code></pre>
+          <pre tabindex="0" role="region" aria-label="The Rekor verify command"><code data-live-rekor>rekor-cli verify --uuid &lt;the last seal's uuid, read from the log&gt;</code></pre>
           <p class="body max-40"><strong>Rate properties</strong>, from the platform's own event webhooks: <span class="small muted" data-live-rates-window>reading the host…</span></p>
           <ul class="verdicts" data-live-rates></ul>
         </div>

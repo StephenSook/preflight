@@ -12,7 +12,7 @@ export function renderEvidenceLog(ctx: ScreenContext): void {
   const { host } = ctx;
   host.append(el("h1", {}, "Evidence log"), el("p", { class: "sub" }, "Every decision, hold, override, declaration, reconciliation and seal, hash-chained from genesis."));
   const command = `npx preflight-interlock verify-ledger ${API_BASE || location.origin}`;
-  host.append(el("pre", {}, [el("code", {}, command)]));
+  host.append(el("pre", { tabindex: "0", role: "region", "aria-label": "The verify command" }, [el("code", {}, command)]));
   const verifyLine = el("p", { class: "note", "aria-live": "polite" }, "…");
   const verifyBtn = el("button", { class: "button", type: "button" }, [el("span", { class: "label" }, "Ask the host to recompute the chain")]);
   verifyBtn.addEventListener("click", async () => {

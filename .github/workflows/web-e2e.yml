@@ -28,3 +28,7 @@ jobs:
         run: node apps/web/tests/live-check.mjs "${PREFLIGHT_WEB_URL:-https://preflight-web-nine.vercel.app}"
         env:
           PREFLIGHT_WEB_URL: ${{ vars.PREFLIGHT_WEB_URL }}
+      - name: accessibility, axe over every page at both widths (serious and critical fail)
+        run: node apps/web/tests/axe-check.mjs "${PREFLIGHT_WEB_URL:-https://preflight-web-nine.vercel.app}"
+        env:
+          PREFLIGHT_WEB_URL: ${{ vars.PREFLIGHT_WEB_URL }}

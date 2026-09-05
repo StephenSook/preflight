@@ -23,7 +23,7 @@ export function renderFlowGraph(ctx: ScreenContext): void {
     el("span", {}, [el("span", { class: "dot", style: "--state: var(--verdict-blocked)", "aria-hidden": "true" }), document.createTextNode("observed, not declared")]),
     el("span", {}, [el("span", { class: "dot", style: "--state: var(--verdict-held)", "aria-hidden": "true" }), document.createTextNode("declared, never observed, never verified")]),
   ]);
-  const wrap = el("div", { class: "graph-wrap" }, [el("p", { class: "note" }, "reading the host…")]);
+  const wrap = el("div", { class: "graph-wrap", tabindex: "0", role: "region", "aria-label": "The flow graph, scrollable" }, [el("p", { class: "note" }, "reading the host…")]);
   const counts = el("p", { class: "note" });
   host.append(legend, wrap, counts);
   void api

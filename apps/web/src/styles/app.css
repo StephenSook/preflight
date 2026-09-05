@@ -8,7 +8,7 @@ body.cockpit {
 }
 body.cockpit :focus-visible { outline-color: var(--cockpit-interactive); }
 body.cockpit .button { --button-bg: var(--cockpit-surface); --button-fg: var(--cockpit-text); font-size: 12px; min-height: 36px; padding: 8px 14px; border: 1px solid rgba(232, 237, 242, 0.14); }
-body.cockpit .button.is-cobalt { --button-bg: var(--cockpit-interactive); --button-fg: #fff; border-color: transparent; }
+body.cockpit .button.is-cobalt { --button-bg: var(--cockpit-interactive); --button-fg: var(--cockpit-canvas); border-color: transparent; }
 body.cockpit .button.is-danger { --button-bg: transparent; --button-fg: var(--verdict-blocked); border-color: var(--verdict-blocked); }
 body.cockpit .button:hover { box-shadow: 0 0 0 1px rgba(232, 237, 242, 0.25); }
 
