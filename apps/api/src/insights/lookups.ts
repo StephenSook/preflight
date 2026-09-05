@@ -1,4 +1,4 @@
-import { lookupIdentityInsights, nationalDigits, type Insight } from "@preflight/numfacts";
+import { insightIsUsable, lookupIdentityInsights, nationalDigits, type Insight } from "@preflight/numfacts";
 import type { FastifyBaseLogger } from "fastify";
 import type { InsightRecord, InsightStore } from "../store/insightStore.js";
 
@@ -63,29 +63,43 @@ export class InsightLookups {
     const line = lineOf(number);
     if (!line) return "unsupported";
     if (this.inflight.has(line)) return "inflight";
-    const existing = await this.opts.store.get(line);
-    if (existing?.status === "ok") return "cached";
-    if (existing?.status === "error" && this.opts.now() - Date.parse(existing.lookedUpAt) < this.retryMs) return "cooling";
-    const dayStart = new Date(this.opts.now());
-    dayStart.setUTCHours(0, 0, 0, 0);
-    if ((await this.opts.store.countSince(dayStart.toISOString())) >= this.opts.perDay) {
-      this.opts.log?.warn({ line: `...${line.slice(-4)}`, perDay: this.opts.perDay }, "identity insights allowance for today is spent; the hold stays");
-      return "allowance";
-    }
+    // The reservation is taken before any await, so two overlapping calls for one line, or for two
+    // lines against the last slot of the day, cannot both pass the checks below.
     this.inflight.add(line);
-    setImmediate(() => {
-      void this.run(line);
-    });
-    return "scheduled";
+    let keep = false;
+    try {
+      const existing = await this.opts.store.get(line);
+      if (existing?.status === "ok") return "cached";
+      if (existing?.status === "error" && this.opts.now() - Date.parse(existing.lookedUpAt) < this.retryMs) return "cooling";
+      const dayStart = new Date(this.opts.now());
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const stored = await this.opts.store.countSince(dayStart.toISOString());
+      const reservedByOthers = this.inflight.size - 1;
+      if (stored + reservedByOthers >= this.opts.perDay) {
+        this.opts.log?.warn({ line: `...${line.slice(-4)}`, perDay: this.opts.perDay, stored, inflight: reservedByOthers }, "identity insights allowance for today is spent; the hold stays");
+        return "allowance";
+      }
+      keep = true;
+      setImmediate(() => {
+        void this.run(line);
+      });
+      return "scheduled";
+    } finally {
+      if (!keep) this.inflight.delete(line);
+    }
   }
 
   private async run(line: string): Promise<void> {
     try {
       const r = await lookupIdentityInsights(`1${line}`, { host: this.opts.host, fetchImpl: this.opts.fetchImpl, token: this.opts.token });
       const lookedUpAt = new Date(this.opts.now()).toISOString();
-      const rec: InsightRecord = r.ok
+      // A 200 that carries nothing a decision can use (no evaluable zone, no line type) is recorded as an
+      // error so the cool-down applies and a later attempt is allowed, instead of a permanent empty "fact".
+      const rec: InsightRecord = r.ok && insightIsUsable(r.insight)
         ? { line, status: "ok", insight: r.insight, error: undefined, httpStatus: r.status, latencyMs: r.latencyMs, lookedUpAt }
-        : { line, status: "error", insight: undefined, error: r.error, httpStatus: r.status, latencyMs: r.latencyMs, lookedUpAt };
+        : r.ok
+          ? { line, status: "error", insight: undefined, error: "the platform answered without a usable zone or line type", httpStatus: r.status, latencyMs: r.latencyMs, lookedUpAt }
+          : { line, status: "error", insight: undefined, error: r.error, httpStatus: r.status, latencyMs: r.latencyMs, lookedUpAt };
       await this.opts.store.put(rec);
       this.opts.log?.info({ line: `...${line.slice(-4)}`, status: rec.status, httpStatus: rec.httpStatus, latencyMs: rec.latencyMs, zones: rec.insight?.timeZones, lineType: rec.insight?.lineType }, "identity insights lookup recorded");
     } catch (err) {

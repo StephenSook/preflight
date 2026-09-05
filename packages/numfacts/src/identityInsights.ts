@@ -32,6 +32,18 @@ const NETWORK_TYPE: Record<string, LineClass> = {
 };
 
 const asRecord = (v: unknown): Record<string, unknown> | undefined => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : undefined);
+
+export function isValidZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True when the answer carries something a decision can use: at least one zone or a line type. */
+export const insightIsUsable = (i: Insight): boolean => i.timeZones.length > 0 || i.lineType !== "unknown";
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 
 /** Reads the facts Preflight uses off a response body. Tolerates both the flat and the nested carrier shapes. */
@@ -41,7 +53,9 @@ export function normalizeInsight(body: unknown): Insight {
   const format = asRecord(insights["format"]);
   const location = asRecord(format?.["location"]);
   const zonesRaw = format?.["time_zones"] ?? location?.["time_zones"];
-  const timeZones = Array.isArray(zonesRaw) ? zonesRaw.filter((z): z is string => typeof z === "string" && z.length > 0) : [];
+  // Only IANA zones this runtime can evaluate are kept: a string the platform sends that Intl rejects
+  // would otherwise be cached as a fact and throw inside the next decision.
+  const timeZones = Array.isArray(zonesRaw) ? zonesRaw.filter((z): z is string => typeof z === "string" && z.length > 0 && isValidZone(z)) : [];
   const validRaw = format?.["is_valid"] ?? format?.["is_format_valid"];
   const valid = typeof validRaw === "boolean" ? validRaw : undefined;
 

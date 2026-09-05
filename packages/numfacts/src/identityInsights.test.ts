@@ -21,6 +21,8 @@ describe("Identity Insights", () => {
     expect(normalizeInsight({ insights: { format: {} } })).toMatchObject({ timeZones: [], lineType: "unknown", lineTypeFrom: "none", carrier: undefined });
     expect(normalizeInsight("nonsense")).toMatchObject({ timeZones: [], lineType: "unknown" });
     expect(normalizeInsight({ insights: { current_carrier: { network_type: "VIRTUAL" } } }).lineType).toBe("voip");
+    // A zone this runtime cannot evaluate is dropped at the door, never cached as a fact.
+    expect(normalizeInsight({ insights: { format: { time_zones: ["Not/AZone", "America/Boise", ""] } } }).timeZones).toEqual(["America/Boise"]);
   });
 
   it("posts one request with the three insights and the application token, and reports failures without throwing", async () => {
@@ -59,5 +61,22 @@ describe("Identity Insights", () => {
     expect(atlanta.lineTypeSource).toBe("identity_insights");
     // An insight without a line type leaves the prior in place.
     expect(resolver.resolve("14045550100", at, { ...insight, lineType: "unknown", lineTypeFrom: "none" }).lineTypeSource).toBe("nanpa");
+  });
+
+  it("a platform zone can only settle what the prefix left open, and only from the zones the prefix admits", () => {
+    const resolver = NumberFactsResolver.load();
+    const base = { lineType: "unknown" as const, lineTypeFrom: "none" as const, carrier: undefined, valid: true, requestId: undefined };
+    // 12:00Z is 06:00 in Boise and 05:00 in Los Angeles: the split prefix agrees the window is closed. No overlay may open it.
+    const closed = new Date("2026-09-05T12:00:00Z");
+    for (const zones of [["America/New_York"], ["UTC"], ["America/Boise"]]) {
+      const r = resolver.resolve("12083200100", closed, { ...base, timeZones: zones });
+      expect(r.withinHours, zones.join()).toBe(false);
+      expect(r.hoursBasis).toContain("prefix spans");
+    }
+    // 14:30Z: the split disagrees. A zone the prefix never assigns does not count; an admissible one decides.
+    const open = new Date("2026-09-05T14:30:00Z");
+    expect(resolver.resolve("12083200100", open, { ...base, timeZones: ["UTC"] })).toMatchObject({ withinHours: null, zones: ["America/Boise", "America/Los_Angeles"] });
+    expect(resolver.resolve("12083200100", open, { ...base, timeZones: ["America/New_York", "America/Los_Angeles"] })).toMatchObject({ withinHours: false, zones: ["America/Los_Angeles"], hoursBasis: "America/Los_Angeles by Identity Insights" });
+    expect(resolver.resolve("12083200100", open, { ...base, timeZones: [] }).withinHours).toBeNull();
   });
 });

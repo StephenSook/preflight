@@ -8,7 +8,7 @@ import { TimezoneMap, withinCallingHours } from "./timezone.js";
 export { CoCodeTable };
 export type { CoCodeRow, LineClass };
 export { TimezoneMap, withinCallingHours, localMinutes, CALLING_WINDOW } from "./timezone.js";
-export { lookupIdentityInsights, normalizeInsight, type IdentityInsightsOptions, type Insight, type InsightResult } from "./identityInsights.js";
+export { insightIsUsable, isValidZone, lookupIdentityInsights, normalizeInsight, type IdentityInsightsOptions, type Insight, type InsightResult } from "./identityInsights.js";
 
 export interface Sources {
   fetchedAt: string;
@@ -66,8 +66,13 @@ export class NumberFactsResolver {
     }
     const row = this.coCodes.lookup(national);
     const prefixZones = this.timezones.zonesFor(`1${national}`);
-    const useInsightZones = insight !== undefined && insight.timeZones.length > 0 && (prefixZones.length !== 1);
-    const zones = useInsightZones ? [...new Set(insight.timeZones)] : prefixZones;
+    // The platform's zones may decide only what the prefix could not (unknown, or a split whose zones
+    // disagree at this instant), and only from among the zones the prefix admits: a platform zone the
+    // prefix never assigns cannot open a closed window. A single-zone or agreeing prefix stands.
+    const prefixDecision = withinCallingHours(prefixZones, at);
+    const admissible = insight ? [...new Set(insight.timeZones.filter((z) => prefixZones.length === 0 || prefixZones.includes(z)))] : [];
+    const useInsightZones = prefixDecision === null && admissible.length > 0;
+    const zones = useInsightZones ? admissible : prefixZones;
     const withinHours = withinCallingHours(zones, at);
     const hoursBasis =
       useInsightZones ? (zones.length === 1 ? `${zones[0]} by Identity Insights` : withinHours === null ? `Identity Insights reports ${zones.join(", ")} and they disagree at this instant` : `Identity Insights reports ${zones.join(", ")}, all agree at this instant`)

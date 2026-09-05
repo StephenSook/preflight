@@ -51,10 +51,16 @@ export const CALLING_WINDOW = { openMinutes: 8 * 60, closeMinutes: 21 * 60 } as 
  * because a monitor that cannot decide does not guess (spec section 08).
  */
 export function withinCallingHours(zones: readonly string[], at: Date): boolean | null {
-  if (zones.length === 0) return null;
-  const answers = new Set(zones.map((z) => {
-    const m = localMinutes(z, at);
-    return m >= CALLING_WINDOW.openMinutes && m < CALLING_WINDOW.closeMinutes;
-  }));
+  const answers = new Set<boolean>();
+  for (const z of zones) {
+    let m: number;
+    try {
+      m = localMinutes(z, at);
+    } catch {
+      // A zone this runtime cannot evaluate contributes nothing; it never decides and never throws inside a decision.
+      continue;
+    }
+    answers.add(m >= CALLING_WINDOW.openMinutes && m < CALLING_WINDOW.closeMinutes);
+  }
   return answers.size === 1 ? [...answers][0] ?? null : null;
 }
