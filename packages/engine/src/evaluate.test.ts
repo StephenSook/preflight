@@ -77,13 +77,25 @@ describe("what the evaluator refuses to guess", () => {
     expect(ev.decision).toBe("block");
   });
 
+  it("P4 is a fact about the call: decided at the first action on an open path, and at the end of an empty object", () => {
+    const noCallerId: CallFacts = { from: "anonymous", lineType: "wireless", withinHours: true };
+    const open = evaluateNcco(compliant, { declaration: decl, facts: noCallerId, terminal: false });
+    expect(byId(open.verdicts)["P4"]).toMatchObject({ verdict: "false", witness: [expect.objectContaining({ label: "talk#0" })] });
+    expect(byId(open.verdicts)["P4"]?.atEnd).toBeUndefined();
+    expect(open.decision).toBe("block");
+    const empty = evaluateNcco(parseNcco([]), { declaration: decl, facts: noCallerId, terminal: true });
+    expect(byId(empty.verdicts)["P4"]).toMatchObject({ verdict: "false", atEnd: true, witness: [] });
+    const present = evaluateNcco(parseNcco([]), { declaration: decl, facts: { from: "14045550100", lineType: "wireless", withinHours: true }, terminal: true });
+    expect(byId(present.verdicts)["P4"]?.verdict).toBe("true");
+  });
+
   it("holds an open path whose branch has not been observed, then decides it once the branch is seen", () => {
     const facts: CallFacts = { from: "14045550100", lineType: "wireless", withinHours: true };
     // An always-property is never true on an open prefix: a later branch could still violate it.
-    // P1 is a fact about the call, known at the first action, so it is decided even while the path is open.
+    // P1 and P4 are facts about the call, known at the first action, so they are decided even while the path is open.
     const open = evaluateNcco(compliant, { declaration: decl, facts, terminal: false });
-    for (const id of ["P3", "P4"]) expect(byId(open.verdicts)[id]).toMatchObject({ verdict: "inconclusive", reason: expect.stringContaining("not been observed") });
-    for (const id of ["P1", "P2", "P5"]) expect(byId(open.verdicts)[id]?.verdict).toBe("true");
+    expect(byId(open.verdicts)["P3"]).toMatchObject({ verdict: "inconclusive", reason: expect.stringContaining("not been observed") });
+    for (const id of ["P1", "P2", "P4", "P5"]) expect(byId(open.verdicts)[id]?.verdict).toBe("true");
     expect(open.decision).toBe("hold");
     expect(evaluateNcco(compliant, { declaration: decl, facts, terminal: true }).decision).toBe("pass");
     const noOptOut = parseNcco([{ action: "talk", text: "This is a message from Preflight Demo Clinic." }, { action: "input", type: ["dtmf"], eventUrl: ["https://o.example/menu"] }]);

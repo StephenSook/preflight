@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-151%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-249%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -77,7 +77,7 @@ a false verdict blocks the call. The formulas are LTL over the atom vocabulary a
 | P1 | Calling hours | The call is initiated inside 8am to 9pm at the destination, resolved from the number prefix to a timezone against the call timestamp. Every call, not only its spoken actions: a flow that goes straight to a live agent at 6am is still initiated at 6am. `within_hours` | 47 CFR 64.1200(c)(1) |
 | P2 | Identification present | No synthetic speech with no live human leg occurs strictly before the declared identification beat. `(!(speaks & synthetic & !connects_human)) W identifies` | 47 CFR 64.1200(b)(1) |
 | P3 | Interactive opt-out present | From the identification beat, an input declared as the opt-out handler or a connection to a live endpoint is reachable later on the path. `G( identifies -> F (offers_optout \| connects_human) )` | 47 CFR 64.1200(b)(3) |
-| P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. `G( caller_id_present )` | O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c) |
+| P4 | Caller ID integrity | A valid, non-suppressed caller id is set on the call. A fact about the call, decided at its first action. `caller_id_present` | O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c) |
 | P5 | Georgia identification first | Nothing is spoken strictly before the declared identification beat. Position, not presence. `(!speaks) W identifies` | O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b) |
 
 Two of these atoms come from what the developer declares about their own flow (which spoken beat
@@ -201,8 +201,10 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 151 tests
+pnpm test                       # every suite, 249 tests
 pnpm verify:engine              # the engine suites alone, verbose
+pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
+pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
 pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from their sources
 ```
 
@@ -220,10 +222,10 @@ The engine's own guarantees are tests, not claims:
 - a formula and its negation are complementary on every prefix and at every end of flow;
 - the 48-object corpus carries expected atoms, verdicts, decision and witness path per file, every
   label derived by hand before any run, so a reviewer checks a label by reading the object;
-- a mutation harness (`pnpm mutate`) applies 43 hand-written mutations one at a time (weak until
+- a mutation harness (`pnpm mutate`) applies 44 hand-written mutations one at a time (weak until
   turned strict, the live-human clause dropped, calling-hour boundaries moved, inconclusive collapsed
   to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
-  a failing test for every one; the last run killed 43 of 43;
+  a failing test for every one; the last run killed 44 of 44;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
   synthetically is caught at the hook on the first call and at answer time on the next.
 

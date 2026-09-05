@@ -37,9 +37,16 @@
   {
     "id": "P4-always-to-eventually",
     "file": "packages/engine/src/properties.ts",
-    "find": "formula: \"G( caller_id_present )\",",
+    "find": "formula: \"caller_id_present\",",
     "replace": "formula: \"F( caller_id_present )\",",
     "why": "A missing caller id must be a violation at the first action with that witness, not a hope deferred to the end of the flow."
+  },
+  {
+    "id": "P4-always-over-actions",
+    "file": "packages/engine/src/properties.ts",
+    "find": "formula: \"caller_id_present\",",
+    "replace": "formula: \"G( caller_id_present )\",",
+    "why": "The first draft was an always over the actions, so an open path with a perfectly good caller id was held on P4 until every branch had been observed. Caller id is set on the call request; it is known at the first action, like calling hours."
   },
   {
     "id": "evaluate-null-fact-passes",
