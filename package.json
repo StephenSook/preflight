@@ -14,9 +14,9 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "mutate": "node scripts/mutation/run.mjs",
-    "verify:engine": "pnpm --filter @preflight/engine run verify",
-    "ledger:verify": "pnpm --filter @preflight/ledger run verify",
-    "replay": "pnpm --filter @preflight/cli run replay --",
+    "verify:engine": "vitest run packages/engine --reporter=verbose",
+    "ledger:verify": "tsx --conditions=development packages/cli/src/cli.ts verify-ledger",
+    "replay": "tsx --conditions=development packages/cli/src/cli.ts replay",
     "dev:api": "pnpm --filter @preflight/api run dev",
     "dev:web": "pnpm --filter @preflight/web run dev",
     "gate:tone": "bash scripts/ai-tone-gate.sh"
