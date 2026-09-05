@@ -9,6 +9,8 @@ import { el } from "../app/dom.js";
 
 const TOKEN_KEY = "preflight:dashboard-token";
 const PUBLIC_NUMBER = "19432445023";
+/** The account's outbound number, so the in-app call carries a real caller id and the flow itself is what the interlock judges (an in-app user name is not a caller id, and P4 refuses it). */
+const CALLER_ID = "12016131021";
 
 export function mountPhone(host: HTMLElement): void {
   const page = el("main", { id: "main", class: "phone" });
@@ -161,7 +163,7 @@ function softphoneCard(): HTMLElement {
     state.textContent = "calling";
     state.style.setProperty("--state", "var(--verdict-held)");
     try {
-      callId = await client.serverCall({ to: PUBLIC_NUMBER, from: "preflight-softphone" });
+      callId = await client.serverCall({ to: PUBLIC_NUMBER, from: CALLER_ID });
       say(status, `call ${callId.slice(0, 12)}… placed; the answer webhook is the interlock's`, "is-ok");
       hangup.disabled = false;
     } catch (err) {

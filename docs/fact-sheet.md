@@ -10,7 +10,7 @@ per figure and is opened source by source before the film renders.
 Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block or the README counts drift, `pnpm fact-sheet:check`):
 
 <!-- generated:static -->
-- Tests: 306 across 89 suites (vitest, `pnpm test`)
+- Tests: 307 across 89 suites (vitest, `pnpm test`)
 - Mutants: 56 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed); last recorded run: 2026-09-05 at 4e377d9, 56 killed, 0 survived of 56, sources b59ff962d590 (`scripts/mutation/last-run.json`, written by the harness over the restored sources; CI fails when mutants.json or a mutated source changed since)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
@@ -29,12 +29,12 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T16:54:18.978Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
-- Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
-- Evidence log: 14 entries, head `sha256:44667b4cc5732d0902fc4c1b907d6af489eda7336c774377b58f4fb29c1b4f59`, verify ok (14 entries recomputed from genesis)
+- Read at 2026-09-05T19:09:09.982Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Decisions: 0 passed, 6 blocked, 1 held; 26 signed event webhooks stored
+- Evidence log: 16 entries, head `sha256:7a70002c3b9570cab87768c2c359a979d0c8c253fb4636f97ae7da5a669e6bc7`, verify ok (16 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)
 - Declared versus actual: 2 declared states, 0 undeclared (0 speaking synthetically), 2 declared and never observed
-- Latency over the last 5 decisions: verify p50 306.8 ms, p95 761.8 ms; origin p50 152.2 ms, p95 261.3 ms
+- Latency over the last 7 decisions: verify p50 254.7 ms, p95 761.8 ms; origin p50 8.9 ms, p95 261.3 ms
 - Last carrier reconciliation (2026-09-05T10:33:20.150Z): 0 carrier records, 0 matched, 0 placed around the interlock, 0 leaked past a refusal
 <!-- /generated:live -->
 
@@ -81,6 +81,8 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | Reconciliation with the missing-call count, live | reconcile.yml dispatched at 10:33 UTC: window 2026-09-04T08:33:18Z to 2026-09-05T10:33:18Z, 0 carrier records, 2 refusals in the window, 0 leaks, decided_not_in_records 0 (`missing_ids` empty): ledger entry 13 | Actions run 33960965578; `GET /api/summary` | 2026-09-05 |
 | Published CLI 0.1.0, `replay` on the committed corpus | exit 1: 48 objects, 43 match their labels, 5 do not (09, 18, 38, 39, 46), because the release predates spec corrections 5 to 7; the daily itinerary asserts this exact line until 0.2.0 is published (scripts/ops/itinerary.mjs) | `npx -y preflight-interlock@0.1.0 replay corpus/ncco` from the clone, 10:1x UTC | 2026-09-05 |
 | Web app deployed | https://preflight-web-nine.vercel.app (Vercel project `preflight-web`, production alias; `preflight-web.vercel.app` was taken), the prebuilt static output of ade3109. The served page carries the hero marker and `/app/`, `/phone/`, `/sw.js`, `/manifest.webmanifest` answer 200, read back by the deploy script | `node scripts/ops/deploy-web.mjs`, 2026-09-05 about 17:20 UTC | 2026-09-05 |
+| Published CLI 0.2.0 | `preflight-interlock@0.2.0` on npm, published 2026-09-05 18:57:35 UTC by the account owner (web 2FA, security key), tarball shasum 89b8ee737252559e9b6119920ebf67d9fcc42c79, 3 files, 53.1 kB unpacked; carries the current engine. From an empty directory: `npx -y preflight-interlock@0.2.0 replay corpus/ncco` prints `48 objects, 48 match their labels`, exit 0; `verify-ledger` agrees with the host | `npm view preflight-interlock@0.2.0`; a clean-directory run, 2026-09-05 19:0x UTC | 2026-09-05 |
+| Held-queue push, end to end in a real browser | A real Chrome under Playwright (persistent profile, `apps/web/tests/phone-proof.mjs`) subscribed through the page's service worker (endpoint host fcm.googleapis.com), the host stored it (201, 1 subscription), `POST /api/push/test` reported 1 attempted, 1 delivered, 0 retired, 0 failed, and the service worker showed the notification titled "Preflight test"; the subscription was then removed (`removed: true`). Not yet on a phone screen | the proof script's report, 2026-09-05 18:57 UTC | 2026-09-05 |
 
 ## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)
 
@@ -95,3 +97,4 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | Pay action | silent to the atoms | a pay action's prompts and error prompts are read aloud by the platform's text-to-speech, so a pay with prompts speaks synthetically; before the identification beat it breaks P2 and P5 | corpus object 18; packages/engine/src/evaluate.test.ts | 2026-09-04 |
 | P4 scope | `G( caller_id_present )`, an always over the actions | caller id is set on the call request, so it is a fact about the call like P1: decided at the first action whatever it is, true on an open path that has one, false at the end of an empty object without one. The always form held every open path on P4 until its last branch was observed, for a fact already known. Encoding: `caller_id_present` | packages/engine/src/evaluate.test.ts, "P4 is a fact about the call"; mutant P4-always-over-actions | 2026-09-05 |
 | P8 citation | "Vonage AUP item 18" | The policy page (https://www.vonage.com/legal/acceptable-use-policy/, updated February 3, 2025, V6.0) renders its prohibitions as unnumbered bullets under headings; the clause sits under "Telecommunications-Specific Limitations" and reads, verbatim, "Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length." By count from the first prohibition it is the seventeenth, not the eighteenth, and no number is printed, so P8 cites the section and the date. The excerpt is committed with its hash (packages/rules/data/vonage-aup-2025-02-03.txt) and the quote is enforced like the statutes | Chromium render of the page (plain fetches return navigation chrome only, as the specification's own verification pass noted) | 2026-09-05 |
+| Inbound and in-app calls | every call is judged as if the application initiated it: `within_hours` from the human party's number and the clock, caller id from `from` | a call the person on the line initiated cannot violate 47 CFR 64.1200(c)(1), which forbids INITIATING a solicitation outside the window, and its caller id is the platform number they dialled. A Client SDK user's leg arrives as `{ to, uuid, from_user, endpoint_type: "app", custom_data, conversation_uuid }` with no `from` and no `direction` (read from the live answer webhooks behind ledger entries 15 and 16). Encoding: `direction` is inbound when the payload says so or when `endpoint_type` is `app`; inbound sets `within_hours` true with the basis "the person initiated the call" and takes the caller id from `to`; the flow itself is still held to P2 to P5 | the browser softphone's first two calls blocked on P4 with `from` undefined (ledger entries 15 and 16, 2026-09-05); apps/api/src/server.test.ts ("treats an application user's leg ... as inbound") | 2026-09-05 |

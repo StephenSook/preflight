@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-306%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-307%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -161,9 +161,9 @@ never a network call. And the graph of a real call flow is distributed across yo
 (an `input` or `notify` callback can return a replacement object), so it cannot be known from any
 one document; an open branch is held until it has been observed.
 
-## Nine corrections to the specification, found by construction
+## Ten corrections to the specification, found by construction
 
-The product specification was written before the code. Building it found nine defects, each
+The product specification was written before the code. Building it found ten defects, each
 recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-sheet.md):
 
 - **Answer-webhook timing.** Vonage fires the answer webhook when a call is answered, so a
@@ -193,6 +193,11 @@ recorded with the check that found it in [`docs/fact-sheet.md`](./docs/fact-shee
   always over the actions; an open path with a caller id no longer holds on P4.
 - **The P8 citation.** "Vonage AUP item 18" names nothing: the policy page renders its prohibitions as
   unnumbered bullets. P8 cites the section and the page date instead.
+- **Inbound and in-app calls.** The spec judges every call as if the application placed it. A call
+  the person on the line initiated (an inbound call, or a Client SDK user's leg, which arrives with
+  `endpoint_type: "app"` and `from_user` and no `from` or `direction`) is inside calling hours by
+  construction, and its caller id is the platform number they dialled. Found when the browser
+  softphone's first call blocked on P4 for the wrong reason.
 
 ## Repo layout
 
@@ -230,7 +235,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 306 tests
+pnpm test                       # every suite, 307 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
@@ -296,16 +301,14 @@ rekor-cli get --log-index 2707993586 --format json
 The CLI is published, so the same checks run from any empty directory with nothing installed:
 
 ```bash
-npx -y preflight-interlock@0.1.0 verify-ledger https://preflight-api-rc34.onrender.com
-npx -y preflight-interlock@0.1.0 check my-flow.json        # exit 0 pass, 2 block, 3 hold
-npx -y preflight-interlock@0.1.0 replay corpus/ncco        # exits 1: 43 of 48 labels match, see below
+npx -y preflight-interlock@0.2.0 verify-ledger https://preflight-api-rc34.onrender.com
+npx -y preflight-interlock@0.2.0 check my-flow.json        # exit 0 pass, 2 block, 3 hold
+npx -y preflight-interlock@0.2.0 replay corpus/ncco        # every one of the 48 labels reproduces, exit 0
 ```
 
-The npm release 0.1.0 predates spec corrections 5 to 7 (calling hours and caller id became facts
-about the call, pay prompts became synthetic speech), so its `replay` fails five of the 48 committed
-labels by the corrections' own design; `verify-ledger` and `check` are unaffected and the daily
-itinerary job asserts exactly this state. Release 0.2.0 carries the current engine and is pending
-its publish; until it lands, replay the corpus from a clone with `pnpm replay corpus/ncco`.
+Release 0.2.0 carries the current engine (the earlier 0.1.0 predates spec corrections 5 to 7 and
+fails five labels by those corrections' own design); the daily itinerary job replays the committed
+corpus with the published release from a clean directory and fails if a label stops matching.
 
 ## Data sources and licenses
 
@@ -338,9 +341,10 @@ What is live, what stands on little data, and what is built but not yet proven, 
   shaped the design is measured, not assumed (docs/fact-sheet.md).
 - The web app is deployed at https://preflight-web-nine.vercel.app: the public site (the sandbox
   runs the engine in the browser; every number on the page is read from the host on load), the
-  cockpit's six screens over server-sent events, and the phone page. Two of its lines are built
-  and not yet proven on a device: no phone has received a held-queue notification, and no
-  in-browser call has been placed through the Client SDK.
+  cockpit's six screens over server-sent events, and the phone page. Both of its lines are proven
+  end to end in a real browser by `apps/web/tests/phone-proof.mjs`: a held-queue push delivered and
+  shown as a notification, and a Client SDK call placed to the reference flow and decided by the
+  interlock (docs/fact-sheet.md). Neither has yet been run from a handset.
 - The rate properties P6 to P8 stand on the calls this host has seen; until the scripted batch of
   human-answered calls runs, the figures rest on a handful of calls and the basis line says how many.
 

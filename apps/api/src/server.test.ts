@@ -206,6 +206,29 @@ describe("preflight api ingress", () => {
     expect((await decisions.recent(1))[0]?.verdicts.find((v) => v.id === "P1")).toMatchObject({ verdict: "false", witness: [expect.objectContaining({ label: "talk#0" })] });
   });
 
+  it("treats an application user's leg (the browser softphone) as inbound: caller id is the platform number, calling hours do not bind, the flow is what is judged", async () => {
+    served = FLOWS.syntheticWithOptOut;
+    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", LOG_LEVEL: "silent" });
+    const lateNight = Date.parse("2026-09-05T02:30:00Z"); // 22:30 in Atlanta: an outbound call would block on P1
+    const decisions = new MemoryDecisionStore();
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, now: () => lateNight });
+    // The shape the platform sends for a Client SDK call, read from a live answer webhook: no from, no direction.
+    const inApp = { to: "19432445023", uuid: "call-app-1", from_user: "judge-5735bf31", region_url: "https://api-us-3.vonage.com", custom_data: JSON.stringify({ from: "12016131021", to: "19432445023" }), endpoint_type: "app", conversation_uuid: "CON-app-1" };
+    const raw = JSON.stringify(inApp);
+    const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = b64url(JSON.stringify({ iat: Math.floor(lateNight / 1000), jti: "j", iss: "Vonage", payload_hash: sha256Hex(raw), api_key: API_KEY }));
+    const auth = `Bearer ${head}.${body}.${createHmac("sha256", SECRET).update(`${head}.${body}`).digest("base64url")}`;
+    const res = await server.inject({ method: "POST", url: "/v/answer", payload: raw, headers: { "content-type": "application/json", authorization: auth } });
+    // Held, not blocked: the object's input branch has not been observed, so P3 is inconclusive under strict policy.
+    // The two facts about the call are settled by the direction: inside hours (P1 true) and the platform number as caller id (P4 true).
+    expect(res.headers["x-preflight-decision"]).toBe("hold");
+    const d = (await decisions.recent(1))[0];
+    expect(d).toMatchObject({ decision: "hold", terminal: false, direction: "inbound", humanParty: "judge-5735bf31", facts: { withinHours: true, hoursBasis: expect.stringContaining("inbound") } });
+    expect(d?.verdicts.find((v) => v.id === "P1")).toMatchObject({ verdict: "true" });
+    expect(d?.verdicts.find((v) => v.id === "P4")).toMatchObject({ verdict: "true" });
+    expect(d?.verdicts.find((v) => v.id === "P3")).toMatchObject({ verdict: "inconclusive" });
+  });
+
   it("writes every decision to the evidence log as a linked entry and serves head, entries and verify", async () => {
     served = FLOWS.syntheticNoOptOut;
     const { server, ledger } = app();

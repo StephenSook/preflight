@@ -11,11 +11,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// The release on npm and what the README says its replay of the committed corpus prints. 0.1.0
-// predates spec corrections 5 to 7, so 43 of 48 labels match; when 0.2.0 is published, pin it here
-// and expect every label to match. A stale publish then fails this walk instead of a judge.
-const PUBLISHED_CLI = "0.1.0";
-const REPLAY_EXPECTED = /48 objects, 43 match their labels, 5 do not/;
+// The release on npm and what the README says its replay of the committed corpus prints: every
+// label matches. A publish that lags the engine fails this walk instead of a judge.
+const PUBLISHED_CLI = "0.2.0";
+const REPLAY_EXPECTED = /48 objects, 48 match their labels/;
 const CORPUS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../corpus/ncco");
 
 const api = (process.env.PREFLIGHT_API_URL || "https://preflight-api-rc34.onrender.com").replace(/\/$/, "");

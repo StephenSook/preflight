@@ -111,13 +111,21 @@ export class FlowDecider {
     const declaration = await this.currentDeclaration();
     const p = input.payload ?? {};
     const rawDirection = str(p["direction"]);
-    const direction: DecisionRecord["direction"] = rawDirection === "inbound" || rawDirection === "outbound" ? rawDirection : "unknown";
+    // An application user's leg (the browser softphone, a Client SDK call) carries `endpoint_type: "app"`
+    // and `from_user`, no direction and no from: the person initiated it, so it is inbound.
+    const fromUser = str(p["from_user"]);
+    const appLeg = str(p["endpoint_type"]) === "app" || (fromUser !== undefined && rawDirection === undefined);
+    const direction: DecisionRecord["direction"] = rawDirection === "inbound" || rawDirection === "outbound" ? rawDirection : appLeg ? "inbound" : "unknown";
     const fromNumber = str(p["from"]);
     const toNumber = str(p["to"]);
-    const humanParty = direction === "inbound" ? fromNumber : toNumber;
+    const humanParty = direction === "inbound" ? (fromNumber ?? fromUser) : toNumber;
     const callerId = direction === "inbound" ? toNumber : fromNumber;
     // The cache is this process's own table, never the platform: a paid lookup never sits inside a decision.
-    const facts = resolver.resolve(humanParty ?? "", input.now, await this.deps.lookups?.cached(humanParty));
+    const resolved = resolver.resolve(humanParty ?? "", input.now, await this.deps.lookups?.cached(humanParty));
+    // Calling hours bind a call the application initiates (47 CFR 64.1200(c)(1) forbids INITIATING a solicitation
+    // outside the window). A call the person on the line initiated is inside the window by construction; what is
+    // spoken to them is still held to P2 to P5.
+    const facts = direction === "inbound" ? { ...resolved, withinHours: true, hoursBasis: "inbound: the person initiated the call, so calling hours do not bind it" } : resolved;
     const callFacts = { from: callerId, lineType: facts.lineType, withinHours: facts.withinHours };
 
     const parsed = parseNcco(input.nccoBytes.trim().length === 0 ? "[]" : input.nccoBytes);
