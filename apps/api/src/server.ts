@@ -75,6 +75,9 @@ export function parsePayload(req: FastifyRequest, raw: string): Record<string, u
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 
+/** The most decisions one reconciliation window may span; a larger window is refused rather than truncated. */
+export const RECONCILE_DECISION_LIMIT = 100000;
+
 function percentile(sorted: number[], p: number): number | null {
   if (sorted.length === 0) return null;
   const i = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
@@ -282,7 +285,9 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     }
     // A refusal moments before the window opened can still explain a record just inside it.
     const margin = 15 * 60 * 1000;
-    const inWindow = await decisions.between(new Date(Date.parse(start) - margin).toISOString(), new Date(Date.parse(end) + margin).toISOString(), 10000);
+    const inWindow = await decisions.between(new Date(Date.parse(start) - margin).toISOString(), new Date(Date.parse(end) + margin).toISOString(), RECONCILE_DECISION_LIMIT);
+    // A window the store could not return whole is refused, never silently reconciled against its newest part.
+    if (inWindow.length >= RECONCILE_DECISION_LIMIT) return reply.code(422).send({ error: `more than ${RECONCILE_DECISION_LIMIT} decisions in the window; narrow it` });
     const report = reconcile({ start, end }, records, inWindow);
     const entry = await ledger.append({
       ts: new Date(clock()).toISOString(),
