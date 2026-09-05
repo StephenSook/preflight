@@ -123,8 +123,17 @@ async function liveBlock(): Promise<string> {
   return `\n${lines.join("\n")}\n`;
 }
 
-function readmeCounts(readme: string): { badge: number | undefined; comment: number | undefined } {
-  return { badge: Number(readme.match(/tests-(\d+)%20passing/)?.[1]) || undefined, comment: Number(readme.match(/# every suite, (\d+) tests/)?.[1]) || undefined };
+function readmeCounts(readme: string): { badge: number | undefined; comment: number | undefined; mutantsApplied: number | undefined; mutantsKilled: number | undefined } {
+  return {
+    badge: Number(readme.match(/tests-(\d+)%20passing/)?.[1]) || undefined,
+    comment: Number(readme.match(/# every suite, (\d+) tests/)?.[1]) || undefined,
+    mutantsApplied: Number(readme.match(/applies (\d+) hand-written mutations/)?.[1]) || undefined,
+    mutantsKilled: Number(readme.match(/the last run killed (\d+) of \d+/)?.[1]) || undefined,
+  };
+}
+
+function mutantCount(): number {
+  return (JSON.parse(readFileSync(path.join(root, "scripts/mutation/mutants.json"), "utf8")) as unknown[]).length;
 }
 
 async function main(): Promise<void> {
@@ -142,6 +151,8 @@ async function main(): Promise<void> {
     if (current !== nextStatic) problems.push("the STATIC block of docs/fact-sheet.md is stale: run `pnpm fact-sheet --no-tests`");
     if (rc.badge !== counts.tests) problems.push(`README test badge says ${rc.badge}, the fact sheet says ${counts.tests}`);
     if (rc.comment !== counts.tests) problems.push(`README "every suite" line says ${rc.comment}, the fact sheet says ${counts.tests}`);
+    const mutants = mutantCount();
+    if (rc.mutantsApplied !== mutants || rc.mutantsKilled !== mutants) problems.push(`README says ${rc.mutantsApplied} mutants applied and ${rc.mutantsKilled} killed, mutants.json holds ${mutants}`);
     if (problems.length > 0) {
       for (const p of problems) process.stderr.write(`fact-sheet check: ${p}\n`);
       process.exit(1);
@@ -153,7 +164,12 @@ async function main(): Promise<void> {
   let next = sheet.replace(new RegExp(`${STATIC_OPEN}[\\s\\S]*?${STATIC_CLOSE}`), `${STATIC_OPEN}${nextStatic}${STATIC_CLOSE}`);
   if (!offline) next = next.replace(new RegExp(`${LIVE_OPEN}[\\s\\S]*?${LIVE_CLOSE}`), `${LIVE_OPEN}${await liveBlock()}${LIVE_CLOSE}`);
   writeFileSync(factSheetPath, next);
-  const nextReadme = readme.replace(/tests-\d+%20passing/, `tests-${counts.tests}%20passing`).replace(/# every suite, \d+ tests/, `# every suite, ${counts.tests} tests`);
+  const mutants = mutantCount();
+  const nextReadme = readme
+    .replace(/tests-\d+%20passing/, `tests-${counts.tests}%20passing`)
+    .replace(/# every suite, \d+ tests/, `# every suite, ${counts.tests} tests`)
+    .replace(/applies \d+ hand-written mutations/, `applies ${mutants} hand-written mutations`)
+    .replace(/the last run killed \d+ of \d+/, `the last run killed ${mutants} of ${mutants}`);
   if (nextReadme !== readme) writeFileSync(readmePath, nextReadme);
   process.stdout.write(`fact sheet regenerated: ${counts.tests} tests, ${offline ? "live block kept" : "live block read from " + api}\n`);
 }
