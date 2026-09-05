@@ -23,7 +23,10 @@ export interface CarrierRecord {
 
 export interface ReconciliationReport {
   window: { start: string; end: string };
+  /** Carrier records whose start time lies inside the window; only these are classified. */
   carrier_records: number;
+  /** Records the workflow sent that started outside the window: not this window's to classify. */
+  outside_window: number;
   matched: number;
   unmatched: number;
   leaks: number;
@@ -43,10 +46,18 @@ export const lineOf = (s: string | undefined): string => {
 
 const LEAK_BEFORE_MS = 120_000;
 const LEAK_AFTER_MS = 5_000;
+const DRY_RUN_PREFIX = "preflight-dryrun-";
+
+/**
+ * A uuid the platform issued. The gateway stamps its dry-run pre-fetch with a `preflight-dryrun-`
+ * id and only a placed call replaces it with the platform's, so a refusal still carries the dry-run
+ * id: for reconciliation that is no uuid at all, or every refusal would look like a known call.
+ */
+export const isPlatformUuid = (u: string | undefined): u is string => typeof u === "string" && u.length > 0 && !u.startsWith(DRY_RUN_PREFIX);
 
 export function reconcile(window: { start: string; end: string }, records: readonly CarrierRecord[], decisions: readonly DecisionRecord[]): ReconciliationReport {
-  const known = new Set(decisions.map((d) => d.callUuid).filter((u): u is string => typeof u === "string" && u.length > 0));
-  const refused = decisions.filter((d) => (d.decision === "block" || d.decision === "hold") && !d.callUuid);
+  const known = new Set(decisions.map((d) => d.callUuid).filter(isPlatformUuid));
+  const refused = decisions.filter((d) => (d.decision === "block" || d.decision === "hold") && !isPlatformUuid(d.callUuid));
   const startMs = Date.parse(window.start);
   const endMs = Date.parse(window.end);
   const refusedInWindow = refused.filter((d) => {
@@ -54,9 +65,16 @@ export function reconcile(window: { start: string; end: string }, records: reado
     return t >= startMs && t <= endMs;
   }).length;
 
+  // Only records that started inside the window are this window's to classify; a record from before
+  // it is not attributed to a refusal here, and the count of what was left out is reported.
+  const inside = records.filter((r) => {
+    const t = Date.parse(r.date_start);
+    return t >= startMs && t <= endMs;
+  });
+
   const unmatched: string[] = [];
   const leaked: string[] = [];
-  for (const r of records) {
+  for (const r of inside) {
     if (known.has(r.call_id)) continue;
     unmatched.push(r.call_id);
     const started = Date.parse(r.date_start);
@@ -64,16 +82,19 @@ export function reconcile(window: { start: string; end: string }, records: reado
     const to = lineOf(r.to);
     const leak = refused.some((d) => {
       const decided = Date.parse(d.decidedAt);
-      return lineOf(d.fromNumber) === from && lineOf(d.toNumber) === to && started >= decided - LEAK_AFTER_MS && started <= decided + LEAK_BEFORE_MS;
+      // A refusal placed with a random caller id has no line to compare; the destination alone attributes it.
+      const refusedFrom = lineOf(d.fromNumber);
+      return (refusedFrom === "" || refusedFrom === from) && lineOf(d.toNumber) === to && started >= decided - LEAK_AFTER_MS && started <= decided + LEAK_BEFORE_MS;
     });
     if (leak) leaked.push(r.call_id);
   }
 
-  const canonicalRecords = records.map((r) => ({ call_id: r.call_id, direction: r.direction, from: lineOf(r.from), to: lineOf(r.to), date_start: r.date_start }));
+  const canonicalRecords = inside.map((r) => ({ call_id: r.call_id, direction: r.direction, from: lineOf(r.from), to: lineOf(r.to), date_start: r.date_start }));
   return {
     window,
-    carrier_records: records.length,
-    matched: records.length - unmatched.length,
+    carrier_records: inside.length,
+    outside_window: records.length - inside.length,
+    matched: inside.length - unmatched.length,
     unmatched: unmatched.length,
     leaks: leaked.length,
     refused_in_window: refusedInWindow,

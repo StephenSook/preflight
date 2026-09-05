@@ -44,9 +44,22 @@ describe("carrier-side reconciliation", () => {
     expect(a.records_hash).toBe(b.records_hash);
   });
 
-  it("counts only refusals inside the window, while matching leaks against every refusal it was given", () => {
+  it("classifies only records that started inside the window and reports the rest as outside it", () => {
     const decisions = [decision({ decision: "hold", decidedAt: iso(T0 - 7200_000) })];
-    const report = reconcile(window, [record({ call_id: "old", date_start: iso(T0 - 7200_000 + 10_000) })], decisions);
-    expect(report).toMatchObject({ refused_in_window: 0, leaks: 1 });
+    const report = reconcile(window, [record({ call_id: "old", date_start: iso(T0 - 7200_000 + 10_000) }), record({ call_id: "in", date_start: iso(T0) })], decisions);
+    expect(report).toMatchObject({ carrier_records: 1, outside_window: 1, refused_in_window: 0, unmatched: 1, leaks: 0, unmatched_ids: ["in"] });
+  });
+
+  it("treats the gateway's dry-run ids as no uuid: a refusal carrying one is a refusal, and no carrier record matches it", () => {
+    const decisions = [decision({ callUuid: "preflight-dryrun-a1b2c3d4e5f6", decision: "block", decidedAt: iso(T0) })];
+    expect(reconcile(window, [record({ call_id: "real-platform-uuid", date_start: iso(T0 + 2000) })], decisions)).toMatchObject({ refused_in_window: 1, unmatched: 1, leaks: 1, leaked_ids: ["real-platform-uuid"] });
+    expect(reconcile(window, [record({ call_id: "preflight-dryrun-a1b2c3d4e5f6", date_start: iso(T0 + 2000) })], decisions)).toMatchObject({ matched: 0, unmatched: 1 });
+    expect(reconcile(window, [], decisions).refused_in_window).toBe(1);
+  });
+
+  it("a refusal placed with a random caller id is attributed by the destination alone", () => {
+    const decisions = [decision({ decision: "block", fromNumber: "random_from_number", decidedAt: iso(T0) })];
+    expect(reconcile(window, [record({ call_id: "x", from: "12125550100", date_start: iso(T0 + 1000) })], decisions).leaks).toBe(1);
+    expect(reconcile(window, [record({ call_id: "y", from: "12125550100", to: "14045550199", date_start: iso(T0 + 1000) })], decisions).leaks).toBe(0);
   });
 });
