@@ -1,7 +1,6 @@
 # --- private research material: never reaches GitHub (standing convention) ---
 *.pdf
 Sookra_Methodology*
-*Recon*
 *Strategy Brief*
 *Teardown*
 .DS_Store

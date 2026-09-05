@@ -1,0 +1,36 @@
+name: carrier reconciliation
+# Once a night, the sponsor's own call records (Reports API) are checked against the interlock's
+# decisions: every record must be a call Preflight decided, and none may line up with a request the
+# gateway refused. The result is an evidence-log entry; a mismatch fails the job, and GitHub's own
+# failure email is the alarm. Offset minute: :00 and */N schedules are throttled.
+on:
+  schedule:
+    - cron: "33 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: pull the carrier's records for the last 26 hours and reconcile them against the ledger
+        env:
+          PREFLIGHT_API_URL: ${{ vars.PREFLIGHT_API_URL }}
+          VONAGE_API_KEY: ${{ secrets.VONAGE_API_KEY }}
+          VONAGE_API_SECRET: ${{ secrets.VONAGE_API_SECRET }}
+          SEAL_TOKEN: ${{ secrets.SEAL_TOKEN }}
+          WINDOW_HOURS: "26"
+        run: |
+          set -euo pipefail
+          test -n "$PREFLIGHT_API_URL" || { echo "PREFLIGHT_API_URL repository variable is not set"; exit 1; }
+          test -n "$VONAGE_API_KEY" || { echo "VONAGE_API_KEY secret is not set"; exit 1; }
+          test -n "$VONAGE_API_SECRET" || { echo "VONAGE_API_SECRET secret is not set"; exit 1; }
+          test -n "$SEAL_TOKEN" || { echo "SEAL_TOKEN secret is not set"; exit 1; }
+          node scripts/vonage/reconcile.mjs
