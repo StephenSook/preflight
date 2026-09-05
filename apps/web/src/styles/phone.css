@@ -1,0 +1,41 @@
+/* The phone page: one column, big targets, paper and cobalt. */
+.phone {
+  max-width: 34em;
+  margin: 0 auto;
+  padding: 2em 1.25em 4em;
+  display: grid;
+  gap: 1.5em;
+}
+.phone h1 { font-size: var(--size-heading-m); }
+.phone .card {
+  background: var(--site-white);
+  border-radius: 2em;
+  padding: 1.75em;
+  display: grid;
+  gap: 0.9em;
+  box-shadow: 0 1em 3em rgba(11, 13, 15, 0.08);
+}
+.phone .card h2 { font-family: var(--font-display); font-weight: 800; font-size: var(--size-heading-s); }
+.phone label { font-weight: 700; font-size: var(--size-paragraph-small); }
+.phone input {
+  width: 100%;
+  min-height: 3.25em;
+  padding: 0.8em 1em;
+  border-radius: 1em;
+  border: 2px solid rgba(11, 13, 15, 0.2);
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+.phone .row { display: flex; gap: 0.6em; flex-wrap: wrap; }
+.phone .button { min-height: 44px; }
+.phone .status { min-height: 1.5em; font-family: var(--font-mono); font-size: var(--size-paragraph-small); white-space: pre-wrap; word-break: break-word; }
+.phone .status.is-error { color: var(--verdict-blocked); }
+.phone .status.is-ok { color: var(--verdict-passed); }
+.phone .call-state {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.5em;
+  line-height: 1;
+  color: var(--state, var(--site-ink));
+}
+.phone .back { font-family: var(--font-mono); font-size: var(--size-paragraph-small); }

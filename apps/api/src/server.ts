@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { declaredEndpointsOf, type FlowDeclaration } from "@preflight/engine";
 import { referenceApp } from "@preflight/reference";
 import type { NumberFactsResolver } from "@preflight/numfacts";
+import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { GENESIS_HASH, type Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
@@ -103,6 +104,9 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   const bus = new DecisionBus();
   const decisions = publishing(deps.decisions, bus);
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
+  // The web app lives on its own origin (Vercel) and the dev server on localhost; the API answers those
+  // cross-origin and nobody else. Same-origin callers (curl, a judge's browser on the API host) are unaffected.
+  void app.register(cors, { origin: [config.PUBLIC_WEB_URL, "http://localhost:5173", "http://127.0.0.1:5173"].filter((o): o is string => typeof o === "string"), methods: ["GET", "POST", "PUT", "DELETE"], allowedHeaders: ["authorization", "content-type"], maxAge: 600 });
   const privateKeyPem = deps.applicationPrivateKeyPem;
   const applicationId = config.VONAGE_APPLICATION_ID;
   const mintToken = privateKeyPem && applicationId ? () => mintApplicationJwt(applicationId, privateKeyPem, clock()) : undefined;

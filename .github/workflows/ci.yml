@@ -28,6 +28,8 @@ jobs:
         run: pnpm lint
       - name: typecheck
         run: pnpm typecheck
+      - name: web app builds (Vite, three entries)
+        run: pnpm --filter @preflight/web build
       - name: unit tests
         run: pnpm test
         env:

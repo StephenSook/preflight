@@ -1,0 +1,227 @@
+/* Base: reset, the viewport-scaled root, type, layout primitives, buttons, focus. Colour comes from tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 12 px at 1440 wide, as the reference scales; clamped so phones and ultrawides stay readable. */
+  font-size: clamp(9.5px, 0.8333vw, 15px);
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: auto;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 1.5em;
+  line-height: 1.5;
+  color: var(--site-ink);
+  background: var(--site-paper);
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* Display type */
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 0.85;
+  font-variation-settings: "opsz" 96;
+  text-wrap: balance;
+}
+.display-xxl { font-size: var(--size-heading-xxl); }
+.display-l { font-size: var(--size-heading-l); }
+.display-m { font-size: var(--size-heading-m); }
+.display-s { font-size: var(--size-heading-s); line-height: 0.95; }
+
+.lead { font-size: var(--size-paragraph-large); line-height: 1.35; font-weight: 500; }
+.body { font-size: var(--size-paragraph-regular); }
+.small { font-size: var(--size-paragraph-small); }
+
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 600;
+  font-size: var(--size-handwritten-regular);
+  line-height: 1.1;
+  color: var(--site-annotation);
+  opacity: 0.85;
+  transform: rotate(-4deg);
+  display: inline-block;
+}
+
+/* Layout */
+.wrap {
+  width: 100%;
+  max-width: 100%;
+  padding-inline: var(--layout-margin);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 1.5em;
+}
+.block {
+  border-radius: var(--layout-section-radius);
+  padding: clamp(3em, 8vw, 8em) 0;
+  position: relative;
+  overflow: clip;
+}
+.stack > * + * { margin-top: 1em; }
+.stack-l > * + * { margin-top: 2em; }
+
+/* Focus, always visible for the keyboard, never for the pointer. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 0.25em solid var(--site-cobalt);
+  outline-offset: 0.25em;
+  border-radius: 0.25em;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1em;
+  top: -5em;
+  z-index: 3000;
+  padding: 0.75em 1.25em;
+  background: var(--site-ink);
+  color: var(--site-white);
+  border-radius: 999px;
+  font-weight: 700;
+}
+.skip-link:focus { top: 1em; }
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Buttons: the pill and the split pill, as the reference builds them. */
+.button,
+.button-alt {
+  --button-bg: var(--site-ink);
+  --button-fg: var(--site-white);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75em;
+  min-height: 3.25em;
+  padding: 0.85em 1.6em;
+  border-radius: var(--layout-button-radius);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  font-weight: 700;
+  font-size: var(--size-paragraph-regular);
+  line-height: 1;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 200ms var(--ease-default), color 200ms var(--ease-default), box-shadow 200ms var(--ease-default);
+}
+.button.is-primary { --button-bg: var(--site-safety-orange); --button-fg: var(--site-ink); }
+.button.is-cobalt { --button-bg: var(--site-cobalt); --button-fg: var(--site-white); }
+.button.is-paper { --button-bg: var(--site-white); --button-fg: var(--site-ink); }
+.button:hover { box-shadow: 0 0.5em 1.5em rgba(11, 13, 15, 0.18); }
+.button[disabled] { opacity: 0.55; cursor: progress; }
+.button .label { display: inline-block; }
+.button .char { display: inline-block; will-change: transform; }
+
+/* The verdict triad, used for the three states and nothing else. */
+.is-blocked { --state: var(--verdict-blocked); }
+.is-held { --state: var(--verdict-held); }
+.is-passed { --state: var(--verdict-passed); }
+.dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--state, currentColor);
+  vertical-align: middle;
+}
+
+/* Motion primitives are opt in through data attributes; nothing moves before the library says so. */
+html:not(.is-ready) [data-stamp],
+html:not(.is-ready) [data-plop-in],
+html:not(.is-ready) [data-sticker],
+html:not(.is-ready) [data-handwritten] {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.is-ready) [data-stamp],
+  html:not(.is-ready) [data-plop-in],
+  html:not(.is-ready) [data-sticker],
+  html:not(.is-ready) [data-handwritten] {
+    visibility: visible;
+  }
+  .button,
+  .button-alt {
+    transition: none;
+  }
+}
+
+/* Grain, so paper is paper and not a flat fill. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}

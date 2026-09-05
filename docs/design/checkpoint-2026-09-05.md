@@ -185,3 +185,44 @@ site only.
 Prepared: this document, the captures and computed styles, a token file for A and B, the generated
 handset candidates, the section copy drafted from the fact sheet. Waiting: all `apps/web` code, per
 the agreement that no frontend is built before the checkpoint.
+
+## 5. Decisions taken (Sat 2026-09-05, morning; Stephen delegated the checkpoint)
+
+Stephen's instruction: take every item except the phone number. The seven decisions, each with the
+reason it beat its alternatives, so the build can start and the film can plan on them.
+
+1. **Palette: A.** Paper, sky, cobalt, safety orange on the site; the spec's cockpit set on the
+   dashboard; the verdict triad identical on both and used for nothing else. B would read as a copy
+   of the reference and C would flatten the film's contrast between the bright site and the dark
+   dashboard. The dashboard body face changes from Inter to Manrope so both surfaces share one
+   voice (the mono stays JetBrains Mono).
+2. **Fonts: the free stack.** Bricolage Grotesque 800 (display), Manrope 500 to 700 (body), JetBrains
+   Mono (verdicts, citations, every number), Caveat 600 (annotations). Self-hosted woff2, subset to
+   latin, `font-display: swap`, the intro gated on `document.fonts.ready`. Licensing Champ and Degular
+   would cost money and a day, and the free faces carry the same chunky-plus-refined pairing.
+3. **Hero visual: (b), the product's own artefact.** The hero draws a real call-control object from
+   the corpus as a flow graph, lets the engine run in the browser, and lights the one branch that
+   breaks 47 CFR 64.1200(b)(3) in the verdict red with the citation printed. It is real, it is
+   unique to this product, and it needs no generated frames. A generated handset still (candidate A,
+   paper and runway) is the floating product image in the dial section and the footer, as garnish.
+   A frame sequence (a) stays a possible upgrade if time remains after the dashboard and the film.
+4. **Load sequence: the full 1.9 s, once per session.** The runway centreline draws, the handset
+   mark pops in and out, the paper hero reveals through the ellipse and the headline stamps in word
+   by word. `sessionStorage` marks it played; later loads in the same session go straight to a
+   0.6 s hero reveal. Reduced motion: no layer, final state. The film opens on the full sequence.
+5. **Handwritten annotations: keep, five phrases.** "no model decides" (hero), "this line breaks
+   47 CFR 64.1200(b)(3)" (the red branch), "the phone stayed silent" (the live block sticker),
+   "measured, not assumed" (card 3, beside the 868 ms and 1,009 ms figures), "nothing held, nothing
+   hidden" (the held queue's empty state, the only handwriting on the dashboard). Caveat 600, cobalt
+   at 0.8 opacity, rotated 4 degrees, `aria-hidden` with the same sense carried in the copy.
+6. **Single-page site, two more entries, no Barba.** One Vite app with three entries: `/` the site,
+   `/app/` the dashboard (six screens on hash routes), `/phone/` the page a phone opens for the
+   softphone and the held-queue notifications. Page transitions have nothing to transition between;
+   fewer moving parts in the film.
+7. **The real number in the footer and in section 5:** +1 943 244 5023, the reference flow behind it
+   on purpose, with the consent gate's one-sentence explanation beside it.
+
+Also fixed here so nothing waits on another checkpoint: hero headline option A; the section order
+of the storyboard as drafted in `copy.md`; every number on the site read from `/api/summary`,
+`/api/campaign` and `/api/ledger/head` on load, never typed in; the dashboard's motion budget is
+the row insertion, the block signature and the button spring, nothing else.

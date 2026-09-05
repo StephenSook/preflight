@@ -1,0 +1,13 @@
+{
+  "name": "Preflight on the phone",
+  "short_name": "Preflight",
+  "description": "Held-queue notifications and the browser softphone for the Preflight interlock.",
+  "start_url": "/phone/",
+  "scope": "/phone/",
+  "display": "standalone",
+  "background_color": "#FFF4D6",
+  "theme_color": "#1F4BFF",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

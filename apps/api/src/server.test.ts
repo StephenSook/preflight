@@ -223,6 +223,17 @@ describe("preflight api ingress", () => {
     expect((await ledger.verify()).ok).toBe(true);
   });
 
+  it("answers cross-origin requests from the web app's origin and from nowhere else", async () => {
+    const { server } = app({ PUBLIC_WEB_URL: "https://preflight-web.example" });
+    const ok = await server.inject({ method: "OPTIONS", url: "/api/summary", headers: { origin: "https://preflight-web.example", "access-control-request-method": "GET", "access-control-request-headers": "authorization" } });
+    expect(ok.statusCode).toBe(204);
+    expect(ok.headers["access-control-allow-origin"]).toBe("https://preflight-web.example");
+    expect(String(ok.headers["access-control-allow-headers"]).toLowerCase()).toContain("authorization");
+    const stranger = await server.inject({ method: "GET", url: "/api/summary", headers: { origin: "https://stranger.example" } });
+    expect(stranger.statusCode).toBe(200);
+    expect(stranger.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("records a transparency-log seal only with the seal token, and refuses without it", async () => {
     const { server } = app({ SEAL_TOKEN: "a-seal-token-of-sufficient-length" });
     const seal = { rekor_uuid: "24296fb2" + "0".repeat(72), rekor_log_index: 123456, sealed: { seq: 0, entry_hash: "sha256:" + "0".repeat(64) }, signature_b64: "MEUCIQ==" };
