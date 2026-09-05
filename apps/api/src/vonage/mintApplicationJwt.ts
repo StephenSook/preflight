@@ -10,7 +10,8 @@ export function mintApplicationJwt(applicationId: string, privateKeyPem: string,
   const iat = Math.floor(nowMs / 1000);
   const head = b64({ alg: "RS256", typ: "JWT" });
   // A Client SDK user token is the application token plus a subject and an ACL (extraClaims carries both).
-  const body = b64({ application_id: applicationId, iat, exp: iat + ttlSeconds, jti: randomUUID(), ...extraClaims });
+  // The fixed claims are spread last, so no extra claim can lengthen a token's life or change its application.
+  const body = b64({ ...extraClaims, application_id: applicationId, iat, exp: iat + ttlSeconds, jti: randomUUID() });
   const signer = createSign("RSA-SHA256");
   signer.update(`${head}.${body}`);
   return `${head}.${body}.${signer.sign(privateKeyPem).toString("base64url")}`;

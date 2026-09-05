@@ -5,13 +5,14 @@ import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
-import { campaignWindow } from "./campaign.js";
+import { campaignWindow, MAX_EVENTS } from "./campaign.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { InsightLookups } from "./insights/lookups.js";
 import { PushNotifier, type PushSender } from "./push/notify.js";
 import { registerPush } from "./push/routes.js";
 import { registerSoftphone } from "./softphone/routes.js";
 import { MemoryPushStore, type PushStore } from "./store/pushStore.js";
+import { MemorySoftphoneStore, type SoftphoneStore } from "./store/softphoneStore.js";
 import { preflightWebhooks, readApplication, writeWebhooks, type Credentials, type Hook, type VoiceWebhooks } from "./setup/application.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
 import { MemoryInsightStore, type InsightStore } from "./store/insightStore.js";
@@ -50,6 +51,8 @@ export interface ServerDeps {
   pushStore?: PushStore;
   /** Injected push transport, so tests never reach a push service. */
   pushSender?: PushSender;
+  /** Softphone tokens issued, for the durable daily allowance. */
+  softphoneStore?: SoftphoneStore;
   /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
   applicationPublicKeyPem?: string | undefined;
   /** PEM of the application's private key; with it the consent gate and the demonstration call are enabled. */
@@ -231,8 +234,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return presented.length === config.DASHBOARD_TOKEN.length && timingSafeEqual(Buffer.from(presented), Buffer.from(config.DASHBOARD_TOKEN));
   };
   registerStream(app, bus, (presented) => (!config.DASHBOARD_TOKEN ? "disabled" : dashboardAuth(presented ? `Bearer ${presented}` : undefined) ? "ok" : "forbidden"));
-  registerPush(app, { store: pushStore, notifier, dashboardAuth, dashboardEnabled: Boolean(config.DASHBOARD_TOKEN), clock });
-  registerSoftphone(app, { config, fetchImpl, clock, applicationPrivateKeyPem: privateKeyPem, dashboardAuth });
+  registerPush(app, { store: pushStore, notifier, dashboardAuth, dashboardEnabled: Boolean(config.DASHBOARD_TOKEN), clock, maxSubscriptions: config.PUSH_SUBSCRIPTIONS_MAX });
+  registerSoftphone(app, { config, fetchImpl, clock, applicationPrivateKeyPem: privateKeyPem, dashboardAuth, store: deps.softphoneStore ?? new MemorySoftphoneStore() });
   app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
     const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";
@@ -331,10 +334,14 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   app.get("/api/coverage", async () => flow.coverage());
   // The rate properties (P6 to P8) over a window, default the last thirty days (the rule's own period). Counts only.
   app.get<{ Querystring: { since?: string; until?: string } }>("/api/campaign", async (req, reply) => {
-    const until = req.query.until ?? new Date(clock()).toISOString();
-    const since = req.query.since ?? new Date(Date.parse(until) - 30 * 86_400_000).toISOString();
-    if (!Number.isFinite(Date.parse(since)) || !Number.isFinite(Date.parse(until)) || Date.parse(since) > Date.parse(until)) return reply.code(400).send({ error: "since and until must be ISO times, since before until" });
-    return campaignWindow({ store, graphStore, declaration: () => flow.currentDeclaration() }, since, until);
+    const untilMs = req.query.until === undefined ? clock() : Date.parse(req.query.until);
+    const sinceMs = req.query.since === undefined ? untilMs - 30 * 86_400_000 : Date.parse(req.query.since);
+    if (!Number.isFinite(sinceMs) || !Number.isFinite(untilMs) || sinceMs > untilMs) return reply.code(400).send({ error: "since and until must be ISO times, since before until" });
+    // Normalised to the instant, so the store compares times and not the spelling of an offset.
+    const result = await campaignWindow({ store, graphStore, declaration: () => flow.currentDeclaration() }, new Date(sinceMs).toISOString(), new Date(untilMs).toISOString());
+    // A window the store could not return whole is refused, never folded from its oldest part.
+    if (result.events >= MAX_EVENTS) return reply.code(422).send({ error: `more than ${MAX_EVENTS} event webhooks in the window; narrow it` });
+    return result;
   });
   // The declared-versus-actual diff: the discovered graph coloured against what the developer declared.
   // No phone numbers here, only the application's own call-control objects.

@@ -7,25 +7,36 @@
  * a person. Not total dials. Not machine-answered calls. A call without machine detection on it is
  * counted as answered by a person, and the basis says so, because the platform cannot tell and the
  * rule's safe harbour is measured against people, so the conservative reading is the honest one.
+ *
+ * Only calls that have ended are counted: a call still in progress has not abandoned anyone yet and
+ * has not been rung out. "Connected to a representative" is evidence, not a plan: the call's
+ * executed path must reach a connect AND another leg of the same conversation must have been
+ * answered. A connect that is on the path but never produced an answered leg counts as abandoned,
+ * which errs toward flagging ourselves, the conservative side for a compliance tool.
  */
 
 export type RateVerdict = "true" | "false" | "inconclusive";
 
 export interface CallTelemetry {
   uuid: string;
+  conversationUuid: string | undefined;
   direction: "inbound" | "outbound" | "unknown";
-  /** ISO times from the platform's own event timestamps. */
+  /** ISO times from the platform's own event timestamps: the earliest ringing, the earliest answer, the latest end. */
   ringingAt?: string | undefined;
   answeredAt?: string | undefined;
   endedAt?: string | undefined;
-  /** The last status the platform reported: completed, unanswered, timeout, busy, cancelled, rejected, failed. */
+  /** The terminal status the platform reported: completed, unanswered, timeout, busy, cancelled, rejected, failed; undefined while in progress. */
   outcome: string | undefined;
   /** What machine detection said, when it ran. */
   detected?: "human" | "machine" | undefined;
   /** Talk time in seconds as the platform reported it on the completed event. */
   durationSeconds?: number | undefined;
-  /** True when the path the call actually ran reached a connect to a live endpoint (a person). */
-  connectedHuman: boolean;
+  /** True when the path the call actually ran reached a connect to a live endpoint. A plan, not proof. */
+  pathHasConnect: boolean;
+  /** True when another leg of the same conversation was answered: the proof that a person was connected. */
+  otherLegAnswered: boolean;
+  /** True when this leg is the target of another leg's connect (a representative's leg), so it is not a dial to a consumer. */
+  connectLeg: boolean;
 }
 
 export interface RateProperty {
@@ -33,8 +44,9 @@ export interface RateProperty {
   title: string;
   citation: string;
   verdict: RateVerdict;
-  /** The figure the rule is about, as a fraction 0..1, when it exists. */
+  /** The quantity the verdict is about, in `unit`, when it exists. */
   figure: number | null;
+  unit: "fraction" | "seconds";
   /** How many calls the figure stands on. */
   n: number;
   /** One sentence a person can read: what was counted, over what, against which threshold. */
@@ -43,7 +55,9 @@ export interface RateProperty {
 
 export interface CampaignRates {
   calls: number;
+  /** Outbound calls that have ended; the only ones any property counts. */
   outbound: number;
+  inProgress: number;
   answered: number;
   answeredByPerson: number;
   machineAnswered: number;
@@ -96,67 +110,79 @@ const median = (xs: number[]): number | null => {
 
 const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
 
-const UNANSWERED = new Set(["unanswered", "timeout", "cancelled", "busy", "rejected", "failed"]);
+/** Every status that ends a call. */
+const TERMINAL = new Set(["completed", "unanswered", "timeout", "cancelled", "busy", "rejected", "failed"]);
+/** The unanswered outcomes where the dialer, not the network or the callee, ended the ringing: the ring-duration rule's cases. */
+const RUNG_OUT = new Set(["unanswered", "timeout", "cancelled"]);
 
 /** Every rate property over one window of calls. Pure; the caller assembles the telemetry from the event store. */
 export function campaignRates(calls: readonly CallTelemetry[]): CampaignRates {
-  const outbound = calls.filter((c) => c.direction === "outbound");
-  const answered = outbound.filter((c) => c.answeredAt !== undefined);
+  // Dials are outbound legs that are not the far end of a connect; only ended ones are counted.
+  const dials = calls.filter((c) => c.direction === "outbound" && !c.connectLeg);
+  const ended = dials.filter((c) => c.outcome !== undefined && TERMINAL.has(c.outcome));
+  const inProgress = dials.length - ended.length;
+  const answered = ended.filter((c) => c.answeredAt !== undefined);
   const machineAnswered = answered.filter((c) => c.detected === "machine");
   const byPerson = answered.filter((c) => c.detected !== "machine");
-  const abandoned = byPerson.filter((c) => !c.connectedHuman);
-  const unanswered = outbound.filter((c) => c.answeredAt === undefined && (c.outcome === undefined || UNANSWERED.has(c.outcome)) && c.ringingAt !== undefined);
-  const ringTimes = unanswered.map((c) => ({ c, s: seconds(c.ringingAt, c.endedAt) })).filter((x): x is { c: CallTelemetry; s: number } => x.s !== null);
+  const abandoned = byPerson.filter((c) => !(c.pathHasConnect && c.otherLegAnswered));
+  const unansweredAll = ended.filter((c) => c.answeredAt === undefined);
+  const rungOut = unansweredAll.filter((c) => c.outcome !== undefined && RUNG_OUT.has(c.outcome) && c.ringingAt !== undefined);
+  const ringTimes = rungOut.map((c) => ({ c, s: seconds(c.ringingAt, c.endedAt) })).filter((x): x is { c: CallTelemetry; s: number } => x.s !== null && x.s > 0);
   const shortRings = ringTimes.filter((x) => x.s < MIN_RING_SECONDS);
   const durations = answered.map((c) => c.durationSeconds).filter((d): d is number => typeof d === "number" && Number.isFinite(d));
   const medianDuration = median(durations);
-  const unansweredShare = outbound.length > 0 ? outbound.filter((c) => c.answeredAt === undefined).length / outbound.length : null;
+  const unansweredShare = ended.length > 0 ? unansweredAll.length / ended.length : null;
   const undetected = byPerson.length - byPerson.filter((c) => c.detected === "human").length;
+  const plannedOnly = byPerson.filter((c) => c.pathHasConnect && !c.otherLegAnswered).length;
 
   const p6: RateProperty = byPerson.length === 0
-    ? { id: "P6", title: "Abandonment rate", citation: RATE_PROPERTIES[0]!.citation, verdict: "inconclusive", figure: null, n: 0, basis: "no outbound call in the window was answered by a person, so there is no denominator" }
+    ? { id: "P6", title: "Abandonment rate", citation: RATE_PROPERTIES[0]!.citation, verdict: "inconclusive", figure: null, unit: "fraction", n: 0, basis: "no ended outbound call in the window was answered by a person, so there is no denominator" }
     : {
         id: "P6",
         title: "Abandonment rate",
         citation: RATE_PROPERTIES[0]!.citation,
         verdict: abandoned.length / byPerson.length > ABANDONMENT_SAFE_HARBOUR ? "false" : "true",
         figure: abandoned.length / byPerson.length,
+        unit: "fraction",
         n: byPerson.length,
-        basis: `${abandoned.length} of ${byPerson.length} calls answered by a person ran no connect to a live endpoint (${pct(abandoned.length / byPerson.length)} against the 3% safe harbour); ${machineAnswered.length} machine-answered call(s) excluded from the denominator${undetected > 0 ? `; ${undetected} answered call(s) had no machine detection and count as a person` : ""}`,
+        basis: `${abandoned.length} of ${byPerson.length} ended calls answered by a person were never connected to a representative (${pct(abandoned.length / byPerson.length)} against the 3% safe harbour); a connect counts only when another leg of the same conversation was answered${plannedOnly > 0 ? ` (${plannedOnly} had a connect on the path and no answered leg)` : ""}; ${machineAnswered.length} machine-answered call(s) excluded from the denominator${undetected > 0 ? `; ${undetected} answered call(s) had no machine detection and count as a person` : ""}; the two-second greeting window is not observable from events`,
       };
 
   const p7: RateProperty = ringTimes.length === 0
-    ? { id: "P7", title: "Ring duration", citation: RATE_PROPERTIES[1]!.citation, verdict: "inconclusive", figure: null, n: 0, basis: "no unanswered outbound call with a ringing and an end time in the window" }
+    ? { id: "P7", title: "Ring duration", citation: RATE_PROPERTIES[1]!.citation, verdict: "inconclusive", figure: null, unit: "fraction", n: 0, basis: "no rung-out outbound call (timeout, unanswered or cancelled) with a ringing time before its end in the window; busy, rejected and failed legs are the network's, not a disconnected ring" }
     : {
         id: "P7",
         title: "Ring duration",
         citation: RATE_PROPERTIES[1]!.citation,
         verdict: shortRings.length > 0 ? "false" : "true",
         figure: shortRings.length / ringTimes.length,
+        unit: "fraction",
         n: ringTimes.length,
-        basis: `${shortRings.length} of ${ringTimes.length} unanswered calls were disconnected before ${MIN_RING_SECONDS} seconds of ringing${shortRings.length > 0 ? ` (shortest ${Math.min(...shortRings.map((x) => x.s)).toFixed(1)} s)` : ""}`,
+        basis: `${shortRings.length} of ${ringTimes.length} rung-out calls were disconnected before ${MIN_RING_SECONDS} seconds of ringing${shortRings.length > 0 ? ` (shortest ${Math.min(...shortRings.map((x) => x.s)).toFixed(1)} s)` : ""}; busy, rejected and failed legs are not counted`,
       };
 
-  const p8: RateProperty = answered.length === 0 && outbound.length === 0
-    ? { id: "P8", title: "Platform acceptable use", citation: RATE_PROPERTIES[2]!.citation, verdict: "inconclusive", figure: null, n: 0, basis: "no outbound call in the window" }
+  const p8: RateProperty = medianDuration === null
+    ? { id: "P8", title: "Platform acceptable use", citation: RATE_PROPERTIES[2]!.citation, verdict: "inconclusive", figure: null, unit: "seconds", n: ended.length, basis: ended.length === 0 ? "no ended outbound call in the window" : `${unansweredAll.length} of ${ended.length} ended outbound calls went unanswered (${unansweredShare === null ? "n/a" : pct(unansweredShare)}); no answered call carried a talk time, so the twelve-second line cannot be judged; the policy states no number for "high volume", so the unanswered share is reported and not judged` }
     : {
         id: "P8",
         title: "Platform acceptable use",
         citation: RATE_PROPERTIES[2]!.citation,
-        verdict: medianDuration !== null && medianDuration < SHORT_CALL_SECONDS ? "false" : "true",
-        figure: unansweredShare,
-        n: outbound.length,
-        basis: `${outbound.filter((c) => c.answeredAt === undefined).length} of ${outbound.length} outbound calls went unanswered (${unansweredShare === null ? "n/a" : pct(unansweredShare)}); median talk time ${medianDuration === null ? "unknown" : `${medianDuration.toFixed(1)} s`} against the ${SHORT_CALL_SECONDS}-second line; the policy states no number for "high volume", so the unanswered share is reported and not judged`,
+        verdict: medianDuration < SHORT_CALL_SECONDS ? "false" : "true",
+        figure: medianDuration,
+        unit: "seconds",
+        n: durations.length,
+        basis: `median talk time ${medianDuration.toFixed(1)} s over ${durations.length} answered call(s) against the ${SHORT_CALL_SECONDS}-second line; ${unansweredAll.length} of ${ended.length} ended outbound calls went unanswered (${unansweredShare === null ? "n/a" : pct(unansweredShare)}), reported and not judged because the policy states no number for "high volume"`,
       };
 
   return {
     calls: calls.length,
-    outbound: outbound.length,
+    outbound: ended.length,
+    inProgress,
     answered: answered.length,
     answeredByPerson: byPerson.length,
     machineAnswered: machineAnswered.length,
     abandoned: abandoned.length,
-    unanswered: outbound.filter((c) => c.answeredAt === undefined).length,
+    unanswered: unansweredAll.length,
     unansweredWithRingTime: ringTimes.length,
     shortRings: shortRings.length,
     medianAnsweredDurationSeconds: medianDuration,
@@ -167,39 +193,65 @@ export function campaignRates(calls: readonly CallTelemetry[]): CampaignRates {
 /** A Vonage event webhook, as the platform posts it, reduced to what the rates need. */
 export interface EventLike {
   callUuid: string | undefined;
+  conversationUuid?: string | undefined;
   payload: Record<string, unknown> | undefined;
   receivedAt: string;
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
+const earliest = (a: string | undefined, b: string): string => (a === undefined || Date.parse(b) < Date.parse(a) ? b : a);
 
 /**
- * Folds the platform's event webhooks for a window into per-call telemetry. `connectedHuman` is
- * supplied by the caller from the path the call actually ran, because the events do not say who was
- * on the other leg. Events are taken in the order received; the platform's own timestamp wins when present.
+ * Folds the platform's event webhooks for a window into per-call telemetry. Order of receipt does
+ * not matter: the earliest ringing, the earliest answer and the latest terminal event win, by the
+ * platform's own timestamp when present and the receipt time otherwise. `pathHasConnect` is
+ * supplied by the caller from the path the call actually ran; `otherLegAnswered` is computed here
+ * from the other legs of the same conversation.
  */
-export function telemetryFromEvents(events: readonly EventLike[], connectedHuman: (uuid: string) => boolean): CallTelemetry[] {
+export function telemetryFromEvents(events: readonly EventLike[], pathHasConnect: (uuid: string) => boolean): CallTelemetry[] {
   const byCall = new Map<string, CallTelemetry>();
   for (const e of events) {
     const uuid = e.callUuid ?? str(e.payload?.["uuid"]);
     if (!uuid) continue;
     const p = e.payload ?? {};
     const status = str(p["status"])?.toLowerCase();
-    const at = str(p["timestamp"]) ?? e.receivedAt;
+    const stamped = str(p["timestamp"]);
+    const at = stamped !== undefined && Number.isFinite(Date.parse(stamped)) ? stamped : e.receivedAt;
     const rawDirection = str(p["direction"]);
-    const t = byCall.get(uuid) ?? { uuid, direction: rawDirection === "inbound" || rawDirection === "outbound" ? rawDirection : "unknown", outcome: undefined, connectedHuman: connectedHuman(uuid) };
+    const t = byCall.get(uuid) ?? { uuid, conversationUuid: e.conversationUuid ?? str(p["conversation_uuid"]), direction: rawDirection === "inbound" || rawDirection === "outbound" ? rawDirection : "unknown", outcome: undefined, pathHasConnect: pathHasConnect(uuid), otherLegAnswered: false, connectLeg: false };
     if (t.direction === "unknown" && (rawDirection === "inbound" || rawDirection === "outbound")) t.direction = rawDirection;
-    if (status === "ringing" && t.ringingAt === undefined) t.ringingAt = at;
-    if (status === "answered" && t.answeredAt === undefined) t.answeredAt = at;
+    if (t.conversationUuid === undefined) t.conversationUuid = e.conversationUuid ?? str(p["conversation_uuid"]);
+    if (status === "ringing") t.ringingAt = earliest(t.ringingAt, at);
+    if (status === "answered") t.answeredAt = earliest(t.answeredAt, at);
     if (status === "human" || status === "machine") t.detected = status;
-    if (status === "completed" || (status !== undefined && UNANSWERED.has(status))) {
-      t.endedAt = str(p["end_time"]) ?? at;
-      t.outcome = status;
+    if (status !== undefined && TERMINAL.has(status)) {
+      const end = str(p["end_time"]) ?? at;
+      if (t.endedAt === undefined || Date.parse(end) >= Date.parse(t.endedAt)) {
+        t.endedAt = end;
+        t.outcome = status;
+      }
       const d = num(p["duration"]);
       if (d !== undefined) t.durationSeconds = d;
     }
     byCall.set(uuid, t);
+  }
+  // A person was connected when another leg of the same conversation was answered.
+  const answeredByConversation = new Map<string, Set<string>>();
+  for (const t of byCall.values()) {
+    if (t.conversationUuid && t.answeredAt !== undefined) {
+      const set = answeredByConversation.get(t.conversationUuid) ?? new Set<string>();
+      set.add(t.uuid);
+      answeredByConversation.set(t.conversationUuid, set);
+    }
+  }
+  const connectingByConversation = new Map<string, number>();
+  for (const t of byCall.values()) if (t.conversationUuid && t.pathHasConnect) connectingByConversation.set(t.conversationUuid, (connectingByConversation.get(t.conversationUuid) ?? 0) + 1);
+  for (const t of byCall.values()) {
+    const others = t.conversationUuid ? answeredByConversation.get(t.conversationUuid) : undefined;
+    t.otherLegAnswered = others !== undefined && [...others].some((u) => u !== t.uuid);
+    // The far end of a connect shares the conversation with the leg whose path connects; it is not a dial.
+    t.connectLeg = !t.pathHasConnect && t.conversationUuid !== undefined && (connectingByConversation.get(t.conversationUuid) ?? 0) > 0;
   }
   return [...byCall.values()];
 }

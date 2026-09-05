@@ -73,8 +73,14 @@ The declared-versus-actual diff (ADR-004): `nodes` (id, endpoint, index, action,
 No phone numbers.
 
 ### `GET /api/campaign?since=<iso>&until=<iso>`
-The rate properties P6 to P8 over the window (default the last thirty days): counts and, per
-property, `verdict`, `figure`, `n` and a one-sentence `basis`. 400 on a malformed window.
+The rate properties P6 to P8 over the window (default the last thirty days; times compare as
+instants, so an offset spelling equals its Z spelling): counts, including `inProgress` for outbound
+dials not yet ended, and, per property, `verdict`, `figure`, `unit` (`fraction` for P6 and P7,
+`seconds` for P8, whose figure is the median talk time), `n` and a one-sentence `basis`. Only ended
+outbound dials count; the far end of a connect (the representative's leg, which shares the
+conversation) is not a dial, and a person counts as connected only when another leg of the same
+conversation was answered. 400 on a malformed window; 422 when the window holds more event
+webhooks than the store returns whole (narrow it).
 
 ### `GET /api/ledger/head`
 `{ seq, entry_hash }`.
@@ -141,7 +147,9 @@ the install returned them. Writes them back the same way.
 
 ### `POST /api/push/subscribe`
 Body: a `PushSubscription` as `JSON.stringify` renders it, optionally wrapped as
-`{ "subscription": ..., "label": "..." }`. 201 `{ subscribed, endpoint, subscriptions }`.
+`{ "subscription": ..., "label": "..." }`. 201 `{ subscribed, endpoint, subscriptions }`. 409 when
+the table already holds `PUSH_SUBSCRIPTIONS_MAX` endpoints (default 50) and this one is new; renewing
+a stored endpoint always succeeds.
 
 ### `DELETE /api/push/subscribe`
 Body `{ "endpoint" }`. `{ removed: true|false }`.
@@ -152,7 +160,9 @@ Sends a test notification to every subscription: `{ attempted, delivered, retire
 ### `POST /api/softphone/token`
 Body `{ "role": "judge" }` (public, capped per day) or `{ "role": "scheduler" }` (dashboard
 token). 201 `{ role, user, token, expires_at, application_id, created }`: a Client SDK user token
-signed by the application key. 429 when the day's judge tokens are spent; 404 when the deployment
+signed by the application key. 429 when the day's judge tokens are spent (the count is durable, in
+`softphone_tokens`, and a token is reserved before the platform is called, so overlapping requests
+cannot exceed the allowance); 404 when the deployment
 holds no application private key; 502 when the platform refused to create the user.
 
 ## Workflow token

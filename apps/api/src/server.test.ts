@@ -461,10 +461,11 @@ describe("preflight api ingress", () => {
     const { server } = app({ POLICY_MODE: "advisory" });
     const at = (s: number) => new Date(NOW + s * 1000).toISOString();
     const event = (uuid: string, status: string, s: number, extra: Record<string, unknown> = {}) => post(server, "/v/event", { uuid, conversation_uuid: `CON-${uuid}`, status, direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to, timestamp: at(s), ...extra });
-    // A: a flow that connects a person; answered, detected human, forty seconds of talk.
+    // A: a flow that connects a person; answered, detected human, forty seconds of talk; the representative's leg answered in the same conversation.
     served = FLOWS.connectOnly;
     expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-A" })).headers["x-preflight-decision"]).toBe("pass");
     for (const [status, s, extra] of [["started", 0, {}], ["ringing", 0.5, {}], ["answered", 3, {}], ["human", 3.2, {}], ["completed", 43, { duration: "40" }]] as const) expect((await event("call-A", status, s, extra)).statusCode).toBe(204);
+    for (const [status, s] of [["ringing", 4], ["answered", 6], ["completed", 43]] as const) expect((await post(server, "/v/event", { uuid: "leg-A", conversation_uuid: "CON-call-A", status, direction: "outbound", from: OUTBOUND.from, to: "14045550123", timestamp: at(s) })).statusCode).toBe(204);
     // B: synthetic speech with an opt-out input and no live leg; a person answered and was never connected: abandoned.
     served = FLOWS.syntheticWithOptOut;
     expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-B" })).headers["x-preflight-decision"]).toBe("pass");
@@ -476,14 +477,18 @@ describe("preflight api ingress", () => {
     const res = await server.inject({ method: "GET", url: `/api/campaign?since=${encodeURIComponent(at(-3600))}&until=${encodeURIComponent(at(3600))}` });
     expect(res.statusCode).toBe(200);
     const c = res.json() as { events: number; calls: number; outbound: number; answered: number; answeredByPerson: number; abandoned: number; unanswered: number; medianAnsweredDurationSeconds: number; properties: Array<{ id: string; verdict: string; figure: number | null; n: number; basis: string; citation: string }> };
-    expect(c).toMatchObject({ events: 12, calls: 4, outbound: 4, answered: 2, answeredByPerson: 2, abandoned: 1, unanswered: 2, medianAnsweredDurationSeconds: 24 });
-    expect(c.properties.map((p) => [p.id, p.verdict, p.n])).toEqual([["P6", "false", 2], ["P7", "false", 2], ["P8", "true", 4]]);
+    // The representative's leg (leg-A) is a fifth call but not a dial: it is the far end of A's connect.
+    expect(c).toMatchObject({ events: 15, calls: 5, outbound: 4, answered: 2, answeredByPerson: 2, abandoned: 1, unanswered: 2, medianAnsweredDurationSeconds: 24 });
+    expect(c.properties.map((p) => [p.id, p.verdict, p.n])).toEqual([["P6", "false", 2], ["P7", "false", 2], ["P8", "true", 2]]);
     expect(c.properties[0]!.figure).toBe(0.5);
-    expect(c.properties[0]!.basis).toContain("1 of 2 calls answered by a person ran no connect");
+    expect(c.properties[0]!.basis).toContain("1 of 2 ended calls answered by a person were never connected");
     expect(c.properties[1]!.basis).toContain("shortest 5.0 s");
-    expect(c.properties[2]!.basis).toContain("2 of 4 outbound calls went unanswered (50.0%)");
+    expect(c.properties[2]).toMatchObject({ figure: 24, unit: "seconds" });
+    expect(c.properties[2]!.basis).toContain("2 of 4 ended outbound calls went unanswered (50.0%)");
+    // A window spelled with an explicit offset is the same instant as one spelled with Z.
+    expect(((await server.inject({ method: "GET", url: `/api/campaign?since=${encodeURIComponent(new Date(NOW - 3600_000).toISOString().replace("Z", "+00:00"))}&until=${encodeURIComponent(new Date(NOW + 3600_000).toISOString().replace("Z", "+00:00"))}` })).json() as { calls: number }).calls).toBe(5);
     // The default window is the last thirty days; a malformed one is refused.
-    expect(((await server.inject({ method: "GET", url: "/api/campaign" })).json() as { calls: number }).calls).toBe(4);
+    expect(((await server.inject({ method: "GET", url: "/api/campaign" })).json() as { calls: number }).calls).toBe(5);
     expect((await server.inject({ method: "GET", url: "/api/campaign?since=yesterday" })).statusCode).toBe(400);
   });
 
@@ -495,7 +500,7 @@ describe("preflight api ingress", () => {
       sent.push({ endpoint: sub.endpoint, kind: (JSON.parse(payload) as { kind: string }).kind });
       return { statusCode: 201 };
     };
-    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", PUBLIC_BASE_URL: "https://preflight.example", LOG_LEVEL: "silent", DASHBOARD_TOKEN: token, VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "k".repeat(43), VAPID_SUBJECT: "mailto:ops@example.com" });
+    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", PUBLIC_BASE_URL: "https://preflight.example", LOG_LEVEL: "silent", DASHBOARD_TOKEN: token, VAPID_PUBLIC_KEY: "B".repeat(87), VAPID_PRIVATE_KEY: "k".repeat(43), VAPID_SUBJECT: "mailto:ops@example.com", PUSH_SUBSCRIPTIONS_MAX: "1" });
     const server = buildServer({ config, store: new MemoryEventStore(), decisions: new MemoryDecisionStore(), ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), resolver, declaration: DECLARATION, pushSender, now: () => NOW });
     expect((await server.inject({ method: "GET", url: "/api/push/vapid" })).json()).toEqual({ publicKey: "B".repeat(87) });
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
@@ -505,6 +510,9 @@ describe("preflight api ingress", () => {
     const created = await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ subscription: sub, label: "Stephen's phone" }), headers });
     expect(created.statusCode).toBe(201);
     expect(created.json()).toEqual({ subscribed: true, endpoint: sub.endpoint, subscriptions: 1 });
+    // The table is bounded (one here): a second endpoint is refused, the same endpoint may be renewed.
+    expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: "https://push.example/s2", keys: { p256dh: "p", auth: "a" } }), headers })).statusCode).toBe(409);
+    expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify(sub), headers })).statusCode).toBe(201);
     expect((await server.inject({ method: "POST", url: "/api/push/test", headers })).json()).toEqual({ attempted: 1, delivered: 1, retired: 0, failed: 0 });
     expect(sent).toEqual([{ endpoint: sub.endpoint, kind: "test" }]);
     expect((await server.inject({ method: "DELETE", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: sub.endpoint }), headers })).json()).toEqual({ removed: true });

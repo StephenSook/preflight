@@ -34,6 +34,6 @@ export async function campaignWindow(deps: CampaignDeps, startIso: string, endIs
       return node ? actionAtoms(node.action, declaration).connects_human : false;
     }));
   }
-  const telemetry = telemetryFromEvents(events.map((e) => ({ callUuid: e.callUuid, payload: e.payload, receivedAt: e.receivedAt })), (uuid) => connected.get(uuid) ?? false);
+  const telemetry = telemetryFromEvents(events.map((e) => ({ callUuid: e.callUuid, conversationUuid: e.conversationUuid, payload: e.payload, receivedAt: e.receivedAt })), (uuid) => connected.get(uuid) ?? false);
   return { window: { start: startIso, end: endIso }, events: events.length, ...campaignRates(telemetry) };
 }

@@ -59,6 +59,10 @@ describe("the browser softphone's user tokens", () => {
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", headers: { "content-type": "application/json" }, payload: "" })).statusCode).toBe(201);
     // The daily cap (two here) holds; a stranger cannot mint the scheduler's token.
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } })).statusCode).toBe(429);
+    // Overlapping requests against a fresh cap of two mint exactly two, however many are in flight at once.
+    const fresh = build();
+    const burst = await Promise.all(Array.from({ length: 8 }, () => fresh.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } })));
+    expect(burst.map((r) => r.statusCode).sort()).toEqual([201, 201, 429, 429, 429, 429, 429, 429]);
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "scheduler" }), headers: { "content-type": "application/json" } })).statusCode).toBe(404);
     expect((await server.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "pilot" }), headers: { "content-type": "application/json" } })).statusCode).toBe(400);
   });

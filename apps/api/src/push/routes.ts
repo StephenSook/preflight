@@ -9,6 +9,8 @@ export interface PushRouteDeps {
   dashboardAuth: (authorization: string | undefined) => boolean;
   dashboardEnabled: boolean;
   clock: () => number;
+  /** How many subscriptions the table keeps; a broadcast walks every one. */
+  maxSubscriptions: number;
 }
 
 function subscriptionOf(v: unknown): PushSubscriptionRecord | undefined {
@@ -48,6 +50,9 @@ export function registerPush(app: FastifyInstance, deps: PushRouteDeps): void {
     const sub = subscriptionOf(body?.["subscription"] ?? body);
     if (!sub) return reply.code(400).send({ error: "expected a PushSubscription: {endpoint: https URL, keys: {p256dh, auth}}" });
     const label = typeof body?.["label"] === "string" ? body["label"].slice(0, 80) : undefined;
+    // A bounded table: a held queue has a handful of phones, and a broadcast walks every row.
+    const existing = await store.list();
+    if (!existing.some((s) => s.endpoint === sub.endpoint) && existing.length >= deps.maxSubscriptions) return reply.code(409).send({ error: `at most ${deps.maxSubscriptions} subscriptions are kept; remove one first` });
     await store.upsert(sub, label, new Date(clock()).toISOString());
     req.log.info({ endpoint: sub.endpoint.slice(0, 40), label }, "push subscription stored");
     return reply.code(201).send({ subscribed: true, endpoint: sub.endpoint, subscriptions: (await store.list()).length });

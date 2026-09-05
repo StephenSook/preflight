@@ -35,12 +35,14 @@ export type ApplicationResult = { ok: true; raw: Record<string, unknown>; view: 
 
 const asRecord = (v: unknown): Record<string, unknown> | undefined => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : undefined);
 
+/** A hook the platform reports is only a hook when both its address and its method are exactly what was written; a missing or foreign method fails the read-back. */
 function hookOf(v: unknown): Hook | undefined {
   const r = asRecord(v);
   const address = r?.["address"];
   const method = r?.["http_method"];
   if (typeof address !== "string" || address.length === 0) return undefined;
-  return { address, http_method: method === "GET" ? "GET" : "POST" };
+  if (method !== "GET" && method !== "POST") return undefined;
+  return { address, http_method: method };
 }
 
 export function viewOf(raw: Record<string, unknown>): ApplicationView {

@@ -19,7 +19,8 @@ export interface VapidDetails {
 export type PushSender = (subscription: PushSubscriptionRecord, payload: string, vapid: VapidDetails) => Promise<{ statusCode: number }>;
 
 export const webPushSender: PushSender = async (subscription, payload, vapid) => {
-  const r = await webpush.sendNotification({ endpoint: subscription.endpoint, keys: subscription.keys }, payload, { vapidDetails: { subject: vapid.subject, publicKey: vapid.publicKey, privateKey: vapid.privateKey }, TTL: 3600 });
+  // A push service that does not answer in ten seconds has failed this send; a broadcast never hangs on one endpoint.
+  const r = await webpush.sendNotification({ endpoint: subscription.endpoint, keys: subscription.keys }, payload, { vapidDetails: { subject: vapid.subject, publicKey: vapid.publicKey, privateKey: vapid.privateKey }, TTL: 3600, timeout: 10000 });
   return { statusCode: r.statusCode };
 };
 

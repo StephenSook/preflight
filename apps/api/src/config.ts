@@ -43,6 +43,7 @@ const schema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(80).optional(),
   VAPID_PRIVATE_KEY: z.string().min(40).optional(),
   VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)/).optional(),
+  PUSH_SUBSCRIPTIONS_MAX: z.coerce.number().int().positive().max(1000).default(50),
   IDENTITY_INSIGHTS: z.enum(["on", "off"]).default("off"),
   IDENTITY_INSIGHTS_HOST: z.string().url().default("https://api-eu.vonage.com"),
   INSIGHTS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
