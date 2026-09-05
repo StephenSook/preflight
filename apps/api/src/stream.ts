@@ -44,7 +44,11 @@ export function registerStream(app: FastifyInstance, bus: DecisionBus, authorize
     const auth = authorize(presented);
     if (auth !== "ok") return reply.code(auth === "disabled" ? 404 : 403).send({ error: auth === "disabled" ? "the dashboard is not enabled on this deployment" : "dashboard token rejected" });
     const replay = Math.min(100, Math.max(0, Number(req.query.replay ?? 20) || 0));
+    // Writing the head on the raw socket bypasses Fastify's reply, so the headers the CORS plugin set
+    // for the web app's origin are copied over: without them a browser on another origin refuses the
+    // stream and the cockpit shows RECONNECTING forever (found on the deployed site, 2026-09-05).
     reply.raw.writeHead(200, {
+      ...(reply.getHeaders() as Record<string, string>),
       "content-type": "text/event-stream",
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",

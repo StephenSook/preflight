@@ -53,3 +53,7 @@ docs/design-reference/
 
 # Serena (code-intelligence tool) project state
 .serena/
+
+# Submission stills and film recordings are produced by apps/web/tests/gallery.mjs and record-cockpit.mjs; the published copies live on Devpost.
+docs/submission/gallery/
+docs/film/recordings/

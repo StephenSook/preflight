@@ -615,7 +615,7 @@ describe("preflight api ingress", () => {
 
   it("streams decisions as server-sent events, with a replay of recent ones on connect", async () => {
     served = FLOWS.connectOnly;
-    const { server } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1" });
+    const { server } = app({ DASHBOARD_TOKEN: "dashboard-token-for-tests-1", PUBLIC_WEB_URL: "https://preflight-web.example" });
     await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S1" });
     // The stream carries phone numbers: no token, no stream.
     expect((await server.inject({ method: "GET", url: "/api/stream" })).statusCode).toBe(403);
@@ -625,8 +625,10 @@ describe("preflight api ingress", () => {
       const addr = server.server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
       const ac = new AbortController();
-      const res = await fetch(`http://127.0.0.1:${port}/api/stream?replay=5&token=dashboard-token-for-tests-1`, { signal: ac.signal });
+      const res = await fetch(`http://127.0.0.1:${port}/api/stream?replay=5&token=dashboard-token-for-tests-1`, { signal: ac.signal, headers: { origin: "https://preflight-web.example" } });
       expect(res.headers.get("content-type")).toContain("text/event-stream");
+      // The web app reads the stream from its own origin: the raw head must carry the CORS answer.
+      expect(res.headers.get("access-control-allow-origin")).toBe("https://preflight-web.example");
       const reader = res.body?.getReader();
       let text = "";
       const decoder = new TextDecoder();

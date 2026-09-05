@@ -118,11 +118,16 @@ export interface Hold {
   lookup?: { state: "pending" | "ok" | "error" | "none" | "off"; record?: Record<string, unknown> };
 }
 
+/** GET /api/setup, as the host serves it: flat fields, urls null when the host has no public base URL. */
 export interface SetupView {
-  urls: { answer: string; event: string; fallback: string };
+  urls: { answer: string; event: string; fallback: string } | null;
   origin: string | null;
   policy: "strict" | "advisory";
-  declaration: { value: Record<string, unknown>; source: "environment" | "stored"; hash: string; by: string | null; at: string | null };
+  declaration: Record<string, unknown>;
+  declaration_source: "environment" | "stored";
+  declaration_hash: string;
+  declared_by: string | null;
+  declared_at: string | null;
 }
 
 export interface DecisionEvent {

@@ -29,16 +29,19 @@ export function renderSetup(ctx: ScreenContext): void {
   const show = (view: SetupView) => {
     urls.replaceChildren(
       el("h2", {}, "Where the platform should call"),
-      ...(["answer", "event", "fallback"] as const).map((k) => {
-        const code = el("code", {}, view.urls[k]);
-        const copy = el("button", { class: "button", type: "button" }, [el("span", { class: "label" }, "Copy")]);
-        copy.addEventListener("click", () => void navigator.clipboard?.writeText(view.urls[k]).then(() => (copy.querySelector(".label")!.textContent = "Copied")));
-        return el("div", { class: "url" }, [el("div", {}, [el("label", {}, `${k} URL (${k === "event" ? "POST" : "GET"})`), code]), copy]);
-      }),
+      ...(view.urls
+        ? (["answer", "event", "fallback"] as const).map((k) => {
+            const url = view.urls![k];
+            const code = el("code", {}, url);
+            const copy = el("button", { class: "button", type: "button" }, [el("span", { class: "label" }, "Copy")]);
+            copy.addEventListener("click", () => void navigator.clipboard?.writeText(url).then(() => (copy.querySelector(".label")!.textContent = "Copied")));
+            return el("div", { class: "url" }, [el("div", {}, [el("label", {}, `${k} URL (${k === "event" ? "POST" : "GET"})`), code]), copy]);
+          })
+        : [el("p", { class: "note" }, "the host has no public base URL configured, so it cannot say where the platform should call")]),
       el("p", { class: "note" }, `origin: ${view.origin ?? "not configured"} · policy: ${view.policy}`),
-      el("p", { class: "note" }, `declaration from ${view.declaration.source}${view.declaration.by ? `, by ${view.declaration.by}` : ""}${view.declaration.at ? ` at ${fmtDate(view.declaration.at)} UTC` : ""} · ${view.declaration.hash}`),
+      el("p", { class: "note" }, `declaration from ${view.declaration_source}${view.declared_by ? `, by ${view.declared_by}` : ""}${view.declared_at ? ` at ${fmtDate(view.declared_at)} UTC` : ""} · ${view.declaration_hash}`),
     );
-    declArea.value = JSON.stringify(view.declaration.value, null, 2);
+    declArea.value = JSON.stringify(view.declaration, null, 2);
   };
   const fail = (target: HTMLElement, err: unknown) => {
     target.textContent = err instanceof ApiError ? `${err.status}: ${err.message}${err.body && typeof err.body === "object" && "issues" in err.body ? `\n${JSON.stringify((err.body as { issues: unknown }).issues, null, 1)}` : ""}` : String(err instanceof Error ? err.message : err);
@@ -58,7 +61,7 @@ export function renderSetup(ctx: ScreenContext): void {
     try {
       const r = await api.putDeclaration(token, parsed, byInput.value.trim());
       declResult.className = "result is-ok";
-      declResult.textContent = `saved: ledger entry ${r.ledger.seq}, hash ${r.declaration.hash}`;
+      declResult.textContent = `saved: ledger entry ${r.ledger.seq}, hash ${r.declaration_hash}`;
       show(r);
       await refresh();
     } catch (err) {
