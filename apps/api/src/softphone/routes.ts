@@ -57,7 +57,13 @@ export async function ensureUser(name: string, displayName: string, appToken: st
   }
   if (res.status === 201 || res.status === 200) return { ok: true, created: true };
   if (res.status === 409) return { ok: true, created: false };
-  const text = await res.text();
+  // The status has arrived; a body that then hangs or resets is still that refusal, with that status.
+  let text = "";
+  try {
+    text = await res.text();
+  } catch (err) {
+    return { ok: false, status: res.status, error: err instanceof Error ? err.message : String(err) };
+  }
   return { ok: false, status: res.status, error: text.slice(0, 200) || `HTTP ${res.status}` };
 }
 

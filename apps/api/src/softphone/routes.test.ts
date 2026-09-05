@@ -28,9 +28,12 @@ describe("the browser softphone's user tokens", () => {
   const users: Array<{ name: string; auth: string | undefined }> = [];
   /** When set, the platform cannot be reached: fetch rejects the way undici does. */
   let platformDown = false;
+  /** When set, the platform answers 500 and its body then resets before it can be read. */
+  let platformBodyBroken = false;
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
     if (String(url) === `${VONAGE}/v1/users`) {
       if (platformDown) throw new TypeError("fetch failed");
+      if (platformBodyBroken) return new Response(new ReadableStream({ start(c) { c.error(new Error("body reset")); } }), { status: 500 });
       const body = JSON.parse(String(init?.body)) as { name: string };
       users.push({ name: body.name, auth: (init?.headers as Record<string, string> | undefined)?.["authorization"] });
       const seen = users.filter((u) => u.name === body.name).length;
@@ -78,6 +81,15 @@ describe("the browser softphone's user tokens", () => {
       expect(down.json()).toMatchObject({ platform_status: 0, error: expect.stringContaining("fetch failed") });
     } finally {
       platformDown = false;
+    }
+    // A status that arrived with a body that then resets is that refusal, with that status, and no slot kept.
+    platformBodyBroken = true;
+    try {
+      const broken = await again.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } });
+      expect(broken.statusCode).toBe(502);
+      expect(broken.json()).toMatchObject({ platform_status: 500, error: expect.stringContaining("body reset") });
+    } finally {
+      platformBodyBroken = false;
     }
     const after = await Promise.all(Array.from({ length: 3 }, () => again.inject({ method: "POST", url: "/api/softphone/token", payload: JSON.stringify({ role: "judge" }), headers: { "content-type": "application/json" } })));
     expect(after.map((r) => r.statusCode).sort()).toEqual([201, 201, 429]);
