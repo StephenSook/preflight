@@ -65,6 +65,13 @@ Hold the silence for a full beat. The absence is the product.
 SCREEN: block detail with the witness path; the reference application switched to its fixed
 flow; the same number submitted again.
 
+> [Film prep, not spoken: strict policy holds the FIXED flow too, once, because its opt-out handler
+> is a branch the host has never observed. Before this take, release that hold against the fixed
+> flow (`scripts/ops/release-hold.mjs latest "<name>" --reference fixed`) so `/reference/optout`
+> is on the graph; from then on the fixed flow passes at the gateway. Done on the live host
+> 2026-09-05 19:38 UTC: ledger entries 27 to 31, coverage 3 of 3 declared endpoints observed
+> (fact sheet).]
+
 > This is not a summary. It is the exact sequence of actions that would have reached the
 > prohibited state. The fix is one action: the keypress goes to the declared opt-out handler. Same
 > phone, same number, a few minutes apart.

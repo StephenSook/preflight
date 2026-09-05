@@ -76,6 +76,14 @@ try {
   if (placed.status !== 201 || placed.decision !== "pass" || !placed.uuid) {
     console.error(`expected the fixed flow to be placed (201, pass, a call uuid), got ${placed.status} ${placed.decision}`);
     exit = 3;
+  } else {
+    // Both legs ask for the flow about a second after placement and the menu times out at the hook some
+    // fifteen seconds in; the mode stays fixed until then, or the legs would be answered with the broken
+    // flow and blocked at answer time (measured 2026-09-05, ledger entries 33 to 35).
+    await new Promise((r) => setTimeout(r, 40_000));
+    const head = (await (await fetch(`${api}/api/ledger/head`)).json()).seq;
+    const entries = (await (await fetch(`${api}/api/ledger/entries?after=${Math.max(0, head - 8)}&limit=8`)).json()).entries || [];
+    console.log(JSON.stringify({ afterTheCall: entries.filter((e) => e.call_uuid === placed.uuid || !e.call_uuid).map((e) => ({ seq: e.seq, kind: e.kind, decision: e.decision, property: e.property })) }));
   }
 } finally {
   await setMode("broken");
