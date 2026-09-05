@@ -17,7 +17,8 @@ Base URL of the reference deployment: `https://preflight-api-rc34.onrender.com`.
 | workflow token (`SEAL_TOKEN`) | `Authorization: Bearer <token>` | `POST /api/ledger/seals`, `POST /api/reconcile` |
 
 A route whose feature is not configured on a deployment answers 404 with a sentence saying which
-setting is absent, never a pretend success.
+setting is absent, never a pretend success; the create-call gateway alone answers 503, because it
+refuses everyone until it can verify callers.
 
 ## Call-control path
 
@@ -45,7 +46,9 @@ The create-call gateway (ADR-001). Body: the platform's own create-call request 
 `random_from_number`, `answer_url` or `ncco`, `event_url`, ...). The bearer must be a JWT signed by
 this application's private key. The flow is obtained (inline, or a marked dry-run pre-fetch of the
 answer URL, which may only be this host's answer URL or the configured origin host) and evaluated.
-201 with the platform's response on pass; 409 `{ "decision": "block"|"hold", "reason", "verdicts",
+On pass the platform's own status and body are passed through (201 when it created the call; a 401
+or 402 from the platform comes back as such, and the evidence-log entry then carries `placed: false`
+and `platform_status`); 409 `{ "decision": "block"|"hold", "reason", "verdicts",
 "holdId"? , "placed": false }` on refusal, nothing reaching the carrier; 400 on a malformed
 request; 401 on a token this application did not sign. `X-Preflight-Override: <holdId>` places a
 held request a named person has approved, for that destination only.
@@ -101,7 +104,8 @@ ten minutes ago; 404 when the deployment holds no application private key.
 
 ### `POST /api/consent/check`
 Body `{ "request_id", "code" }`. 200 `{ granted: true, request_id, expires_at, ledger }` and an
-evidence-log entry carrying the number's hash; 400 on a wrong code; 404 unknown request; 409
+evidence-log entry carrying a keyed hash of the number (`hmac-sha256:` under the application's
+private key, never its digits); 400 on a wrong code; 404 unknown request; 409
 already recorded.
 
 ### `POST /api/demo/call`
@@ -161,8 +165,8 @@ Sends a test notification to every subscription: `{ attempted, delivered, retire
 Body `{ "role": "judge" }` (public, capped per day) or `{ "role": "scheduler" }` (dashboard
 token). 201 `{ role, user, token, expires_at, application_id, created }`: a Client SDK user token
 signed by the application key. 429 when the day's judge tokens are spent (the count is durable, in
-`softphone_tokens`, and a token is reserved before the platform is called, so overlapping requests
-cannot exceed the allowance); 404 when the deployment
+`softphone_tokens`, and each token is recorded under a database lock as it is issued, so overlapping
+requests, in one process or several, cannot exceed the allowance); 404 when the deployment
 holds no application private key; 502 when the platform refused to create the user.
 
 ## Workflow token
@@ -183,5 +187,5 @@ canonical records; 422 when the window holds more decisions than one request may
 `GET|POST /reference/answer`, `POST /reference/menu`, `POST /reference/optout`,
 `GET|POST /reference/event` (204), `GET /reference/state`, `POST /reference/mode` (body
 `{ "mode": "broken"|"fixed" }`, bearer `REFERENCE_ADMIN_TOKEN`). The deliberately small
-notification flow behind the public number; Preflight forwards to it over loopback and treats it
-like any developer's server.
+notification flow behind the public number; Preflight fetches its answer object over loopback and
+its branch callbacks through the public host, and treats it like any developer's server.

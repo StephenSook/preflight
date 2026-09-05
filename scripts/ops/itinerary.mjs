@@ -9,6 +9,14 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// The release on npm and what the README says its replay of the committed corpus prints. 0.1.0
+// predates spec corrections 5 to 7, so 43 of 48 labels match; when 0.2.0 is published, pin it here
+// and expect every label to match. A stale publish then fails this walk instead of a judge.
+const PUBLISHED_CLI = "0.1.0";
+const REPLAY_EXPECTED = /48 objects, 43 match their labels, 5 do not/;
+const CORPUS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../corpus/ncco");
 
 const api = (process.env.PREFLIGHT_API_URL || "https://preflight-api-rc34.onrender.com").replace(/\/$/, "");
 const failures = [];
@@ -67,6 +75,22 @@ try {
   note(code === 2 && /decision: BLOCK/.test(out) && /P5/.test(out), "npx preflight-interlock check blocks the page's example with the Georgia citation", `exit ${code}`);
 } catch (err) {
   note(false, "npx preflight-interlock check", String(err.message).slice(0, 200));
+}
+
+// 4b. the published CLI replays the committed corpus and prints what the README says it prints
+try {
+  let out = "";
+  let code = 0;
+  try {
+    out = execFileSync("npx", ["-y", `preflight-interlock@${PUBLISHED_CLI}`, "replay", CORPUS], { cwd: dir, encoding: "utf8", timeout: 240000, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    code = err.status ?? 1;
+    out = (err.stdout || "").toString();
+  }
+  const summaryLine = out.split("\n").find((l) => /^\d+ objects,/.test(l)) ?? "";
+  note(REPLAY_EXPECTED.test(summaryLine), `npx preflight-interlock@${PUBLISHED_CLI} replay prints the state the README states`, `exit ${code}: ${summaryLine}`);
+} catch (err) {
+  note(false, "npx preflight-interlock replay", String(err.message).slice(0, 200));
 }
 
 // 5. the rate properties and the reconciliation line

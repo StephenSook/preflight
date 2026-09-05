@@ -40,6 +40,12 @@ SCREEN: the flow graph. Two colours: declared states, one undeclared state in re
 SCREEN: the live monitor. The phone on the table, in frame. A number is submitted through the
 consent gate; the verification call is answered; the code is entered; the call is requested.
 
+> [Film prep, not spoken: the broken flow ends at an open input branch, and strict policy HOLDS an
+> open branch it has never observed. Before this take, let the menu time out once on an inbound
+> call to the public number (no keypress) so the timeout branch is on the graph; then the gateway
+> BLOCKS on (b)(3) as the line says. Confirm `openBranches` is empty on `/api/flow` and record it in
+> the fact sheet at film time. Filmed with the branch unobserved, the row reads held, not blocked.]
+>
 > This is my phone. Preflight is also the create-call gateway, because the platform only asks for
 > the flow once a call is answered; I measured that: the call was answered at 868 milliseconds and
 > the flow was asked for at 1,009. So the request goes to Preflight first. It pre-fetches the flow,

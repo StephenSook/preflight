@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { decide, declaredEndpointsOf, diffDeclared, evaluateGraph, evaluatePath, isBranching, parseNcco, propertySpec, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type FlowDiff, type FlowGraph, type NccoAction, type PropertyVerdict } from "@preflight/engine";
+import { callerIdPresent, decide, declaredEndpointsOf, diffDeclared, evaluateGraph, evaluatePath, isBranching, parseNcco, propertySpec, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type FlowDiff, type FlowGraph, type NccoAction, type PropertyVerdict } from "@preflight/engine";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import type { Config } from "../config.js";
 import type { DecisionRecord } from "../store/decisionStore.js";
@@ -149,7 +149,7 @@ export class FlowDecider {
       terminal = true;
     } else {
       const ge = evaluateGraph(graph, rootId, { declaration, facts: callFacts, policy: config.POLICY_MODE, prefix: { actions: prefixActions, labels: prefixLabels } });
-      evaluation = { verdicts: ge.verdicts, callAtoms: { dest_wireless: null, dest_residential: null, within_hours: facts.withinHours, caller_id_present: callFacts.from !== undefined }, steps: [], decision: ge.decision };
+      evaluation = { verdicts: ge.verdicts, callAtoms: { dest_wireless: null, dest_residential: null, within_hours: facts.withinHours, caller_id_present: callerIdPresent(callFacts.from) }, steps: [], decision: ge.decision };
       decision = ge.decision;
       terminal = ge.paths.every((x) => x.path.end === "terminal");
       reason = reasonFor(decision, ge.verdicts);

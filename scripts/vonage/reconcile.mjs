@@ -62,4 +62,8 @@ if (report.unmatched > 0) {
   console.error(`${report.unmatched} carrier record(s) were placed around the interlock: ${report.unmatched_ids.join(", ")}`);
   process.exit(3);
 }
+if (report.decided_not_in_records > 0) {
+  console.error(`${report.decided_not_in_records} call(s) the interlock decided with a platform uuid came back in no carrier record: ${report.missing_ids.join(", ")}; the pull is empty or mis-filtered, not clean`);
+  process.exit(4);
+}
 console.log(`ok: ${report.carrier_records} carrier record(s), every one a call the interlock decided; ${report.refused_in_window} refusal(s) in the window reached nothing`);

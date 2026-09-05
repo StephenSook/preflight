@@ -30,7 +30,12 @@ recomputing every hash and link with no trust in the host. Both print the same h
 
 The chain head is sealed to Sigstore Rekor once a day; the seal entries carry the Rekor uuid and
 log index (`/api/ledger/entries` shows them as kind `seal`), and `rekor-cli verify --uuid <uuid>`
-confirms one against the public log.
+confirms one against the public log. To tie that Rekor entry to this ledger rather than take the
+seal entry's word for it: the sealed artifact is the line
+`printf '{"entry_hash":"%s","seq":%d}\n' <sealed_head> <sealed_seq>` and its SHA-256 is the
+`hashedrekord` data hash the Rekor entry carries (`rekor-cli get --uuid <uuid> --format json`, field
+`.Body.HashedRekordObj.data.hash.value`). The host refuses a seal whose head is not an entry of its
+own ledger.
 
 ## 3. Declared versus actual (30 seconds)
 

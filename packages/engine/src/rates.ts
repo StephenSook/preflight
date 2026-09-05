@@ -200,6 +200,8 @@ export interface EventLike {
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
+/** 0 none, 1 the closing "completed", 2 a specific terminal (timeout, unanswered, cancelled, busy, rejected, failed). */
+const terminalRank = (s: string | undefined): number => (s === undefined ? 0 : s === "completed" ? 1 : 2);
 const earliest = (a: string | undefined, b: string): string => (a === undefined || Date.parse(b) < Date.parse(a) ? b : a);
 
 /**
@@ -227,7 +229,10 @@ export function telemetryFromEvents(events: readonly EventLike[], pathHasConnect
     if (status === "human" || status === "machine") t.detected = status;
     if (status !== undefined && TERMINAL.has(status)) {
       const end = str(p["end_time"]) ?? at;
-      if (t.endedAt === undefined || Date.parse(end) >= Date.parse(t.endedAt)) {
+      // The platform closes every call with "completed", after a timeout or a busy as well; a specific terminal
+      // outranks it whatever the order of receipt, and among equals the later end wins.
+      const later = t.endedAt === undefined || Date.parse(end) >= Date.parse(t.endedAt);
+      if (terminalRank(status) > terminalRank(t.outcome) || (terminalRank(status) === terminalRank(t.outcome) && later)) {
         t.endedAt = end;
         t.outcome = status;
       }

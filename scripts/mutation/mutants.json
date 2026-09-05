@@ -119,6 +119,13 @@
     "why": "The leg whose path connects is the dial; marking it as the far end of its own connect would drop every connected call from the denominator."
   },
   {
+    "id": "rates-completed-overrides-timeout",
+    "file": "packages/engine/src/rates.ts",
+    "find": "terminalRank(status) > terminalRank(t.outcome) || (terminalRank(status) === terminalRank(t.outcome) && later)",
+    "replace": "later",
+    "why": "The platform closes a rung-out call with \"completed\" after its timeout; if the later event simply won, every timeout would read as completed and P7 would never see a ring cut short."
+  },
+  {
     "id": "rates-ring-threshold-fourteen",
     "file": "packages/engine/src/rates.ts",
     "find": "export const MIN_RING_SECONDS = 15;",

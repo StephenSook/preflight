@@ -231,6 +231,15 @@ describe("preflight api ingress", () => {
     const created = await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify(seal), headers: { "content-type": "application/json", authorization: "Bearer a-seal-token-of-sufficient-length" } });
     expect(created.statusCode).toBe(201);
     expect(created.json()).toMatchObject({ seq: 1, kind: "seal", detail: { rekor_uuid: seal.rekor_uuid, rekor_log_index: 123456, sealed_seq: 0 } });
+    // A seal naming a head this ledger never had is refused; the true head of seq 1 is accepted.
+    const auth = { "content-type": "application/json", authorization: "Bearer a-seal-token-of-sufficient-length" };
+    const wrong = await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify({ ...seal, sealed: { seq: 1, entry_hash: "sha256:" + "1".repeat(64) } }), headers: auth });
+    expect(wrong.statusCode).toBe(409);
+    expect(wrong.json()).toMatchObject({ ledger: { seq: 1, entry_hash: (created.json() as { entry_hash: string }).entry_hash } });
+    expect((await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify({ ...seal, sealed: { seq: 7, entry_hash: "sha256:" + "1".repeat(64) } }), headers: auth })).statusCode).toBe(409);
+    const right = await server.inject({ method: "POST", url: "/api/ledger/seals", payload: JSON.stringify({ ...seal, sealed: { seq: 1, entry_hash: (created.json() as { entry_hash: string }).entry_hash } }), headers: auth });
+    expect(right.statusCode).toBe(201);
+    expect(right.json()).toMatchObject({ seq: 2, detail: { sealed_seq: 1 } });
     const disabled = app();
     expect((await disabled.server.inject({ method: "POST", url: "/api/ledger/seals", payload: "{}", headers: { "content-type": "application/json" } })).statusCode).toBe(404);
   });
@@ -507,6 +516,11 @@ describe("preflight api ingress", () => {
     const sub = { endpoint: "https://push.example/s1", keys: { p256dh: "p", auth: "a" }, expirationTime: null };
     expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify(sub), headers: { "content-type": "application/json" } })).statusCode).toBe(403);
     expect((await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: "http://insecure.example/s", keys: { p256dh: "p", auth: "a" } }), headers })).statusCode).toBe(400);
+    // Overlapping subscriptions of distinct endpoints against an empty table with a cap of one: exactly one lands.
+    const burst = await Promise.all(Array.from({ length: 8 }, (_, i) => server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: `https://push.example/race-${i}`, keys: { p256dh: "p", auth: "a" } }), headers })));
+    expect(burst.map((r) => r.statusCode).sort()).toEqual([201, 409, 409, 409, 409, 409, 409, 409]);
+    const landed = burst.find((r) => r.statusCode === 201)!.json() as { endpoint: string };
+    expect((await server.inject({ method: "DELETE", url: "/api/push/subscribe", payload: JSON.stringify({ endpoint: landed.endpoint }), headers })).json()).toEqual({ removed: true });
     const created = await server.inject({ method: "POST", url: "/api/push/subscribe", payload: JSON.stringify({ subscription: sub, label: "Stephen's phone" }), headers });
     expect(created.statusCode).toBe(201);
     expect(created.json()).toEqual({ subscribed: true, endpoint: sub.endpoint, subscriptions: 1 });

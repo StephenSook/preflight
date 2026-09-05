@@ -52,6 +52,20 @@ describe("rate properties over event telemetry", () => {
     expect(short.properties[1]!.basis).toContain("shortest 14.9 s");
     // A busy line, a rejected or a failed leg ended by the network is not a ring the dialer cut short.
     expect(campaignRates([call({ uuid: "c", ringingAt: iso(0), endedAt: iso(1.1), outcome: "busy" }), call({ uuid: "d", ringingAt: iso(0), endedAt: iso(2), outcome: "failed" }), call({ uuid: "e", ringingAt: iso(0), endedAt: iso(2), outcome: "rejected" })]).properties[1]!.verdict).toBe("inconclusive");
+    // The platform closes a rung-out call with "completed" after its timeout, in either order of receipt; the timeout stays the outcome and its time the end.
+    const closing = (order: "forward" | "reverse") => {
+      const ev: EventLike[] = [
+        { callUuid: "t", receivedAt: iso(0), payload: { uuid: "t", status: "ringing", direction: "outbound", timestamp: iso(0) } },
+        { callUuid: "t", receivedAt: iso(5), payload: { uuid: "t", status: "timeout", direction: "outbound", timestamp: iso(5) } },
+        { callUuid: "t", receivedAt: iso(5.2), payload: { uuid: "t", status: "completed", direction: "outbound", timestamp: iso(5.2), end_time: iso(5.2), duration: "0" } },
+      ];
+      return telemetryFromEvents(order === "forward" ? ev : [...ev].reverse(), () => false);
+    };
+    for (const order of ["forward", "reverse"] as const) {
+      const t = closing(order);
+      expect(t[0]).toMatchObject({ uuid: "t", outcome: "timeout", endedAt: iso(5), durationSeconds: 0 });
+      expect(campaignRates(t).properties[1]).toMatchObject({ id: "P7", verdict: "false", n: 1 });
+    }
     // A ring time that is not positive (an end recorded before the ringing) is excluded, never a violation.
     expect(campaignRates([call({ uuid: "f", ringingAt: iso(10), endedAt: iso(5), outcome: "timeout" })]).properties[1]!.verdict).toBe("inconclusive");
   });

@@ -32,7 +32,10 @@ export interface ReconciliationReport {
   leaks: number;
   /** Refusals (block or hold) the gateway issued inside the window, none of which reached the carrier unless listed as a leak. */
   refused_in_window: number;
+  /** Calls the interlock decided with a platform uuid that came back in no pulled record at all. */
+  decided_not_in_records: number;
   unmatched_ids: string[];
+  missing_ids: string[];
   leaked_ids: string[];
   /** sha256 over the canonical records, so the entry can be checked against a re-pull of the same window. */
   records_hash: string;
@@ -89,6 +92,11 @@ export function reconcile(window: { start: string; end: string }, records: reado
     if (leak) leaked.push(r.call_id);
   }
 
+  // A decided call with a platform uuid that the pull did not return at all: an empty or mis-filtered
+  // pull must not read as a clean night.
+  const pulled = new Set(records.map((r) => r.call_id));
+  const missing = [...new Set(decisions.filter((d) => isPlatformUuid(d.callUuid) && Date.parse(d.decidedAt) >= startMs && Date.parse(d.decidedAt) <= endMs).map((d) => d.callUuid as string).filter((u) => !pulled.has(u)))];
+
   const canonicalRecords = inside.map((r) => ({ call_id: r.call_id, direction: r.direction, from: lineOf(r.from), to: lineOf(r.to), date_start: r.date_start }));
   return {
     window,
@@ -98,7 +106,9 @@ export function reconcile(window: { start: string; end: string }, records: reado
     unmatched: unmatched.length,
     leaks: leaked.length,
     refused_in_window: refusedInWindow,
+    decided_not_in_records: missing.length,
     unmatched_ids: unmatched.slice(0, 50),
+    missing_ids: missing.slice(0, 50),
     leaked_ids: leaked.slice(0, 50),
     records_hash: "sha256:" + createHash("sha256").update(canonicalize(canonicalRecords as unknown as Canonical)).digest("hex"),
   };

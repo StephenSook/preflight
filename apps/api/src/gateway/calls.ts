@@ -192,7 +192,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
     }
     outcome.record.verifyLatencyMs = performance.now() - verifyStart - (originLatencyMs ?? 0);
     await decisions.append(outcome.record);
-    await ledger.append(ledgerDraftFor(outcome));
+    await ledger.append(ledgerDraftFor(outcome, placed));
     req.log.info({ decision: outcome.decision, reason: outcome.reason, to: toNumber, callUuid: outcome.record.callUuid, placed: placed?.status, holdId, override }, "create-call gateway decided");
 
     reply.header("x-preflight-decision", outcome.decision);

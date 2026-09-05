@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { Config } from "../config.js";
 import type { ConsentStore } from "../store/consentStore.js";
@@ -23,6 +23,8 @@ export interface ConsentDeps {
   /** Undefined when the process holds no application private key; every route then answers 404. */
   verify: VerifyClient | undefined;
   mintToken: (() => string) | undefined;
+  /** Keys the number hash in the ledger; the application private key on a real deployment. Undefined disables the gate. */
+  hashKey: string | undefined;
   clock: () => number;
 }
 
@@ -41,8 +43,9 @@ export function maskNumber(n: string): string {
   return `+${n.slice(0, 1)} ${n.slice(1, 4)} *** ${n.slice(-4)}`;
 }
 
-export function numberHash(n: string): string {
-  return `sha256:${createHash("sha256").update(n).digest("hex")}`;
+/** Keyed, so the public ledger cannot be walked back to a number by hashing the eight billion NANP values. The key never leaves the host. */
+export function numberHash(n: string, key: string): string {
+  return `hmac-sha256:${createHmac("sha256", key).update(n).digest("hex")}`;
 }
 
 function startOfUtcDay(ms: number): string {
@@ -60,11 +63,11 @@ function parseJson(body: unknown): Record<string, unknown> | undefined {
 }
 
 export function registerConsent(app: FastifyInstance, deps: ConsentDeps): void {
-  const { config, consents, ledger, verify, mintToken, clock } = deps;
+  const { config, consents, ledger, verify, mintToken, hashKey, clock } = deps;
   const notEnabled = (reply: FastifyReply) => reply.code(404).send({ error: "the consent gate is not enabled on this deployment: the process holds no application private key" });
 
   app.post<{ Body: string }>("/api/consent/start", async (req, reply) => {
-    if (!verify) return notEnabled(reply);
+    if (!verify || !hashKey) return notEnabled(reply);
     const body = parseJson(req.body);
     if (!body) return reply.code(400).send({ error: "body must be JSON" });
     const number = normalizeNumber(body["number"]);
@@ -94,7 +97,7 @@ export function registerConsent(app: FastifyInstance, deps: ConsentDeps): void {
   });
 
   app.post<{ Body: string }>("/api/consent/check", async (req, reply) => {
-    if (!verify) return notEnabled(reply);
+    if (!verify || !hashKey) return notEnabled(reply);
     const body = parseJson(req.body);
     if (!body) return reply.code(400).send({ error: "body must be JSON" });
     const requestId = typeof body["request_id"] === "string" ? body["request_id"].trim() : "";
@@ -123,7 +126,7 @@ export function registerConsent(app: FastifyInstance, deps: ConsentDeps): void {
       witness: [],
       ncco_hash: null,
       line_type: null,
-      detail: { request_id: requestId, number_hash: numberHash(consent.number), channel: "voice", expires_at: expiresAt, scope: "one demonstration call to the verified number" },
+      detail: { request_id: requestId, number_hash: numberHash(consent.number, hashKey ?? ""), channel: "voice", expires_at: expiresAt, scope: "one demonstration call to the verified number" },
     });
     req.log.info({ requestId, number: maskNumber(consent.number), seq: entry.seq }, "consent granted");
     return reply.code(200).send({ granted: true, request_id: requestId, expires_at: expiresAt, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } });

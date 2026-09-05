@@ -52,11 +52,14 @@ describe("create-call gateway", () => {
   });
   afterAll(async () => { await origin.close(); }, 15000);
 
+  /** What the stub platform answers a create-call request with; a test can make it refuse. */
+  let platformStatus = 201;
   /** Routes platform calls to a stub that records them; everything else reaches the in-process origin. */
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url.startsWith(VONAGE)) {
       platformRequests.push({ url, headers: Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>)), body: String(init?.body ?? "") });
+      if (platformStatus !== 201) return new Response(JSON.stringify({ type: "https://developer.vonage.com/api-errors#low-balance", title: "Low balance" }), { status: platformStatus, headers: { "content-type": "application/json" } });
       return new Response(JSON.stringify({ uuid: "vonage-uuid-1", status: "started", direction: "outbound", conversation_uuid: "CON-vonage-1" }), { status: 201, headers: { "content-type": "application/json" } });
     }
     return fetch(input, init);
@@ -129,7 +132,21 @@ describe("create-call gateway", () => {
     const d = (await decisions.recent(1))[0];
     expect(d).toMatchObject({ decision: "pass", direction: "outbound", callUuid: "vonage-uuid-1", conversationUuid: "CON-vonage-1", humanParty: "14042010000", terminal: true });
     expect(JSON.stringify(d)).not.toContain("caller-owned-token");
-    expect((await ledger.entries(0, 10))[0]).toMatchObject({ kind: "pass", call_uuid: "vonage-uuid-1" });
+    expect((await ledger.entries(0, 10))[0]).toMatchObject({ kind: "pass", call_uuid: "vonage-uuid-1", detail: { placed: true, platform_status: 201 } });
+  });
+
+  it("passes the platform's refusal through as its own status, and the entry says the call was not placed", async () => {
+    const { server, ledger } = app();
+    platformStatus = 402;
+    try {
+      const res = await call(server, { ...BASE, ncco: CONNECT_ONLY });
+      expect(res.statusCode).toBe(402);
+      expect(res.json()).toMatchObject({ title: "Low balance" });
+      expect(res.headers["x-preflight-decision"]).toBe("pass");
+    } finally {
+      platformStatus = 201;
+    }
+    expect((await ledger.entries(0, 10))[0]).toMatchObject({ kind: "pass", decision: "pass", call_uuid: expect.stringMatching(/^preflight-dryrun-/), detail: { placed: false, platform_status: 402 } }); // no platform uuid: the dry-run id stays, which reconciliation treats as none
   });
 
   it("blocks a non-compliant inline flow with 409 and the verdicts; nothing reaches the platform", async () => {

@@ -22,7 +22,8 @@ export interface CampaignDeps {
 export const MAX_EVENTS = 50000;
 
 export async function campaignWindow(deps: CampaignDeps, startIso: string, endIso: string): Promise<CampaignWindow> {
-  const events = await deps.store.eventsBetween(startIso, endIso, MAX_EVENTS);
+  // One more than the cap is fetched, so a window of exactly the cap is whole and one beyond it is known to be cut.
+  const events = await deps.store.eventsBetween(startIso, endIso, MAX_EVENTS + 1);
   const graph = await deps.graphStore.load();
   const declaration = await deps.declaration();
   const uuids = [...new Set(events.map((e) => e.callUuid ?? (typeof e.payload?.["uuid"] === "string" ? (e.payload["uuid"] as string) : undefined)).filter((u): u is string => typeof u === "string"))];

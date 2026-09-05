@@ -37,8 +37,10 @@ describe("number helpers", () => {
 
   it("masks all but the country code, area code and last four, and hashes without the digits", () => {
     expect(maskNumber(NUMBER)).toBe("+1 404 *** 0000");
-    expect(numberHash(NUMBER)).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expect(numberHash(NUMBER)).not.toContain("2010000");
+    expect(numberHash(NUMBER, "key-one")).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+    expect(numberHash(NUMBER, "key-one")).not.toContain("2010000");
+    // Keyed: without the host's key, hashing every NANP number finds nothing.
+    expect(numberHash(NUMBER, "key-two")).not.toBe(numberHash(NUMBER, "key-one"));
   });
 });
 
@@ -165,7 +167,7 @@ describe("consent gate", () => {
     expect(granted.expires_at).toBe(new Date(NOW + 15 * 60 * 1000).toISOString());
     const entries = await ledger.entries(0, 100);
     const consent = entries.find((e) => e.kind === "consent");
-    expect(consent?.detail).toMatchObject({ request_id, channel: "voice", number_hash: numberHash(NUMBER) });
+    expect(consent?.detail).toMatchObject({ request_id, channel: "voice", number_hash: numberHash(NUMBER, PRIVATE_PEM) });
     expect(JSON.stringify(consent)).not.toContain(NUMBER);
     const twice = await post(server, "/api/consent/check", { request_id, code: "1234" });
     expect(twice.statusCode).toBe(200);

@@ -12,7 +12,7 @@
  * workflows, CLI version). LIVE is read from the deployed host and stamped with the time.
  */
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROPERTIES } from "../packages/engine/src/properties.js";
@@ -55,11 +55,11 @@ function previousCounts(section: string | undefined): { tests: number; files: nu
 }
 
 function routes(): string[] {
-  const files = ["apps/api/src/server.ts", "apps/api/src/consent/routes.ts", "apps/api/src/gateway/calls.ts", "apps/api/src/hooks/branch.ts", "apps/api/src/stream.ts"];
+  const files: Array<[string, string]> = [["apps/api/src/server.ts", ""], ["apps/api/src/consent/routes.ts", ""], ["apps/api/src/gateway/calls.ts", ""], ["apps/api/src/hooks/branch.ts", ""], ["apps/api/src/stream.ts", ""], ["apps/api/src/push/routes.ts", ""], ["apps/api/src/softphone/routes.ts", ""], ["apps/reference/src/index.ts", "/reference"]];
   const found = new Set<string>();
-  for (const f of files) {
+  for (const [f, prefix] of files) {
     const src = readFileSync(path.join(root, f), "utf8");
-    for (const m of src.matchAll(/app\.(get|post|put|delete|route)(?:<[^>]*>)?\(\s*(?:\{\s*method:\s*\[[^\]]*\],\s*url:\s*)?["'`]([^"'`]+)["'`]/g)) found.add(`${m[1] === "route" ? "GET/POST" : m[1].toUpperCase()} ${m[2]}`);
+    for (const m of src.matchAll(/app\.(get|post|put|delete|route)(?:<[^>]*>)?\(\s*(?:\{\s*method:\s*\[[^\]]*\],\s*url:\s*)?["'`]([^"'`]+)["'`]/g)) found.add(`${m[1] === "route" ? "GET/POST" : m[1].toUpperCase()} ${prefix}${m[2]}`);
   }
   return [...found].sort((a, b) => a.split(" ")[1]!.localeCompare(b.split(" ")[1]!) || a.localeCompare(b));
 }
@@ -74,14 +74,15 @@ function workflows(): string[] {
 }
 
 function staticBlock(counts: { tests: number; files: number }): string {
-  const mutants = (JSON.parse(readFileSync(path.join(root, "scripts/mutation/mutants.json"), "utf8")) as unknown[]).length;
+  const mutants = mutantCount();
+  const run = lastMutationRun();
   const corpus = readdirSync(path.join(root, "corpus/ncco")).filter((f) => f.endsWith(".json")).length;
   const migrations = readdirSync(path.join(root, "apps/api/src/db/migrations")).filter((f) => f.endsWith(".sql")).sort();
   const cli = JSON.parse(readFileSync(path.join(root, "packages/cli/package.json"), "utf8")) as { name: string; version: string };
   const nanpaRows = readFileSync(path.join(root, "packages/numfacts/data/co-codes.tsv"), "utf8").split("\n").filter((l) => l.length > 0 && !l.startsWith("#")).length - 1;
   const lines = [
     `- Tests: ${counts.tests} across ${counts.files} suites (vitest, \`pnpm test\`)`,
-    `- Mutants: ${mutants} hand-written (\`scripts/mutation/mutants.json\`, \`pnpm mutate\` requires every one killed)`,
+    `- Mutants: ${mutants} hand-written (\`scripts/mutation/mutants.json\`, \`pnpm mutate\` requires every one killed); last recorded run: ${run ? `${run.date} at ${run.commit}, ${run.killed} killed, ${run.survived} survived of ${run.total}` : "none"} (\`scripts/mutation/last-run.json\`, written by the harness)`,
     `- Labelled corpus: ${corpus} call-control objects (\`corpus/ncco\`, \`pnpm replay corpus/ncco\`)`,
     `- Number-facts table: ${nanpaRows} NPA-NXX rows (\`packages/numfacts/data/co-codes.tsv\`)`,
     `- Properties (Tier 1, armed by default):`,
@@ -136,6 +137,15 @@ function mutantCount(): number {
   return (JSON.parse(readFileSync(path.join(root, "scripts/mutation/mutants.json"), "utf8")) as unknown[]).length;
 }
 
+interface MutationRun { commit: string; date: string; total: number; killed: number; survived: number }
+
+/** The harness writes this after a full run; the sheet reports a run, never a file count dressed as one. */
+function lastMutationRun(): MutationRun | undefined {
+  const f = path.join(root, "scripts/mutation/last-run.json");
+  if (!existsSync(f)) return undefined;
+  return JSON.parse(readFileSync(f, "utf8")) as MutationRun;
+}
+
 async function main(): Promise<void> {
   const sheet = readFileSync(factSheetPath, "utf8");
   if (!sheet.includes(STATIC_OPEN) || !sheet.includes(LIVE_OPEN)) throw new Error("docs/fact-sheet.md lacks the generated markers");
@@ -152,7 +162,9 @@ async function main(): Promise<void> {
     if (rc.badge !== counts.tests) problems.push(`README test badge says ${rc.badge}, the fact sheet says ${counts.tests}`);
     if (rc.comment !== counts.tests) problems.push(`README "every suite" line says ${rc.comment}, the fact sheet says ${counts.tests}`);
     const mutants = mutantCount();
-    if (rc.mutantsApplied !== mutants || rc.mutantsKilled !== mutants) problems.push(`README says ${rc.mutantsApplied} mutants applied and ${rc.mutantsKilled} killed, mutants.json holds ${mutants}`);
+    const run = lastMutationRun();
+    if (!run || run.total !== mutants || run.survived !== 0) problems.push(`scripts/mutation/last-run.json does not record a clean run over the ${mutants} mutants in mutants.json: run \`pnpm mutate\``);
+    if (rc.mutantsApplied !== mutants || rc.mutantsKilled !== (run?.killed ?? -1)) problems.push(`README says ${rc.mutantsApplied} mutants applied and ${rc.mutantsKilled} killed; mutants.json holds ${mutants} and the last recorded run killed ${run?.killed ?? "none"}`);
     if (problems.length > 0) {
       for (const p of problems) process.stderr.write(`fact-sheet check: ${p}\n`);
       process.exit(1);
@@ -165,11 +177,12 @@ async function main(): Promise<void> {
   if (!offline) next = next.replace(new RegExp(`${LIVE_OPEN}[\\s\\S]*?${LIVE_CLOSE}`), `${LIVE_OPEN}${await liveBlock()}${LIVE_CLOSE}`);
   writeFileSync(factSheetPath, next);
   const mutants = mutantCount();
+  const run = lastMutationRun();
   const nextReadme = readme
     .replace(/tests-\d+%20passing/, `tests-${counts.tests}%20passing`)
     .replace(/# every suite, \d+ tests/, `# every suite, ${counts.tests} tests`)
     .replace(/applies \d+ hand-written mutations/, `applies ${mutants} hand-written mutations`)
-    .replace(/the last run killed \d+ of \d+/, `the last run killed ${mutants} of ${mutants}`);
+    .replace(/the last run killed \d+ of \d+/, `the last run killed ${run?.killed ?? 0} of ${run?.total ?? mutants}`);
   if (nextReadme !== readme) writeFileSync(readmePath, nextReadme);
   process.stdout.write(`fact sheet regenerated: ${counts.tests} tests, ${offline ? "live block kept" : "live block read from " + api}\n`);
 }

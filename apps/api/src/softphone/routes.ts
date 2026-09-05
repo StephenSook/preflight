@@ -58,9 +58,6 @@ export async function ensureUser(name: string, displayName: string, appToken: st
 export function registerSoftphone(app: FastifyInstance, deps: SoftphoneDeps): void {
   const { config, fetchImpl, clock, applicationPrivateKeyPem, dashboardAuth, store } = deps;
   const applicationId = config.VONAGE_APPLICATION_ID;
-  // Judge tokens reserved but not yet recorded: taken before any await, so overlapping requests cannot
-  // all pass the allowance check; the durable count is the store's, so a restart does not reset it.
-  let reserved = 0;
 
   // The platform posts RTC events here once the capability is on; the softphone needs none of them
   // and nothing is stored, so nothing can be injected.
@@ -81,24 +78,19 @@ export function registerSoftphone(app: FastifyInstance, deps: SoftphoneDeps): vo
     const now = clock();
     const dayStart = new Date(now);
     dayStart.setUTCHours(0, 0, 0, 0);
-    if (role === "judge") reserved += 1;
-    try {
-      if (role === "judge") {
-        const issued = await store.countSince("judge", dayStart.toISOString());
-        if (issued + reserved > config.SOFTPHONE_TOKENS_PER_DAY) return reply.code(429).send({ error: "no more softphone sessions today; dial the public number instead" });
-      }
-      const user = role === "scheduler" ? config.REFERENCE_AGENT : `judge-${randomBytes(4).toString("hex")}`;
-      const appToken = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, 300);
-      const ensured = await ensureUser(user, role === "scheduler" ? "Scheduler" : "Judge", appToken, fetchImpl, config.VONAGE_API_HOST);
-      if (!ensured.ok) return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
+    const user = role === "scheduler" ? config.REFERENCE_AGENT : `judge-${randomBytes(4).toString("hex")}`;
+    const appToken = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, 300);
+    const ensured = await ensureUser(user, role === "scheduler" ? "Scheduler" : "Judge", appToken, fetchImpl, config.VONAGE_API_HOST);
+    if (!ensured.ok) return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
 
-      const ttl = config.SOFTPHONE_TOKEN_TTL_MINUTES * 60;
-      const token = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, ttl, { sub: user, acl: CLIENT_ACL });
-      await store.record(role, user, new Date(now).toISOString());
-      req.log.info({ role, user, created: ensured.created, ttl }, "softphone token minted");
-      return reply.code(201).send({ role, user, token, expires_at: new Date(now + ttl * 1000).toISOString(), application_id: applicationId, created: ensured.created });
-    } finally {
-      if (role === "judge") reserved -= 1;
-    }
+    // The day's allowance is taken as the token is recorded, in one step under the store's lock, so no two
+    // requests (in this process or another sharing the database) can both issue the last token; a platform
+    // refusal above spends nothing.
+    const recorded = await store.tryRecord(role, user, new Date(now).toISOString(), role === "judge" ? { since: dayStart.toISOString(), max: config.SOFTPHONE_TOKENS_PER_DAY } : undefined);
+    if (!recorded) return reply.code(429).send({ error: "no more softphone sessions today; dial the public number instead" });
+    const ttl = config.SOFTPHONE_TOKEN_TTL_MINUTES * 60;
+    const token = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, ttl, { sub: user, acl: CLIENT_ACL });
+    req.log.info({ role, user, created: ensured.created, ttl }, "softphone token minted");
+    return reply.code(201).send({ role, user, token, expires_at: new Date(now + ttl * 1000).toISOString(), application_id: applicationId, created: ensured.created });
   });
 }

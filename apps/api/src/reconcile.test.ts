@@ -20,8 +20,17 @@ describe("carrier-side reconciliation", () => {
   it("matches carrier records to decided calls by uuid, and reports the rest as placed around the interlock", () => {
     const decisions = [decision({ callUuid: "known-1", decision: "pass" }), decision({ callUuid: "known-2", decision: "block", direction: "inbound" })];
     const report = reconcile(window, [record({ call_id: "known-1" }), record({ call_id: "known-2", direction: "inbound" }), record({ call_id: "stranger", from: "14045550100", to: "14045550199" })], decisions);
-    expect(report).toMatchObject({ carrier_records: 3, matched: 2, unmatched: 1, leaks: 0, refused_in_window: 0, unmatched_ids: ["stranger"], leaked_ids: [] });
+    expect(report).toMatchObject({ carrier_records: 3, matched: 2, unmatched: 1, leaks: 0, refused_in_window: 0, decided_not_in_records: 0, unmatched_ids: ["stranger"], leaked_ids: [], missing_ids: [] });
     expect(report.records_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("counts a decided call with a platform uuid that the pull never returned, so an empty or mis-filtered pull is not a clean night", () => {
+    const decisions = [decision({ callUuid: "known-1", decision: "pass" }), decision({ callUuid: "known-9", decision: "pass" }), decision({ callUuid: "old-1", decision: "pass", decidedAt: iso(T0 - 7200_000) }), decision({ callUuid: "preflight-dryrun-aa", decision: "block" })];
+    const empty = reconcile(window, [], decisions);
+    expect(empty).toMatchObject({ carrier_records: 0, decided_not_in_records: 2, missing_ids: ["known-1", "known-9"] });
+    // A record outside the window still proves the platform knows the call.
+    const some = reconcile(window, [record({ call_id: "known-1" }), record({ call_id: "known-9", date_start: iso(T0 - 3700_000) })], decisions);
+    expect(some).toMatchObject({ carrier_records: 1, outside_window: 1, decided_not_in_records: 0, missing_ids: [] });
   });
 
   it("names a leak: a carrier record with no uuid Preflight knows, on the same two lines, moments after the gateway refused that request", () => {

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { CallFacts, FlowDeclaration } from "@preflight/engine";
 import { checkObject, renderReplay, renderVerdicts, renderVerify, replayCorpus, unwrapObjectFile, verifyLedgerSource } from "./index.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const USAGE = `preflight ${VERSION}: the call that doesn't happen
 
   preflight check <object.json> [--declaration decl.json] [--from 14045550100]

@@ -3,7 +3,7 @@ import { declaredEndpointsOf, type FlowDeclaration } from "@preflight/engine";
 import { referenceApp } from "@preflight/reference";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import type { Canonical } from "@preflight/ledger";
+import { GENESIS_HASH, type Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
 import { campaignWindow, MAX_EVENTS } from "./campaign.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
@@ -226,7 +226,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem, onHold: notifier ? (hold) => notifier.holdCreated(hold) : undefined });
   // The consent gate mints the application's own tokens for Verify v2 and for the demonstration call.
   const verify = mintToken ? vonageVerify({ apiHost: config.VONAGE_API_HOST, fetchImpl, token: mintToken }) : undefined;
-  registerConsent(app, { config, consents: deps.consents ?? new MemoryConsentStore(), ledger, verify, mintToken, clock });
+  registerConsent(app, { config, consents: deps.consents ?? new MemoryConsentStore(), ledger, verify, mintToken, hashKey: privateKeyPem, clock });
   // The held queue and the stream both need the dashboard token: a phone number is personal data.
   const dashboardAuth = (authorization: string | undefined): boolean => {
     if (!config.DASHBOARD_TOKEN) return false;
@@ -340,7 +340,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     // Normalised to the instant, so the store compares times and not the spelling of an offset.
     const result = await campaignWindow({ store, graphStore, declaration: () => flow.currentDeclaration() }, new Date(sinceMs).toISOString(), new Date(untilMs).toISOString());
     // A window the store could not return whole is refused, never folded from its oldest part.
-    if (result.events >= MAX_EVENTS) return reply.code(422).send({ error: `more than ${MAX_EVENTS} event webhooks in the window; narrow it` });
+    if (result.events > MAX_EVENTS) return reply.code(422).send({ error: `more than ${MAX_EVENTS} event webhooks in the window; narrow it` });
     return result;
   });
   // The declared-versus-actual diff: the discovered graph coloured against what the developer declared.
@@ -520,6 +520,10 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     if (typeof uuid !== "string" || !Number.isSafeInteger(logIndex) || !sealed || !Number.isSafeInteger(sealed.seq) || typeof sealed.entry_hash !== "string") {
       return reply.code(400).send({ error: "expected rekor_uuid, rekor_log_index and sealed {seq, entry_hash}" });
     }
+    // The sealed head must be this ledger's: the entry at that seq, or genesis for an empty chain.
+    const sealedSeq = sealed.seq as number;
+    const at = sealedSeq === 0 ? { seq: 0, entry_hash: GENESIS_HASH } : (await ledger.entries(sealedSeq - 1, 1))[0];
+    if (!at || at.seq !== sealedSeq || at.entry_hash !== sealed.entry_hash) return reply.code(409).send({ error: "the sealed head is not an entry of this ledger", ledger: at ? { seq: at.seq, entry_hash: at.entry_hash } : null });
     const entry = await ledger.append({
       ts: new Date(clock()).toISOString(),
       kind: "seal",

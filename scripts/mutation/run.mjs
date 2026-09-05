@@ -270,6 +270,12 @@ async function main() {
   }
   const survivors = rows.filter((r) => !r.killed);
   process.stdout.write(`\n${rows.length - survivors.length} killed, ${survivors.length} survived, ${rows.length} total\n`);
+  // A full run is recorded for the fact sheet, so the README's kill count is a run, not a file count.
+  if (!only && !grep) {
+    const record = { commit: git("rev-parse", "--short", "HEAD").trim(), date: new Date().toISOString().slice(0, 10), total: rows.length, killed: rows.length - survivors.length, survived: survivors.length };
+    writeFileSync(path.join(root, "scripts/mutation/last-run.json"), JSON.stringify(record, null, 2) + "\n");
+    process.stdout.write(`recorded in scripts/mutation/last-run.json\n`);
+  }
 
   // Guard 5: nothing under packages/ differs from HEAD except test files.
   const stat = git("diff", "--stat", "--", "packages/");

@@ -45,7 +45,7 @@ runs it in a bare context.
 - **Rejected because:** the engine is the thesis of the product and has to be readable by a
   reviewer in an afternoon; the construction is about a thousand lines and its guarantees are
   tests (textbook verdicts, finality of verdicts, complementarity of a formula and its negation,
-  a 48-object corpus labelled by hand before any run, 48 mutants).
+  a corpus labelled by hand before any run, and a mutation harness whose counts live in the fact sheet).
 
 ### A language model deciding compliance
 - **Pros:** Could read the spoken words, which the structural engine deliberately does not.

@@ -1,6 +1,6 @@
 {
   "name": "preflight-interlock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "npx preflight: check a Vonage call-control object against the federal and Georgia telemarketing rules, replay the labelled corpus, verify a Preflight evidence log. No account, no data tables.",
   "license": "Apache-2.0",
