@@ -3,7 +3,9 @@ import { declaredEndpointsOf, type FlowDeclaration } from "@preflight/engine";
 import { referenceApp } from "@preflight/reference";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import type { Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
+import { reconcile, type CarrierRecord } from "./reconcile.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
 import { FlowDecider } from "./decide/flow.js";
 import { holdNcco, safeNcco } from "./decide/ncco.js";
@@ -239,6 +241,61 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     return { hold, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
   });
 
+  // Carrier-side reconciliation (plan addition A6). The nightly workflow pulls the account's call records
+  // from the platform's Reports API and posts them here. Every record must be a call this interlock
+  // decided; the result is an evidence-log entry either way. Presents the same workflow token as the seal.
+  app.post<{ Body: string }>("/api/reconcile", async (req, reply) => {
+    if (!config.SEAL_TOKEN) return reply.code(404).send({ error: "reconciliation is not enabled on this deployment" });
+    const presented = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    const expected = config.SEAL_TOKEN;
+    if (!(presented.length === expected.length && timingSafeEqual(Buffer.from(presented), Buffer.from(expected)))) return reply.code(403).send({ error: "workflow token rejected" });
+    let body: { window?: { start?: unknown; end?: unknown }; records?: unknown };
+    try {
+      body = JSON.parse(typeof req.body === "string" ? req.body : "") as typeof body;
+    } catch {
+      return reply.code(400).send({ error: "body must be JSON" });
+    }
+    const start = body.window?.start;
+    const end = body.window?.end;
+    if (typeof start !== "string" || typeof end !== "string" || !Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(start) > Date.parse(end) || Date.parse(end) - Date.parse(start) > 31 * 86_400_000) {
+      return reply.code(400).send({ error: "expected window {start, end} as ISO times, start before end, at most 31 days apart" });
+    }
+    if (!Array.isArray(body.records) || body.records.length > 5000) return reply.code(400).send({ error: "expected records as an array of at most 5000 carrier records" });
+    const records: CarrierRecord[] = [];
+    for (const r of body.records as unknown[]) {
+      const o = r as Record<string, unknown>;
+      if (typeof o["call_id"] !== "string" || o["call_id"].length === 0 || typeof o["from"] !== "string" || typeof o["to"] !== "string" || typeof o["date_start"] !== "string" || !Number.isFinite(Date.parse(o["date_start"]))) {
+        return reply.code(400).send({ error: "every record needs call_id, from, to and an ISO date_start" });
+      }
+      records.push({ call_id: o["call_id"], direction: typeof o["direction"] === "string" ? o["direction"] : "unknown", from: o["from"], to: o["to"], date_start: o["date_start"] });
+    }
+    // A refusal moments before the window opened can still explain a record just inside it.
+    const margin = 15 * 60 * 1000;
+    const inWindow = await decisions.between(new Date(Date.parse(start) - margin).toISOString(), new Date(Date.parse(end) + margin).toISOString(), 10000);
+    const report = reconcile({ start, end }, records, inWindow);
+    const entry = await ledger.append({
+      ts: new Date(clock()).toISOString(),
+      kind: "reconciliation",
+      call_uuid: null,
+      decision: null,
+      property: null,
+      citation: null,
+      witness: [],
+      ncco_hash: null,
+      line_type: null,
+      detail: report as unknown as { [key: string]: Canonical },
+    });
+    req.log.info({ seq: entry.seq, carrier_records: report.carrier_records, unmatched: report.unmatched, leaks: report.leaks }, "carrier reconciliation recorded");
+    return reply.code(201).send({ report, ledger: { seq: entry.seq, entry_hash: entry.entry_hash } });
+  });
+
+  const lastReconciliation = async () => {
+    const last = await ledger.lastOfKind("reconciliation");
+    if (!last) return null;
+    const d = (last.detail ?? {}) as Record<string, Canonical | undefined>;
+    return { ts: last.ts, seq: last.seq, window: d["window"] ?? null, carrier_records: d["carrier_records"] ?? null, matched: d["matched"] ?? null, unmatched: d["unmatched"] ?? null, leaks: d["leaks"] ?? null, refused_in_window: d["refused_in_window"] ?? null };
+  };
+
   // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.
   app.get("/api/coverage", async () => flow.coverage());
   // The declared-versus-actual diff: the discovered graph coloured against what the developer declared.
@@ -306,6 +363,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       ledger: await ledger.head(),
       coverage: await flow.coverage(),
       latency: { sample: recent.length, verifyP50Ms: percentile(verify, 50), verifyP95Ms: percentile(verify, 95), originP50Ms: percentile(origin, 50), originP95Ms: percentile(origin, 95) },
+      reconciliation: await lastReconciliation(),
       policy: config.POLICY_MODE,
     };
   });

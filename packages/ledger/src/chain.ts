@@ -6,7 +6,7 @@ import { canonicalize, type Canonical } from "./canonical.js";
  * the previous entry's hash, so altering any historical entry invalidates every entry after it.
  * The chain head is what gets sealed to the public transparency log.
  */
-export type LedgerKind = "pass" | "block" | "hold" | "override" | "consent" | "seal" | "declaration";
+export type LedgerKind = "pass" | "block" | "hold" | "override" | "consent" | "seal" | "declaration" | "reconciliation";
 
 export interface LedgerBody {
   seq: number;

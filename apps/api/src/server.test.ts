@@ -324,6 +324,39 @@ describe("preflight api ingress", () => {
     expect(diff.openBranches).toEqual([]);
   });
 
+  it("reconciles the carrier's records against its own decisions behind the workflow token, and the summary carries the last result", async () => {
+    const at = (ms: number) => new Date(NOW + ms).toISOString();
+    expect((await app().server.inject({ method: "POST", url: "/api/reconcile", payload: "{}", headers: { "content-type": "application/json" } })).statusCode).toBe(404);
+    const token = "workflow-token-for-tests-1";
+    const { server, ledger } = app({ SEAL_TOKEN: token });
+    const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    expect((await server.inject({ method: "POST", url: "/api/reconcile", payload: "{}", headers: { ...headers, authorization: "Bearer wrong" } })).statusCode).toBe(403);
+    expect((await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ records: [] }), headers })).statusCode).toBe(400);
+    expect((await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ window: { start: at(0), end: at(1000) }, records: [{ call_id: "x" }] }), headers })).statusCode).toBe(400);
+
+    // One call the interlock passed (with its uuid), one request it refused before any uuid existed.
+    served = FLOWS.connectOnly;
+    expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-R1" })).headers["x-preflight-decision"]).toBe("pass");
+    served = FLOWS.syntheticNoOptOut;
+    expect((await post(server, "/v/answer", { direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from })).headers["x-preflight-decision"]).toBe("block");
+
+    const records = [
+      { call_id: "call-R1", direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to, date_start: at(1000), status: "ANSWERED" },
+      { call_id: "ghost-1", direction: "outbound", from: `+${OUTBOUND.from}`, to: OUTBOUND.to, date_start: at(3000) },
+      { call_id: "stranger", direction: "inbound", from: "14045550100", to: "14045550199", date_start: at(4000) },
+    ];
+    const res = await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ window: { start: at(-3600_000), end: at(3600_000) }, records }), headers });
+    expect(res.statusCode).toBe(201);
+    const { report, ledger: link } = res.json() as { report: Record<string, unknown>; ledger: { seq: number } };
+    expect(report).toMatchObject({ carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, unmatched_ids: ["ghost-1", "stranger"], leaked_ids: ["ghost-1"] });
+    expect(link.seq).toBe(3);
+    const entry = (await ledger.entries(2, 1))[0];
+    expect(entry).toMatchObject({ kind: "reconciliation", detail: { carrier_records: 3, leaks: 1, records_hash: expect.stringMatching(/^sha256:/) } });
+    expect((await ledger.verify()).ok).toBe(true);
+    const summary = (await server.inject({ method: "GET", url: "/api/summary" })).json() as { reconciliation: Record<string, unknown> };
+    expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, window: { start: at(-3600_000), end: at(3600_000) } });
+  });
+
   it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
     served = FLOWS.syntheticWithOptOut;
     const off = app();

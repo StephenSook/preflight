@@ -45,11 +45,26 @@ async function setMode(mode) {
 
 const state = await (await fetch(`${api}/reference/state`)).json();
 if (state.mode !== "broken") await setMode("broken");
+const eventsBefore = (await (await fetch(`${api}/health`)).json()).events;
 const refused = await createCall("broken flow through the gateway");
 if (refused.status !== 409 || !["block", "hold"].includes(refused.decision ?? "")) {
   console.error(`expected the gateway to refuse the broken flow with 409 and a block or hold decision, got ${refused.status} ${refused.decision}`);
   process.exit(2);
 }
+if (refused.uuid) {
+  console.error(`the refusal carried a call uuid (${refused.uuid}): something was created at the platform`);
+  process.exit(4);
+}
+// The negative, measured rather than asserted: a refused call has no uuid and no legs, so for a full
+// minute after the refusal no event webhook arrives (plan Day 2 gate). The reference app's own /event
+// is not this host's /v/event; the count below is of signed platform events.
+await new Promise((r) => setTimeout(r, 60_000));
+const eventsAfter = (await (await fetch(`${api}/health`)).json()).events;
+if (eventsAfter !== eventsBefore) {
+  console.error(`an event webhook arrived within 60 s of the refusal (${eventsBefore} -> ${eventsAfter}): a call may have been placed`);
+  process.exit(5);
+}
+console.log(JSON.stringify({ silence: { seconds: 60, eventsBefore, eventsAfter } }));
 if (!placeEnabled) {
   console.log(JSON.stringify({ realCall: "not placed", why: "the DAILY_CALL_PLACE variable is not on" }));
   process.exit(0);

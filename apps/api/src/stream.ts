@@ -28,6 +28,7 @@ export function publishing(store: DecisionStore, bus: DecisionBus): DecisionStor
       bus.publish(r);
     },
     recent: (n) => store.recent(n),
+    between: (start, end, n) => store.between(start, end, n),
     counts: () => store.counts(),
   };
 }

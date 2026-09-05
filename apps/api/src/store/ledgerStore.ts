@@ -1,4 +1,4 @@
-import { GENESIS_HASH, hashBody, verifyChain, type LedgerBody, type LedgerEntry, type VerifyResult } from "@preflight/ledger";
+import { GENESIS_HASH, hashBody, verifyChain, type LedgerBody, type LedgerEntry, type LedgerKind, type VerifyResult } from "@preflight/ledger";
 import type { Sql } from "postgres";
 
 /** Everything an entry carries except what the chain assigns (seq, prev_hash) and computes (entry_hash). */
@@ -12,6 +12,8 @@ export interface LedgerStore {
   entries(after: number, limit: number): Promise<LedgerEntry[]>;
   /** Walks the whole chain from genesis. */
   verify(): Promise<VerifyResult>;
+  /** The newest entry of one kind (the last seal, the last reconciliation), or nothing. */
+  lastOfKind(kind: LedgerKind): Promise<LedgerEntry | undefined>;
 }
 
 function build(draft: LedgerDraft, seq: number, prev_hash: string): LedgerEntry {
@@ -37,6 +39,10 @@ export class MemoryLedgerStore implements LedgerStore {
   }
   async verify(): Promise<VerifyResult> {
     return verifyChain(this.rows);
+  }
+  async lastOfKind(kind: LedgerKind): Promise<LedgerEntry | undefined> {
+    for (let i = this.rows.length - 1; i >= 0; i -= 1) if (this.rows[i]?.kind === kind) return this.rows[i];
+    return undefined;
   }
 }
 
@@ -75,5 +81,10 @@ export class PgLedgerStore implements LedgerStore {
       after = page[page.length - 1]?.seq ?? after;
     }
     return verifyChain(all);
+  }
+
+  async lastOfKind(kind: LedgerKind): Promise<LedgerEntry | undefined> {
+    const [r] = await this.sql<{ entry: LedgerEntry }[]>`select entry from ledger where entry->>'kind' = ${kind} order by seq desc limit 1`;
+    return r?.entry;
   }
 }

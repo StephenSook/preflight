@@ -27,6 +27,8 @@ export interface DecisionStore {
   readonly name: "memory" | "postgres";
   append(record: DecisionRecord): Promise<void>;
   recent(limit: number): Promise<DecisionRecord[]>;
+  /** Decisions made inside [startIso, endIso], newest first, at most `limit`: the reconciliation window. */
+  between(startIso: string, endIso: string, limit: number): Promise<DecisionRecord[]>;
   counts(): Promise<Record<Decision, number>>;
 }
 
@@ -38,6 +40,9 @@ export class MemoryDecisionStore implements DecisionStore {
   }
   async recent(limit: number): Promise<DecisionRecord[]> {
     return this.rows.slice(-limit).reverse();
+  }
+  async between(startIso: string, endIso: string, limit: number): Promise<DecisionRecord[]> {
+    return this.rows.filter((r) => r.decidedAt >= startIso && r.decidedAt <= endIso).reverse().slice(0, limit);
   }
   async counts(): Promise<Record<Decision, number>> {
     const c: Record<Decision, number> = { pass: 0, block: 0, hold: 0 };
@@ -111,6 +116,17 @@ export class PgDecisionStore implements DecisionStore {
     const calls = await this.sql<CallRow[]>`select id::text as id, call_uuid, conversation_uuid, application_id, direction, from_number, to_number, human_party, state, rate_center,
       line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms
       from calls order by decided_at desc, id desc limit ${limit}`;
+    return this.hydrate(calls);
+  }
+
+  async between(startIso: string, endIso: string, limit: number): Promise<DecisionRecord[]> {
+    const calls = await this.sql<CallRow[]>`select id::text as id, call_uuid, conversation_uuid, application_id, direction, from_number, to_number, human_party, state, rate_center,
+      line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms
+      from calls where decided_at >= ${startIso} and decided_at <= ${endIso} order by decided_at desc, id desc limit ${limit}`;
+    return this.hydrate(calls);
+  }
+
+  private async hydrate(calls: CallRow[]): Promise<DecisionRecord[]> {
     if (calls.length === 0) return [];
     const ids = calls.map((c) => c.id);
     const verdicts = await this.sql<VerdictRow[]>`select call_id::text as call_id, property_id, verdict, citation, witness, at_end, reason from verdicts where call_id = any(${ids}::bigint[]) order by id`;

@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-249%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-265%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -118,6 +118,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
 | Transparency-log seal | Daily workflow signs the chain head with a P-256 key, uploads a `hashedrekord` to Sigstore Rekor, verifies it back from the public log, and records the seal in the ledger | `.github/workflows/seal.yml`, `packages/ledger/keys/preflight-ledger-public.pem` |
+| Carrier-side reconciliation | Nightly, the platform's own call records for the last 26 hours (Reports API) are posted to the interlock, which matches every record to a decided call by uuid, reports the rest as placed around the interlock, and names as a leak any record that lines up with a request the gateway refused (same two lines, within two minutes). The report is an evidence-log entry, the summary carries the last one, and a mismatch fails the job so GitHub's failure email is the alarm | `apps/api/src/reconcile.ts`, `scripts/vonage/reconcile.mjs`, `.github/workflows/reconcile.yml` |
 | Event store | Every signed event webhook body persisted with its received-at timestamp, the raw material for the rate properties | `apps/api/src/store/pgEventStore.ts` |
 
 ## Architecture
@@ -202,7 +203,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 249 tests
+pnpm test                       # every suite, 265 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
