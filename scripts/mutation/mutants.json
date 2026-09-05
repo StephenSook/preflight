@@ -275,9 +275,9 @@
   {
     "id": "hours-unknown-zone-passes",
     "file": "packages/numfacts/src/timezone.ts",
-    "find": "if (zones.length === 0) return null;",
-    "replace": "if (zones.length === 0) return true;",
-    "why": "A destination with no known timezone must be three-valued (null, which the evaluator holds), never assumed inside hours."
+    "find": "? [...answers][0] ?? null : null;",
+    "replace": "? [...answers][0] ?? null : true;",
+    "why": "A destination with no known (or no evaluable) timezone must be three-valued (null, which the evaluator holds), never assumed inside hours."
   },
   {
     "id": "hours-disagreeing-zones-pick-first",
