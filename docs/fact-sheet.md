@@ -10,8 +10,8 @@ per figure and is opened source by source before the film renders.
 Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block or the README counts drift, `pnpm fact-sheet:check`):
 
 <!-- generated:static -->
-- Tests: 301 across 87 suites (vitest, `pnpm test`)
-- Mutants: 55 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
+- Tests: 305 across 89 suites (vitest, `pnpm test`)
+- Mutants: 56 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed); last recorded run: 2026-09-05 at 2206fe0, 56 killed, 0 survived of 56 (`scripts/mutation/last-run.json`, written by the harness)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
 - Properties (Tier 1, armed by default):
@@ -21,15 +21,15 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
   - P4 Caller ID integrity: `caller_id_present` (O.C.G.A. 46-5-27(g)(2); Ga. Comp. R. & Regs. 515-14-1-.03(c))
   - P5 Georgia identification first: `(!speaks) W identifies` (O.C.G.A. 46-5-27(g)(1); Ga. Comp. R. & Regs. 515-14-1-.03(b))
 - Migrations: 0001_webhooks.sql, 0002_calls_verdicts.sql, 0003_ledger.sql, 0004_flow_graph.sql, 0005_holds.sql, 0006_consents.sql, 0007_flow_declarations.sql, 0008_number_insights.sql, 0009_push_subscriptions.sql, 0010_softphone_tokens.sql
-- HTTP routes: `GET /api/campaign`, `POST /api/consent/check`, `POST /api/consent/start`, `GET /api/coverage`, `POST /api/demo/call`, `GET /api/flow`, `GET /api/held`, `POST /api/held/:id/decide`, `GET /api/ledger/entries`, `GET /api/ledger/head`, `POST /api/ledger/seals`, `GET /api/ledger/verify`, `POST /api/reconcile`, `GET /api/setup`, `PUT /api/setup/declaration`, `POST /api/setup/install`, `POST /api/setup/rollback`, `GET /api/stream`, `GET /api/summary`, `GET /health`, `GET/POST /v/answer`, `POST /v/calls`, `GET/POST /v/event`, `GET/POST /v/fallback`, `GET/POST /v/hook`
+- HTTP routes: `GET /api/campaign`, `POST /api/consent/check`, `POST /api/consent/start`, `GET /api/coverage`, `POST /api/demo/call`, `GET /api/flow`, `GET /api/held`, `POST /api/held/:id/decide`, `GET /api/ledger/entries`, `GET /api/ledger/head`, `POST /api/ledger/seals`, `GET /api/ledger/verify`, `DELETE /api/push/subscribe`, `POST /api/push/subscribe`, `POST /api/push/test`, `GET /api/push/vapid`, `POST /api/reconcile`, `GET /api/setup`, `PUT /api/setup/declaration`, `POST /api/setup/install`, `POST /api/setup/rollback`, `POST /api/softphone/token`, `GET /api/stream`, `GET /api/summary`, `GET /health`, `GET/POST /reference/answer`, `GET/POST /reference/event`, `POST /reference/menu`, `POST /reference/mode`, `POST /reference/optout`, `GET /reference/state`, `GET/POST /v/answer`, `POST /v/calls`, `GET/POST /v/event`, `GET/POST /v/fallback`, `GET/POST /v/hook`, `GET/POST /v/rtc`
 - Scheduled and CI workflows: ci.yml (on push and pull request); daily-call.yml (cron `41 17 * * *` UTC); deadman.yml (cron `23 */6 * * *` UTC); itinerary.yml (cron `52 12 * * *` UTC); keepalive.yml (cron `7,17,27,37,47,57 * * * *` UTC); reconcile.yml (cron `33 3 * * *` UTC); seal.yml (cron `17 4 * * *` UTC)
-- CLI: `preflight-interlock@0.1.0` (`npx preflight-interlock`)
+- CLI source: `preflight-interlock` 0.2.0 (`npx preflight-interlock` installs whatever npm holds; the published release is a MEASUREMENTS row below)
 <!-- /generated:static -->
 
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T09:56:31.851Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Read at 2026-09-05T10:31:14.193Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
 - Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
 - Evidence log: 12 entries, head `sha256:c0dcc776f228b4478cf33037269359e43146c0766b485a32e9f0ea27ce7e4cd1`, verify ok (12 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)

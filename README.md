@@ -10,7 +10,7 @@ monitor built from the statute does, and it holds rather than guesses.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-301%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-305%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -208,7 +208,7 @@ Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v
 `/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
 
 ```bash
-pnpm test                       # every suite, 301 tests
+pnpm test                       # every suite, 305 tests
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
@@ -229,10 +229,10 @@ The engine's own guarantees are tests, not claims:
 - a formula and its negation are complementary on every prefix and at every end of flow;
 - the 48-object corpus carries expected atoms, verdicts, decision and witness path per file, every
   label derived by hand before any run, so a reviewer checks a label by reading the object;
-- a mutation harness (`pnpm mutate`) applies 55 hand-written mutations one at a time (weak until
+- a mutation harness (`pnpm mutate`) applies 56 hand-written mutations one at a time (weak until
   turned strict, the live-human clause dropped, calling-hour boundaries moved, inconclusive collapsed
   to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
-  a failing test for every one; the last run killed 55 of 55;
+  a failing test for every one; the last run killed 56 of 56;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
   synthetically is caught at the hook on the first call and at answer time on the next;
 - the "runs in the browser" claim is a test: the engine is bundled for the browser, the bundle is

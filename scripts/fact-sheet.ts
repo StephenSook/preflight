@@ -90,7 +90,7 @@ function staticBlock(counts: { tests: number; files: number }): string {
     `- Migrations: ${migrations.join(", ")}`,
     `- HTTP routes: ${routes().map((r) => `\`${r}\``).join(", ")}`,
     `- Scheduled and CI workflows: ${workflows().join("; ")}`,
-    `- CLI: \`${cli.name}@${cli.version}\` (\`npx ${cli.name}\`)`,
+    `- CLI source: \`${cli.name}\` ${cli.version} (\`npx ${cli.name}\` installs whatever npm holds; the published release is a MEASUREMENTS row below)`,
   ];
   return `\n${lines.join("\n")}\n`;
 }
