@@ -49,7 +49,8 @@ consent gate; the verification call is answered; the code is entered; the call i
 > scripts/ops/release-hold.mjs latest "<name>"` does the release and the re-submit. Then the
 > gateway BLOCKS on (b)(3) as the line says. Confirm `openBranches` is empty on `/api/flow` and
 > record it in the fact sheet at film time. Filmed with the branch unobserved, the row reads held,
-> not blocked.]
+> not blocked. Done on the live host 2026-09-05 19:26 UTC: ledger entries 18 to 23, `openBranches`
+> empty, the gateway refusing with (b)(3) in 169 ms and 60 s of silence behind it (fact sheet).]
 >
 > This is my phone. Preflight is also the create-call gateway, because the platform only asks for
 > the flow once a call is answered; I measured that: the call was answered at 868 milliseconds and

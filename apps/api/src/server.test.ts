@@ -287,17 +287,23 @@ describe("preflight api ingress", () => {
     expect(first.headers["x-preflight-decision"]).toBe("pass");
     const hookUrl = new URL((first.json() as Array<{ eventUrl?: string[] }>)[1]?.eventUrl?.[0] ?? "");
     expect(await graphStore.callPath("call-H1")).toHaveLength(2);
+    expect(await graphStore.callPath("CON-1")).toEqual(await graphStore.callPath("call-H1"));
+    expect(await graphStore.callContext("CON-1")).toEqual({ direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to });
 
     // Vonage calls the hook with the input result; the origin's question handler returns the untraced branch.
     servedQuestion = JSON.stringify([{ action: "talk", text: "We could not reach you. Goodbye." }]);
-    const hookRaw = JSON.stringify({ uuid: "call-H1", conversation_uuid: "CON-1", dtmf: { digits: "", timed_out: true }, direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from });
+    // The event the platform actually sends on a timeout (read from the live host, 2026-09-05): no call uuid, no numbers, no direction.
+    // The prefix and the call's facts come back by the conversation uuid, so the whole path is judged as the same outbound call.
+    const hookRaw = JSON.stringify({ uuid: null, conversation_uuid: "CON-1", dtmf: { digits: "", timed_out: true }, speech: { results: [] }, timestamp: "2026-09-05T19:26:36.300606387Z" });
     const hook = await server.inject({ method: "POST", url: hookUrl.pathname + hookUrl.search, payload: hookRaw, headers: { "content-type": "application/json", authorization: sign(hookRaw) } });
     expect(hook.statusCode).toBe(200);
     expect(hook.headers["x-preflight-decision"]).toBe("block");
     expect((hook.json() as Array<{ text: string }>)[0]?.text).toContain("47 CFR 64.1200(b)(3)");
     const d = (await decisions.recent(1))[0];
+    expect(d).toMatchObject({ conversationUuid: "CON-1", direction: "outbound", fromNumber: OUTBOUND.from, toNumber: OUTBOUND.to, humanParty: OUTBOUND.to });
     expect(d?.verdicts.find((v) => v.id === "P3")?.witness?.map((w) => w.label)).toEqual(["talk#0", "input#1", "talk#0'"]);
-    expect((await ledger.entries(0, 10)).find((e) => e.call_uuid === "call-H1" && e.kind === "block")?.witness).toEqual(["talk#0", "input#1", "talk#0'"]);
+    for (const id of ["P1", "P2", "P4", "P5"]) expect(d?.verdicts.find((v) => v.id === id)?.verdict, id).toBe("true");
+    expect((await ledger.entries(0, 10)).find((e) => e.kind === "block" && e.property === "P3")?.witness).toEqual(["talk#0", "input#1", "talk#0'"]);
 
     // The graph now knows the branch: the next call is blocked at answer time, before it runs.
     const second = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-H2" });

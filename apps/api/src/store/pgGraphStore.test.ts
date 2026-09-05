@@ -42,5 +42,10 @@ describe.skipIf(!url)("PgGraphStore (integration)", () => {
     await store.setCallPath("graph-int-1", ["a", "b", "c"]);
     expect(await store.callPath("graph-int-1")).toEqual(["a", "b", "c"]);
     expect(await store.callPath("graph-int-none")).toBeUndefined();
+    await store.setCallPath("graph-int-1", ["a"], { direction: "outbound", from: "12016131021", to: "19432445023" });
+    expect(await store.callContext("graph-int-1")).toEqual({ direction: "outbound", from: "12016131021", to: "19432445023" });
+    await store.setCallPath("graph-int-1", ["a", "b"]);
+    expect(await store.callContext("graph-int-1")).toEqual({ direction: "outbound", from: "12016131021", to: "19432445023" });
+    expect(await store.callContext("graph-int-none")).toBeUndefined();
   }, 30000);
 });

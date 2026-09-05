@@ -25,7 +25,7 @@ import { registerBranchHook } from "./hooks/branch.js";
 import { forwardToOrigin } from "./proxy/forward.js";
 import type { DecisionStore } from "./store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "./store/eventStore.js";
-import type { GraphStore } from "./store/graphStore.js";
+import { callContextOf, rememberCallPath, type GraphStore } from "./store/graphStore.js";
 import { overrideFor, type HoldStore } from "./store/holdStore.js";
 import { DecisionBus, publishing, registerStream } from "./stream.js";
 import type { LedgerStore } from "./store/ledgerStore.js";
@@ -210,7 +210,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       const outcome = await flow.decide({ payload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override });
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
-      if (outcome.record.callUuid) await graphStore.setCallPath(outcome.record.callUuid, outcome.pathNodeIds);
+      await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, callContextOf(payload));
       await decisions.append(outcome.record);
       await ledger.append(ledgerDraftFor(outcome));
       await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });

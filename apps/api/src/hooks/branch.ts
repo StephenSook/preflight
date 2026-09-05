@@ -5,7 +5,7 @@ import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
 import type { EventStore, StoredWebhook, WebhookKind } from "../store/eventStore.js";
-import type { GraphStore } from "../store/graphStore.js";
+import { callContextFor, callPathFor, rememberCallPath, type GraphStore } from "../store/graphStore.js";
 import { overrideFor, type HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 import { holdNcco, safeNcco } from "../decide/ncco.js";
@@ -74,17 +74,23 @@ export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
         req.log.error({ error: forwarded.error, status: forwarded.status, originUrl }, "origin callback failed; failing closed at the branch");
         return reply.code(200).type("application/json").send(JSON.stringify(safeNcco("The application's server did not answer at a branch in the flow.")));
       }
-      const callUuid = typeof payload?.["uuid"] === "string" ? payload["uuid"] : undefined;
-      const prefix = callUuid ? (await graphStore.callPath(callUuid)) ?? [] : [];
+      const s = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
+      const ids = { callUuid: s(payload?.["uuid"]), conversationUuid: s(payload?.["conversation_uuid"]) };
+      const callUuid = ids.callUuid ?? ids.conversationUuid;
+      const prefix = (await callPathFor(graphStore, ids)) ?? [];
+      // The event names the branch result and little else about the call; what the answer-time webhook said
+      // (direction, numbers, the app user) is read back so the continuation is decided as the same call.
+      const context = await callContextFor(graphStore, ids);
+      const known: Record<string, unknown> = { ...(context ?? {}), ...(payload ?? {}) };
       const decideStart = performance.now();
       const override = await overrideFor(holds, payload);
       const outcome = await flow.decide(
-        { payload, nccoBytes: forwarded.bodyText, endpoint: endpointKeyOf(originUrl), from: { nodeId, kind }, now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override },
+        { payload: known, nccoBytes: forwarded.bodyText, endpoint: endpointKeyOf(originUrl), from: { nodeId, kind }, now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override },
         prefix,
       );
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
-      if (callUuid) await graphStore.setCallPath(callUuid, outcome.pathNodeIds);
+      await rememberCallPath(graphStore, ids, outcome.pathNodeIds);
       await decisions.append(outcome.record);
       await ledger.append(ledgerDraftFor(outcome));
       await record("hook", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });

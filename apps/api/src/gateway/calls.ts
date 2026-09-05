@@ -5,7 +5,7 @@ import type { FlowDecider, FlowOutcome } from "../decide/flow.js";
 import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
-import type { GraphStore } from "../store/graphStore.js";
+import { rememberCallPath, type GraphStore } from "../store/graphStore.js";
 import type { Hold, HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 import { verifyApplicationJwt } from "../vonage/verifyApplicationJwt.js";
@@ -173,11 +173,9 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       }
       try {
         const v = JSON.parse(placed.bodyText) as { uuid?: unknown; conversation_uuid?: unknown };
-        if (typeof v.uuid === "string") {
-          outcome.record.callUuid = v.uuid;
-          await graphStore.setCallPath(v.uuid, outcome.pathNodeIds);
-        }
+        if (typeof v.uuid === "string") outcome.record.callUuid = v.uuid;
         if (typeof v.conversation_uuid === "string") outcome.record.conversationUuid = v.conversation_uuid;
+        await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, { direction: "outbound", ...(fromNumber ? { from: fromNumber } : {}), to: toNumber });
         // The override travels with the call: its answer webhook and branch hooks find the hold by these ids.
         if (override && (typeof v.uuid === "string" || typeof v.conversation_uuid === "string")) await holds.placed(override.holdId, typeof v.uuid === "string" ? v.uuid : undefined, typeof v.conversation_uuid === "string" ? v.conversation_uuid : undefined);
       } catch {

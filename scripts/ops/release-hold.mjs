@@ -6,12 +6,13 @@
 // branch gets onto the graph under strict policy without anyone changing the host's policy.
 //
 // Usage: node --env-file=.env scripts/ops/release-hold.mjs <hold-id | latest> "<your name>"
-// Env: PREFLIGHT_API_URL, DASHBOARD_TOKEN, VONAGE_APPLICATION_ID, VONAGE_PRIVATE_KEY_PATH,
+// Env: PREFLIGHT_API_URL (or PUBLIC_BASE_URL), DASHBOARD_TOKEN, VONAGE_APPLICATION_ID, VONAGE_PRIVATE_KEY_PATH,
 //      VONAGE_PUBLIC_NUMBER, VONAGE_FROM_NUMBER.
 import { appJwt, loadEnv } from "../vonage/jwt.mjs";
 
 const { env } = loadEnv();
-const api = (env.PREFLIGHT_API_URL || "").replace(/\/$/, "");
+// The host: PREFLIGHT_API_URL as the workflows set it, else the PUBLIC_BASE_URL a local .env carries.
+const api = (env.PREFLIGHT_API_URL || env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 const token = env.DASHBOARD_TOKEN;
 const to = env.VONAGE_PUBLIC_NUMBER;
 const from = env.VONAGE_FROM_NUMBER;
