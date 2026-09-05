@@ -3,6 +3,7 @@ import { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { declarationFrom, loadConfig } from "./config.js";
+import { nodeStamp } from "./decide/flow.js";
 import { buildServer } from "./server.js";
 import { MemoryDecisionStore } from "./store/decisionStore.js";
 import { MemoryLedgerStore } from "./store/ledgerStore.js";
@@ -664,7 +665,11 @@ describe("preflight api ingress", () => {
     const forged = await server.inject({ method: "POST", url: `${hookUrl.pathname}${hookUrl.search}&u=${Buffer.from("http://127.0.0.1:1/evil").toString("base64url")}`, payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
     expect(forged.statusCode).not.toBe(400);
     expect([200, 204]).toContain(forged.statusCode);
-    const unknown = await server.inject({ method: "POST", url: "/v/hook?n=000000000000000000000000&m=POST", payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
+    // The node id is outside the platform's signature, so a valid token replayed against another node is refused by the stamp.
+    const swapped = await server.inject({ method: "POST", url: `/v/hook?n=000000000000000000000000&m=POST&s=${hookUrl.searchParams.get("s")}`, payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
+    expect(swapped.statusCode).toBe(403);
+    expect((await server.inject({ method: "POST", url: `/v/hook?n=${hookUrl.searchParams.get("n")}&m=POST`, payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } })).statusCode).toBe(403);
+    const unknown = await server.inject({ method: "POST", url: `/v/hook?n=000000000000000000000000&m=POST&s=${nodeStamp(SECRET, "000000000000000000000000")}`, payload: raw, headers: { "content-type": "application/json", authorization: sign(raw) } });
     expect(unknown.statusCode).toBe(404);
   });
 

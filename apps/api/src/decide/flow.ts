@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { callerIdPresent, decide, declaredEndpointsOf, diffDeclared, evaluateGraph, evaluatePath, isBranching, parseNcco, propertySpec, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type FlowDiff, type FlowGraph, type NccoAction, type PropertyVerdict } from "@preflight/engine";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import type { Config } from "../config.js";
@@ -51,6 +51,15 @@ export interface FlowOutcome {
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 
+/**
+ * Binds a hook URL to its node. The platform signs a POST's body, never its query string, so a
+ * captured token could otherwise be replayed against another node's callback; the stamp is an HMAC
+ * of the node id under the signature secret, checked before the node is looked up.
+ */
+export function nodeStamp(secret: string, nodeId: string): string {
+  return createHmac("sha256", secret).update(nodeId).digest("hex").slice(0, 32);
+}
+
 /** The path of a callback URL, the key the coverage report and the graph use for an endpoint. */
 export function endpointKeyOf(url: string): string {
   try {
@@ -76,6 +85,7 @@ export class FlowDecider {
     const u = new URL("/v/hook", base);
     u.searchParams.set("n", nodeId);
     u.searchParams.set("m", method === "GET" ? "GET" : "POST");
+    u.searchParams.set("s", nodeStamp(this.deps.config.VONAGE_SIGNATURE_SECRET, nodeId));
     return u.toString();
   }
 

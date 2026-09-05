@@ -275,6 +275,14 @@ describe("create-call gateway", () => {
     served = JSON.stringify(NONCOMPLIANT);
     expect((await answer({ uuid: "leg-4", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("block");
     served = JSON.stringify(CONNECT_ONLY);
+    // A release places one call: the same override re-submitted is refused, and the first binding stands.
+    const again = await call(server, { ...BASE, ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
+    expect(again.statusCode).toBe(409);
+    expect((again.json() as { reason: string }).reason).toContain("a release places one call");
+    expect(await holds.forCall("vonage-uuid-1", undefined)).toMatchObject({ holdId, placedCallUuid: "vonage-uuid-1" });
+    // The gateway's own record says which policy decided: advisory, on the override, naming the hold.
+    const gatewayRecord = (await decisions.recent(10)).find((d) => d.callUuid === "vonage-uuid-1" && d.reason?.includes("override"));
+    expect(gatewayRecord).toMatchObject({ policy: "advisory", decision: "pass", reason: expect.stringContaining(holdId) });
     // An override is bound to its destination.
     const other = await call(server, { ...BASE, to: [{ type: "phone", number: "14042000000" }], ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });
     expect(other.statusCode).toBe(409);

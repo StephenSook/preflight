@@ -34,6 +34,7 @@ export type VerifyFailure =
   | "unknown_api_key"
   | "bad_signature"
   | "payload_hash_mismatch"
+  | "payload_hash_missing"
   | "stale_token";
 
 export interface VonageWebhookClaims {
@@ -120,12 +121,12 @@ export function verifyVonageWebhook(input: VerifyInput): VerifyResult {
   const now = (input.now ?? (() => Date.now()))() / 1000;
   if (Math.abs(now - claims.iat) > maxAge) return { ok: false, reason: "stale_token" };
 
-  if (typeof claims.payload_hash === "string" && claims.payload_hash.length > 0) {
-    const presented = claims.payload_hash.toLowerCase();
-    const match = candidateHashes(input).find((c) => constantTimeEqualHex(c.hash, presented));
-    if (!match) return { ok: false, reason: "payload_hash_mismatch" };
-    return { ok: true, claims, payloadForm: match.form };
-  }
-
-  return { ok: true, claims, payloadForm: "unhashed" };
+  // A token that verifies but names no payload hash is bound to nothing: any body could ride on it.
+  // Every signed webhook the platform has sent this host (answer GET, event POST, hook POST) carried
+  // one, so the missing claim is refused (fail closed; found by the whole-repo review, 2026-09-05).
+  if (typeof claims.payload_hash !== "string" || claims.payload_hash.length === 0) return { ok: false, reason: "payload_hash_missing" };
+  const presented = claims.payload_hash.toLowerCase();
+  const match = candidateHashes(input).find((c) => constantTimeEqualHex(c.hash, presented));
+  if (!match) return { ok: false, reason: "payload_hash_mismatch" };
+  return { ok: true, claims, payloadForm: match.form };
 }

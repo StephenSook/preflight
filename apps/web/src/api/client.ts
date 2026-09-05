@@ -171,9 +171,10 @@ export const api = {
 
 /** The decision stream, replaying the last `replay` decisions on connect. Returns a close function. */
 export function openStream(token: string, replay: number, onDecision: (d: DecisionEvent) => void, onState: (s: "open" | "closed") => void): () => void {
-  const source = new EventSource(`${API_BASE}/api/stream?replay=${replay}&token=${encodeURIComponent(token)}`);
-  source.addEventListener("open", () => onState("open"));
-  source.addEventListener("error", () => onState("closed"));
+  let source: EventSource | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  let attempt = 0;
   const handle = (ev: MessageEvent<string>) => {
     try {
       onDecision(JSON.parse(ev.data) as DecisionEvent);
@@ -181,9 +182,30 @@ export function openStream(token: string, replay: number, onDecision: (d: Decisi
       // A malformed frame is dropped; the next one arrives on its own.
     }
   };
-  source.addEventListener("decision", handle as EventListener);
-  source.addEventListener("message", handle as EventListener);
-  return () => source.close();
+  const connect = () => {
+    source = new EventSource(`${API_BASE}/api/stream?replay=${replay}&token=${encodeURIComponent(token)}`);
+    source.addEventListener("open", () => {
+      attempt = 0;
+      onState("open");
+    });
+    source.addEventListener("error", () => {
+      onState("closed");
+      // A network drop is retried by the browser itself. An HTTP error (the host restarting behind its
+      // proxy answers 502 for a moment) closes the source for good, so it is re-opened with a backoff.
+      if (source?.readyState === EventSource.CLOSED && !stopped) {
+        attempt += 1;
+        timer = setTimeout(connect, Math.min(30000, 2000 * attempt));
+      }
+    });
+    source.addEventListener("decision", handle as EventListener);
+    source.addEventListener("message", handle as EventListener);
+  };
+  connect();
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+    source?.close();
+  };
 }
 
 /** Masks a number the way the host does in its logs: country code, area code, the last four. */

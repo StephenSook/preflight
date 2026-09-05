@@ -64,13 +64,14 @@ describe("verifyVonageWebhook", () => {
     expect(r).toEqual({ ok: false, reason: "payload_hash_mismatch" });
   });
 
-  it("reports the body form for a POST and no form when the token carries no payload_hash", () => {
+  it("reports the body form for a POST and refuses a token that carries no payload_hash", () => {
     const withBody = verifyVonageWebhook({ authorization: `Bearer ${signHS256(claimsFor(raw), SECRET)}`, rawPayload: raw, secretFor });
     expect(withBody.ok && withBody.payloadForm).toBe("body");
+    // Without the hash the signature binds the token to nothing: any body could ride on it.
     const { payload_hash, ...rest } = claimsFor(raw);
     void payload_hash;
     const bare = verifyVonageWebhook({ authorization: `Bearer ${signHS256(rest, SECRET)}`, rawPayload: raw, secretFor });
-    expect(bare.ok && bare.payloadForm).toBe("unhashed");
+    expect(bare).toEqual({ ok: false, reason: "payload_hash_missing" });
   });
 
   it("rejects a missing Authorization header", () => {

@@ -50,7 +50,7 @@ function draw(flow: FlowDiffView): SVGElement {
     const missing = flow.missing.filter((m) => m.endpoint === ep);
     const all = [
       ...nodes.map((n) => ({ id: n.id, index: n.index, title: n.label, sub: n.text ? `"${n.text.slice(0, 26)}…"` : `${n.observations} observation${n.observations === 1 ? "" : "s"}`, cls: n.status === "declared" ? "" : "is-undeclared", tag: n.status === "declared" ? "" : "NOT DECLARED" })),
-      ...missing.map((m) => ({ id: `missing:${m.endpoint}:${m.index}`, index: m.index, title: m.label, sub: "declared, never observed", cls: "is-missing", tag: "never verified" })),
+      ...missing.map((m) => ({ id: `missing:${m.endpoint}:${m.index}`, index: m.index, title: `${m.action}#${m.index}`, sub: "declared, never observed", cls: "is-missing", tag: "never verified" })),
     ].sort((a, b) => a.index - b.index);
     all.forEach((n, r) => {
       const x = pad + c * colW;

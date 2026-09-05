@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Config } from "../config.js";
-import { endpointKeyOf, type FlowDecider } from "../decide/flow.js";
+import { timingSafeEqual } from "node:crypto";
+import { endpointKeyOf, nodeStamp, type FlowDecider } from "../decide/flow.js";
 import { ledgerDraftFor } from "../decide/record.js";
 import { forwardToOrigin } from "../proxy/forward.js";
 import type { DecisionStore } from "../store/decisionStore.js";
@@ -35,7 +36,7 @@ export interface HookDeps {
  */
 export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
   const { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, ingress, record } = deps;
-  app.route<{ Querystring: { n?: string; m?: string } }>({
+  app.route<{ Querystring: { n?: string; m?: string; s?: string } }>({
     method: ["GET", "POST"],
     url: "/v/hook",
     handler: async (req, reply) => {
@@ -50,6 +51,13 @@ export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
       // trusted for a fetch target.
       const nodeId = req.query.n;
       if (!nodeId) return reply.code(400).send({ error: "hook needs n (the branching node)" });
+      // The query string is outside the platform's signature, so the node id carries its own stamp.
+      const expected = nodeStamp(config.VONAGE_SIGNATURE_SECRET, nodeId);
+      const stamp = typeof req.query.s === "string" ? req.query.s : "";
+      if (stamp.length !== expected.length || !timingSafeEqual(Buffer.from(stamp), Buffer.from(expected))) {
+        req.log.warn({ nodeId }, "rejected a hook whose node stamp does not match");
+        return reply.code(403).send({ error: "hook stamp rejected: the node named in the query is not one this host issued a hook for" });
+      }
       const graph = await graphStore.load();
       const branch = graph.nodes.get(nodeId);
       if (!branch || (branch.action.action !== "input" && branch.action.action !== "notify")) return reply.code(404).send({ error: "unknown branching node" });
@@ -81,9 +89,10 @@ export function registerBranchHook(app: FastifyInstance, deps: HookDeps): void {
       // The event names the branch result and little else about the call; what the answer-time webhook said
       // (direction, numbers, the app user) is read back so the continuation is decided as the same call.
       const context = await callContextFor(graphStore, ids);
-      const known: Record<string, unknown> = { ...(context ?? {}), ...(payload ?? {}) };
+      const known: Record<string, unknown> = { ...(payload ?? {}) };
+      for (const [k, v] of Object.entries(context ?? {})) if (typeof known[k] !== "string" || (known[k] as string).length === 0) known[k] = v;
       const decideStart = performance.now();
-      const override = await overrideFor(holds, payload);
+      const override = await overrideFor(holds, known);
       const outcome = await flow.decide(
         { payload: known, nccoBytes: forwarded.bodyText, endpoint: endpointKeyOf(originUrl), from: { nodeId, kind }, now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override },
         prefix,

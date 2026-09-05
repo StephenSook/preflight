@@ -108,22 +108,8 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       if (!forwarded.ok) originFailure = `the application's answer URL did not return a flow during the pre-dial check (${forwarded.error ?? "error"}${forwarded.status ? ` HTTP ${forwarded.status}` : ""})`;
     }
 
-    const outcome: FlowOutcome = await flow.decide({
-      payload: { direction: "outbound", to: toNumber, from: fromNumber ?? (randomFrom ? "random_from_number" : undefined), uuid: dryRunId },
-      nccoBytes,
-      endpoint: "answer",
-      now: new Date(clock()),
-      originLatencyMs,
-      verifyLatencyMs: null,
-    });
-    if (originFailure) {
-      outcome.decision = "block";
-      outcome.reason = originFailure;
-      outcome.record.decision = "block";
-      outcome.record.reason = originFailure;
-    }
     // A person decided a held call may be placed: the caller re-submits with the hold id. The override
-    // is already in the ledger; here it is checked against the same destination and recorded again.
+    // is already in the ledger; here it is checked against the same destination, and it places one call.
     const overrideId = typeof req.headers["x-preflight-override"] === "string" ? req.headers["x-preflight-override"] : undefined;
     let override: { holdId: string; by: string } | undefined;
     if (overrideId) {
@@ -131,13 +117,26 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       if (!hold || hold.status !== "placed" || hold.humanParty !== toNumber) {
         return reply.code(409).send({ decision: "hold", placed: false, reason: hold ? `override ${overrideId} is ${hold.status} or names another destination` : `no hold ${overrideId}` });
       }
-      override = { holdId: hold.holdId, by: hold.decidedBy ?? "unknown" };
-      if (outcome.decision === "hold") {
-        outcome.decision = "pass";
-        outcome.record.decision = "pass";
-        outcome.reason = `placed on the override recorded for hold ${hold.holdId} by ${override.by}`;
-        outcome.record.reason = outcome.reason;
+      if (hold.placedCallUuid || hold.placedConversationUuid) {
+        return reply.code(409).send({ decision: "hold", placed: false, reason: `override ${overrideId} already placed call ${hold.placedCallUuid ?? hold.placedConversationUuid}: a release places one call` });
       }
+      override = { holdId: hold.holdId, by: hold.decidedBy ?? "unknown" };
+    }
+    // On an override the decision runs as the answer webhook and the hook will: what strict policy would hold passes, a false verdict still blocks.
+    const outcome: FlowOutcome = await flow.decide({
+      payload: { direction: "outbound", to: toNumber, from: fromNumber ?? (randomFrom ? "random_from_number" : undefined), uuid: dryRunId },
+      nccoBytes,
+      endpoint: "answer",
+      now: new Date(clock()),
+      originLatencyMs,
+      verifyLatencyMs: null,
+      override,
+    });
+    if (originFailure) {
+      outcome.decision = "block";
+      outcome.reason = originFailure;
+      outcome.record.decision = "block";
+      outcome.record.reason = originFailure;
     }
     if (randomFrom && !fromNumber) {
       // The platform picks one of the account's own numbers: a caller id will be present.

@@ -10,8 +10,8 @@ Base URL of the reference deployment: `https://preflight-api-rc34.onrender.com`.
 
 | Credential | Header | Routes |
 |---|---|---|
-| none | | `/health`, `/api/summary`, `/api/coverage`, `/api/flow`, `/api/campaign`, `/api/ledger/*` (read), `/api/push/vapid`, `/api/consent/*`, `/api/demo/call`, `/api/softphone/token` (judge) |
-| the platform's signed webhook JWT | `Authorization: Bearer <jwt>` (HS256 with the account's signature secret, `payload_hash` checked) | `/v/answer`, `/v/event`, `/v/fallback`, `/v/hook` |
+| none | | `/health`, `/api/summary`, `/api/coverage`, `/api/flow`, `/api/campaign`, `/api/ledger/*` (read), `/api/push/vapid`, `/api/consent/*`, `/api/demo/call`, `/api/softphone/token` (judge), `/v/rtc` (204, nothing stored) |
+| the platform's signed webhook JWT | `Authorization: Bearer <jwt>` (HS256 with the account's signature secret; a token without `payload_hash` is refused) | `/v/answer`, `/v/event`, `/v/fallback`, `/v/hook` (whose `n` carries a stamp under the same secret, since the query string is outside the platform's signature) |
 | the application's own JWT (RS256, its private key) | `Authorization: Bearer <jwt>` | `POST /v/calls` |
 | dashboard token (`DASHBOARD_TOKEN`) | `Authorization: Bearer <token>` (`?token=` on the stream) | `/api/held*`, `/api/stream`, `/api/setup*`, `/api/push/subscribe`, `/api/push/test`, `/api/softphone/token` (scheduler) |
 | workflow token (`SEAL_TOKEN`) | `Authorization: Bearer <token>` | `POST /api/ledger/seals`, `POST /api/reconcile` |
@@ -33,7 +33,7 @@ notify callbacks rewritten to `/v/hook`), a safe object naming the rule on block
 hold. Headers: `x-preflight-decision` (`pass|block|hold`), `x-preflight-origin-ms`,
 `x-preflight-verify-ms`. 403 on a missing or forged signature, before any state is touched.
 
-### `POST /v/event`
+### `GET|POST /v/event`
 The platform's event webhook. Verified and stored with its received time; 204. The rate
 properties read these.
 

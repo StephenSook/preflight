@@ -17,6 +17,13 @@ export class DecisionBus extends EventEmitter {
   last(n: number): DecisionRecord[] {
     return this.recent.slice(-n);
   }
+  /** Fills the replay window from the store at boot (oldest first), without emitting: a restart must not empty the monitor. */
+  seed(records: readonly DecisionRecord[]): void {
+    for (const r of records) {
+      this.recent.push(r);
+      if (this.recent.length > 100) this.recent.shift();
+    }
+  }
 }
 
 /** Wraps a store so every append is also published. */

@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.
 const read = (p: string): string => readFileSync(path.join(root, p), "utf8");
 const has = (file: string, needle: string): boolean => existsSync(path.join(root, file)) && read(file).includes(needle);
 
-const SURFACES = ["README.md", "docs/fact-sheet.md"];
+const SURFACES = ["README.md", "docs/fact-sheet.md", "docs/api.md", "docs/judges.md", "docs/submission/devpost.md"];
 
 /** Each term the surfaces may use, with the evidence in the tree that makes it true. */
 const CLAIMS: Array<{ term: RegExp; evidence: () => boolean; where: string }> = [
@@ -63,12 +63,14 @@ describe("claim drift on the judge-facing surfaces", () => {
   it("the honest-status section names only things that are genuinely absent", () => {
     const readme = read("README.md");
     const a = readme.indexOf("## Honest status");
+    expect(a, "the README carries an Honest status section").toBeGreaterThan(0);
     const honest = readme.slice(a, readme.indexOf("\n## ", a + 1));
-    const wronglyAbsent = CLAIMS.filter((c) => c.term.test(honest) && c.evidence() && /not (started|built|present|deployed)/.test(honest)).map((c) => c.term.source);
-    // Terms that appear in the honest section AND have shipped evidence must be there for another reason than "not built".
-    for (const term of wronglyAbsent) {
-      const line = honest.split("\n").find((l) => new RegExp(term).test(l)) ?? "";
-      expect(line, `honest status still lists ${term} as not built`).not.toMatch(/not (started|built|present)/);
+    // The section names shipped things (the push line, the softphone line) as proven or as limited, never as unbuilt.
+    const named = CLAIMS.filter((c) => c.term.test(honest));
+    expect(named.length, "the honest status names at least one shipped integration").toBeGreaterThan(0);
+    for (const c of named) {
+      expect(c.evidence(), `${c.term.source} is named in the honest status but ${c.where} does not carry the call`).toBe(true);
+      for (const line of honest.split("\n").filter((l) => c.term.test(l))) expect(line, `honest status lists ${c.term.source} as unbuilt`).not.toMatch(/not (yet )?(started|built|present|deployed|wired)/);
     }
   });
 });

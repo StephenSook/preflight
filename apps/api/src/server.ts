@@ -102,6 +102,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clock = deps.now ?? Date.now;
   const bus = new DecisionBus();
+  // The replay window survives a restart: the newest fifty decisions in the store are loaded, oldest first.
+  void deps.decisions.recent(50).then((rs) => bus.seed([...rs].reverse())).catch((err: unknown) => app.log.warn({ err }, "could not seed the decision stream from the store"));
   const decisions = publishing(deps.decisions, bus);
   // The event stream carries the dashboard token in its query string (EventSource cannot send a
   // header), so the request log redacts it: a token must never land in the host's logs.

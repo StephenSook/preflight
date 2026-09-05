@@ -58,11 +58,16 @@ export class MemoryHoldStore implements HoldStore {
   }
   async placed(holdId: string, callUuid: string | undefined, conversationUuid: string | undefined): Promise<void> {
     const h = this.rows.get(holdId);
-    if (h) Object.assign(h, { placedCallUuid: callUuid, placedConversationUuid: conversationUuid });
+    // A release places one call: the first binding stands.
+    if (h && !h.placedCallUuid && !h.placedConversationUuid) Object.assign(h, { placedCallUuid: callUuid, placedConversationUuid: conversationUuid });
   }
   async forCall(callUuid: string | undefined, conversationUuid: string | undefined): Promise<Hold | undefined> {
-    if (!callUuid && !conversationUuid) return undefined;
-    return [...this.rows.values()].filter((h) => h.status === "placed" && ((callUuid !== undefined && h.placedCallUuid === callUuid) || (conversationUuid !== undefined && h.placedConversationUuid === conversationUuid))).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""))[0];
+    const rows = [...this.rows.values()].filter((h) => h.status === "placed");
+    // The call's own uuid decides; the conversation is the fallback for an event that names no call.
+    const byCall = callUuid ? rows.find((h) => h.placedCallUuid === callUuid) : undefined;
+    if (byCall) return byCall;
+    if (!conversationUuid) return undefined;
+    return rows.filter((h) => h.placedConversationUuid === conversationUuid).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""))[0];
   }
 }
 
@@ -90,12 +95,17 @@ export class PgHoldStore implements HoldStore {
     return r ? toHold(r) : undefined;
   }
   async placed(holdId: string, callUuid: string | undefined, conversationUuid: string | undefined): Promise<void> {
-    await this.sql`update holds set placed_call_uuid = ${callUuid ?? null}, placed_conversation_uuid = ${conversationUuid ?? null} where hold_id = ${holdId}`;
+    // A release places one call: the first binding stands.
+    await this.sql`update holds set placed_call_uuid = ${callUuid ?? null}, placed_conversation_uuid = ${conversationUuid ?? null} where hold_id = ${holdId} and placed_call_uuid is null and placed_conversation_uuid is null`;
   }
   async forCall(callUuid: string | undefined, conversationUuid: string | undefined): Promise<Hold | undefined> {
-    if (!callUuid && !conversationUuid) return undefined;
-    // A comparison with null is never true, so an absent uuid matches nothing.
-    const [r] = await this.sql<Row[]>`select * from holds where status = 'placed' and (placed_call_uuid = ${callUuid ?? null} or placed_conversation_uuid = ${conversationUuid ?? null}) order by decided_at desc nulls last limit 1`;
+    // The call's own uuid decides; the conversation is the fallback for an event that names no call.
+    if (callUuid) {
+      const [byCall] = await this.sql<Row[]>`select * from holds where status = 'placed' and placed_call_uuid = ${callUuid} limit 1`;
+      if (byCall) return toHold(byCall);
+    }
+    if (!conversationUuid) return undefined;
+    const [r] = await this.sql<Row[]>`select * from holds where status = 'placed' and placed_conversation_uuid = ${conversationUuid} order by decided_at desc nulls last limit 1`;
     return r ? toHold(r) : undefined;
   }
 }
