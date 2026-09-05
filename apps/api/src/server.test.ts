@@ -364,7 +364,7 @@ describe("preflight api ingress", () => {
     expect(entry).toMatchObject({ kind: "reconciliation", detail: { carrier_records: 3, leaks: 1, records_hash: expect.stringMatching(/^sha256:/) } });
     expect((await ledger.verify()).ok).toBe(true);
     const summary = (await server.inject({ method: "GET", url: "/api/summary" })).json() as { reconciliation: Record<string, unknown> };
-    expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, window: { start: at(-3600_000), end: at(3600_000) } });
+    expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, decided_not_in_records: 0, window: { start: at(-3600_000), end: at(3600_000) } });
   });
 
   it("resolves a hold the free tables could not with one Identity Insights lookup after the response, never inside a decision", async () => {

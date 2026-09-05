@@ -33,6 +33,7 @@
  *         MUTATE_OUT=<dir> pnpm mutate               (log directory; default is a fresh temp dir)
  */
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -105,6 +106,17 @@ function countOccurrences(haystack, needle) {
 // ---------------------------------------------------------------------------------------------
 if (!existsSync(vitestBin)) fail(`vitest not found at ${vitestBin}; run pnpm install`);
 const allMutants = JSON.parse(readFileSync(mutantsPath, "utf8"));
+
+/** sha256 over mutants.json and every source it names, in name order; the twin lives in scripts/fact-sheet.ts. */
+function mutationDigest(mutants) {
+  const h = createHash("sha256");
+  h.update(readFileSync(mutantsPath));
+  for (const f of [...new Set(mutants.map((m) => m.file))].sort()) {
+    h.update(`\0${f}\0`);
+    h.update(readFileSync(path.join(root, f)));
+  }
+  return `sha256:${h.digest("hex")}`;
+}
 if (!Array.isArray(allMutants) || allMutants.length === 0) fail("mutants.json must be a non-empty array");
 
 const problems = [];
@@ -270,12 +282,7 @@ async function main() {
   }
   const survivors = rows.filter((r) => !r.killed);
   process.stdout.write(`\n${rows.length - survivors.length} killed, ${survivors.length} survived, ${rows.length} total\n`);
-  // A full run is recorded for the fact sheet, so the README's kill count is a run, not a file count.
-  if (!only && !grep) {
-    const record = { commit: git("rev-parse", "--short", "HEAD").trim(), date: new Date().toISOString().slice(0, 10), total: rows.length, killed: rows.length - survivors.length, survived: survivors.length };
-    writeFileSync(path.join(root, "scripts/mutation/last-run.json"), JSON.stringify(record, null, 2) + "\n");
-    process.stdout.write(`recorded in scripts/mutation/last-run.json\n`);
-  }
+
 
   // Guard 5: nothing under packages/ differs from HEAD except test files.
   const stat = git("diff", "--stat", "--", "packages/");
@@ -287,6 +294,14 @@ async function main() {
     process.exit(2);
   }
   if (restoreFailed) process.exit(2);
+  // A full run over restored sources is recorded for the fact sheet, so the README's kill count is a run, not
+  // a file count; the digest covers mutants.json and every mutated source, so an edited mutant or a changed
+  // source at the same count reads as stale until the harness runs again (scripts/fact-sheet.ts checks it).
+  if (!only && !grep) {
+    const record = { commit: git("rev-parse", "--short", "HEAD").trim(), date: new Date().toISOString().slice(0, 10), total: rows.length, killed: rows.length - survivors.length, survived: survivors.length, sources_sha256: mutationDigest(allMutants) };
+    writeFileSync(path.join(root, "scripts/mutation/last-run.json"), JSON.stringify(record, null, 2) + "\n");
+    process.stdout.write(`recorded in scripts/mutation/last-run.json (${record.sources_sha256.slice(0, 19)})\n`);
+  }
   process.exit(survivors.length > 0 ? 1 : 0);
 }
 

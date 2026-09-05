@@ -79,15 +79,17 @@ export function registerSoftphone(app: FastifyInstance, deps: SoftphoneDeps): vo
     const dayStart = new Date(now);
     dayStart.setUTCHours(0, 0, 0, 0);
     const user = role === "scheduler" ? config.REFERENCE_AGENT : `judge-${randomBytes(4).toString("hex")}`;
+    // The day's slot is taken first, in one step under the store's lock, so no two requests (in this process or
+    // another sharing the database) can both issue the last token, and a spent day never reaches the platform:
+    // nobody can create platform users past the allowance. A platform refusal gives the slot back.
+    const slot = await store.tryRecord(role, user, new Date(now).toISOString(), role === "judge" ? { since: dayStart.toISOString(), max: config.SOFTPHONE_TOKENS_PER_DAY } : undefined);
+    if (!slot.ok) return reply.code(429).send({ error: "no more softphone sessions today; dial the public number instead" });
     const appToken = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, 300);
     const ensured = await ensureUser(user, role === "scheduler" ? "Scheduler" : "Judge", appToken, fetchImpl, config.VONAGE_API_HOST);
-    if (!ensured.ok) return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
-
-    // The day's allowance is taken as the token is recorded, in one step under the store's lock, so no two
-    // requests (in this process or another sharing the database) can both issue the last token; a platform
-    // refusal above spends nothing.
-    const recorded = await store.tryRecord(role, user, new Date(now).toISOString(), role === "judge" ? { since: dayStart.toISOString(), max: config.SOFTPHONE_TOKENS_PER_DAY } : undefined);
-    if (!recorded) return reply.code(429).send({ error: "no more softphone sessions today; dial the public number instead" });
+    if (!ensured.ok) {
+      await store.release(slot.id);
+      return reply.code(502).send({ error: `the platform refused to create the user: ${ensured.error}`, platform_status: ensured.status });
+    }
     const ttl = config.SOFTPHONE_TOKEN_TTL_MINUTES * 60;
     const token = mintApplicationJwt(applicationId, applicationPrivateKeyPem, now, ttl, { sub: user, acl: CLIENT_ACL });
     req.log.info({ role, user, created: ensured.created, ttl }, "softphone token minted");

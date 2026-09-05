@@ -12,6 +12,7 @@
  * workflows, CLI version). LIVE is read from the deployed host and stamped with the time.
  */
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,7 +83,7 @@ function staticBlock(counts: { tests: number; files: number }): string {
   const nanpaRows = readFileSync(path.join(root, "packages/numfacts/data/co-codes.tsv"), "utf8").split("\n").filter((l) => l.length > 0 && !l.startsWith("#")).length - 1;
   const lines = [
     `- Tests: ${counts.tests} across ${counts.files} suites (vitest, \`pnpm test\`)`,
-    `- Mutants: ${mutants} hand-written (\`scripts/mutation/mutants.json\`, \`pnpm mutate\` requires every one killed); last recorded run: ${run ? `${run.date} at ${run.commit}, ${run.killed} killed, ${run.survived} survived of ${run.total}` : "none"} (\`scripts/mutation/last-run.json\`, written by the harness)`,
+    `- Mutants: ${mutants} hand-written (\`scripts/mutation/mutants.json\`, \`pnpm mutate\` requires every one killed); last recorded run: ${run ? `${run.date} at ${run.commit}, ${run.killed} killed, ${run.survived} survived of ${run.total}, sources ${run.sources_sha256.slice(7, 19)}` : "none"} (\`scripts/mutation/last-run.json\`, written by the harness over the restored sources; CI fails when mutants.json or a mutated source changed since)`,
     `- Labelled corpus: ${corpus} call-control objects (\`corpus/ncco\`, \`pnpm replay corpus/ncco\`)`,
     `- Number-facts table: ${nanpaRows} NPA-NXX rows (\`packages/numfacts/data/co-codes.tsv\`)`,
     `- Properties (Tier 1, armed by default):`,
@@ -137,7 +138,20 @@ function mutantCount(): number {
   return (JSON.parse(readFileSync(path.join(root, "scripts/mutation/mutants.json"), "utf8")) as unknown[]).length;
 }
 
-interface MutationRun { commit: string; date: string; total: number; killed: number; survived: number }
+interface MutationRun { commit: string; date: string; total: number; killed: number; survived: number; sources_sha256: string }
+
+/** sha256 over mutants.json and every source it names, in name order; the twin lives in scripts/mutation/run.mjs. */
+function mutationDigest(): string {
+  const mutantsPath = path.join(root, "scripts/mutation/mutants.json");
+  const mutants = JSON.parse(readFileSync(mutantsPath, "utf8")) as Array<{ file: string }>;
+  const h = createHash("sha256");
+  h.update(readFileSync(mutantsPath));
+  for (const f of [...new Set(mutants.map((m) => m.file))].sort()) {
+    h.update(`\0${f}\0`);
+    h.update(readFileSync(path.join(root, f)));
+  }
+  return `sha256:${h.digest("hex")}`;
+}
 
 /** The harness writes this after a full run; the sheet reports a run, never a file count dressed as one. */
 function lastMutationRun(): MutationRun | undefined {
@@ -164,6 +178,7 @@ async function main(): Promise<void> {
     const mutants = mutantCount();
     const run = lastMutationRun();
     if (!run || run.total !== mutants || run.survived !== 0) problems.push(`scripts/mutation/last-run.json does not record a clean run over the ${mutants} mutants in mutants.json: run \`pnpm mutate\``);
+    else if (run.sources_sha256 !== mutationDigest()) problems.push("scripts/mutation/last-run.json is stale: mutants.json or a source it mutates changed since the recorded run; run `pnpm mutate`");
     if (rc.mutantsApplied !== mutants || rc.mutantsKilled !== (run?.killed ?? -1)) problems.push(`README says ${rc.mutantsApplied} mutants applied and ${rc.mutantsKilled} killed; mutants.json holds ${mutants} and the last recorded run killed ${run?.killed ?? "none"}`);
     if (problems.length > 0) {
       for (const p of problems) process.stderr.write(`fact-sheet check: ${p}\n`);

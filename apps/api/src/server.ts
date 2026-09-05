@@ -327,7 +327,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     const last = await ledger.lastOfKind("reconciliation");
     if (!last) return null;
     const d = (last.detail ?? {}) as Record<string, Canonical | undefined>;
-    return { ts: last.ts, seq: last.seq, window: d["window"] ?? null, carrier_records: d["carrier_records"] ?? null, matched: d["matched"] ?? null, unmatched: d["unmatched"] ?? null, leaks: d["leaks"] ?? null, refused_in_window: d["refused_in_window"] ?? null };
+    return { ts: last.ts, seq: last.seq, window: d["window"] ?? null, carrier_records: d["carrier_records"] ?? null, matched: d["matched"] ?? null, unmatched: d["unmatched"] ?? null, leaks: d["leaks"] ?? null, refused_in_window: d["refused_in_window"] ?? null, decided_not_in_records: d["decided_not_in_records"] ?? null };
   };
 
   // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.

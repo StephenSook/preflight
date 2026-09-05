@@ -165,8 +165,9 @@ Sends a test notification to every subscription: `{ attempted, delivered, retire
 Body `{ "role": "judge" }` (public, capped per day) or `{ "role": "scheduler" }` (dashboard
 token). 201 `{ role, user, token, expires_at, application_id, created }`: a Client SDK user token
 signed by the application key. 429 when the day's judge tokens are spent (the count is durable, in
-`softphone_tokens`, and each token is recorded under a database lock as it is issued, so overlapping
-requests, in one process or several, cannot exceed the allowance); 404 when the deployment
+`softphone_tokens`, and the day's slot is taken under a database lock before the platform is asked, released if
+the platform refuses, so overlapping requests, in one process or several, cannot exceed the
+allowance and a spent day creates no platform user); 404 when the deployment
 holds no application private key; 502 when the platform refused to create the user.
 
 ## Workflow token
