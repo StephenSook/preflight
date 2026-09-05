@@ -17,7 +17,7 @@ export function renderLiveMonitor(ctx: ScreenContext): void {
   const empty = el("div", { class: "empty" }, [el("p", {}, "No decision has arrived on this stream yet."), el("p", { class: "note" }, "Dial the public number, or place a request through the gateway, and the row appears here.")]);
   host.append(empty);
   const seen = new Set<string>();
-  const keyOf = (d: { callUuid?: string; decidedAt: string; humanParty: string }) => `${d.callUuid ?? ""}|${d.decidedAt}|${d.humanParty}`;
+  const keyOf = (d: { callUuid?: string | undefined; decidedAt: string; humanParty?: string | undefined }) => `${d.callUuid ?? ""}|${d.decidedAt}|${d.humanParty ?? ""}`;
 
   const render = () => {
     empty.hidden = state.decisions.length > 0;
@@ -28,17 +28,24 @@ export function renderLiveMonitor(ctx: ScreenContext): void {
       const key = keyOf(d);
       if (seen.has(key)) continue;
       seen.add(key);
-      const failed = d.verdicts.find((v) => v.verdict === "false");
-      const undecided = d.verdicts.find((v) => v.verdict === "inconclusive");
-      const named = d.decision === "block" ? failed : d.decision === "hold" ? undecided : undefined;
-      const ruleText = named ? `${named.id} · ${named.citation}` : d.decision === "pass" ? "every monitor true" : (d.reason ?? "");
-      const row = el("a", { class: `row ${stateClass(d.decision)}`, role: "listitem", href: `#block/${encodeURIComponent(d.callUuid ?? d.decidedAt)}` }, [
-        el("span", { class: "dot", "aria-hidden": "true" }),
-        el("span", { class: "dest" }, `${maskNumber(d.humanParty)}${d.facts?.state ? ` · ${d.facts.state}` : ""}${d.facts?.lineType ? ` · ${d.facts.lineType}` : ""}`),
-        el("span", { class: "rule" }, [document.createTextNode(ruleText), d.reason && named ? el("small", {}, d.reason) : null]),
-        el("span", { class: "state" }, stateWord(d.decision)),
-        el("span", { class: "time" }, fmtTime(d.decidedAt)),
-      ]);
+      // One record the renderer cannot draw must not stop the ones after it (a replay is fifty at once).
+      let row: HTMLElement;
+      try {
+        const verdicts = Array.isArray(d.verdicts) ? d.verdicts : [];
+        const failed = verdicts.find((v) => v.verdict === "false");
+        const undecided = verdicts.find((v) => v.verdict === "inconclusive");
+        const named = d.decision === "block" ? failed : d.decision === "hold" ? undecided : undefined;
+        const ruleText = named ? `${named.id} · ${named.citation}` : d.decision === "pass" ? "every monitor true" : (d.reason ?? "");
+        row = el("a", { class: `row ${stateClass(d.decision)}`, role: "listitem", href: `#block/${encodeURIComponent(d.callUuid ?? d.decidedAt)}` }, [
+          el("span", { class: "dot", "aria-hidden": "true" }),
+          el("span", { class: "dest" }, `${maskNumber(d.humanParty)}${d.facts?.state ? ` · ${d.facts.state}` : ""}${d.facts?.lineType ? ` · ${d.facts.lineType}` : ""}`),
+          el("span", { class: "rule" }, [document.createTextNode(ruleText), d.reason && named ? el("small", {}, d.reason) : null]),
+          el("span", { class: "state" }, stateWord(d.decision)),
+          el("span", { class: "time" }, fmtTime(d.decidedAt)),
+        ]);
+      } catch (err) {
+        row = el("a", { class: `row ${stateClass(d.decision)}`, role: "listitem", href: `#block/${encodeURIComponent(d.callUuid ?? d.decidedAt)}` }, [el("span", { class: "dot", "aria-hidden": "true" }), el("span", { class: "dest" }, "record not drawn"), el("span", { class: "rule" }, String(err instanceof Error ? err.message : err)), el("span", { class: "state" }, stateWord(d.decision)), el("span", { class: "time" }, String(d.decidedAt ?? ""))]);
+      }
       if (head) head.after(row);
       else list.append(row);
       fresh.push(row);

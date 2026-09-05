@@ -133,7 +133,8 @@ export interface SetupView {
 export interface DecisionEvent {
   decision: "pass" | "block" | "hold";
   direction: string;
-  humanParty: string;
+  /** Absent on a branch hook decided before the call's context was kept beside its path (before 2026-09-05). */
+  humanParty?: string | undefined;
   reason?: string;
   verdicts: Array<{ id: string; verdict: string; citation: string }>;
   decidedAt: string;
@@ -209,7 +210,9 @@ export function openStream(token: string, replay: number, onDecision: (d: Decisi
 }
 
 /** Masks a number the way the host does in its logs: country code, area code, the last four. */
-export function maskNumber(n: string): string {
+export function maskNumber(n: string | undefined): string {
+  // A branch hook decided before the call's context was kept beside its path names no party at all.
+  if (!n) return "party not named";
   const d = n.replace(/\D/g, "");
   if (d.length < 8) return n;
   return `+${d.slice(0, 1)} ${d.slice(1, 4)} *** ${d.slice(-4)}`;
