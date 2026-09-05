@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../hash.js";
 import type { NccoAction } from "../ncco/types.js";
 
 /**
@@ -79,8 +79,8 @@ function stableStringify(v: unknown): string {
   return `{${Object.keys(o).sort().filter((k) => o[k] !== undefined).map((k) => `${JSON.stringify(k)}:${stableStringify(o[k])}`).join(",")}}`;
 }
 
-export const payloadHashOf = (a: NccoAction): string => `sha256:${createHash("sha256").update(canonicalAction(a)).digest("hex")}`;
-export const nodeIdOf = (endpoint: string, index: number, action: NccoAction): string => createHash("sha256").update(`${endpoint}\n${index}\n${canonicalAction(action)}`).digest("hex").slice(0, 24);
+export const payloadHashOf = (a: NccoAction): string => `sha256:${sha256Hex(canonicalAction(a))}`;
+export const nodeIdOf = (endpoint: string, index: number, action: NccoAction): string => sha256Hex(`${endpoint}\n${index}\n${canonicalAction(action)}`).slice(0, 24);
 const edgeKey = (from: string, to: string, kind: EdgeKind): string => `${from}|${to}|${kind}`;
 
 export class FlowGraph {

@@ -234,7 +234,11 @@ The engine's own guarantees are tests, not claims:
   to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
   a failing test for every one; the last run killed 48 of 48;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
-  synthetically is caught at the hook on the first call and at answer time on the next.
+  synthetically is caught at the hook on the first call and at answer time on the next;
+- the "runs in the browser" claim is a test: the engine is bundled for the browser, the bundle is
+  refused if it contains any Node built-in, and it parses, evaluates and diffs a flow in a bare
+  context with no `require`, `process` or `Buffer` (the engine carries its own SHA-256, checked
+  against node:crypto on every length across block boundaries).
 
 The evidence log is verifiable by anyone with the URL: `GET /api/ledger/verify` recomputes every
 hash from genesis and reports the first broken entry, if any. The Rekor seal is verified with
