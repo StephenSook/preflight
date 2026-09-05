@@ -7,6 +7,7 @@ import { buildServer } from "./server.js";
 import { MemoryConsentStore, PgConsentStore, type ConsentStore } from "./store/consentStore.js";
 import { MemoryDecisionStore, PgDecisionStore, type DecisionStore } from "./store/decisionStore.js";
 import { MemoryDeclarationStore, PgDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
+import { MemoryInsightStore, PgInsightStore, type InsightStore } from "./store/insightStore.js";
 import { MemoryEventStore, type EventStore } from "./store/eventStore.js";
 import { MemoryGraphStore, PgGraphStore, type GraphStore } from "./store/graphStore.js";
 import { MemoryHoldStore, PgHoldStore, type HoldStore } from "./store/holdStore.js";
@@ -29,6 +30,7 @@ async function main(): Promise<void> {
   let holds: HoldStore = new MemoryHoldStore();
   let consents: ConsentStore = new MemoryConsentStore();
   let declarations: DeclarationStore = new MemoryDeclarationStore();
+  let insights: InsightStore = new MemoryInsightStore();
   let sql: Sql | undefined;
   if (config.DATABASE_URL) {
     // Notices ("relation already exists, skipping" from every idempotent create) are not worth a log line per boot.
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
     holds = new PgHoldStore(sql);
     consents = new PgConsentStore(sql);
     declarations = new PgDeclarationStore(sql, config.VONAGE_APPLICATION_ID);
+    insights = new PgInsightStore(sql);
     process.stdout.write(`migrations applied: ${ran.length === 0 ? "none pending" : ran.join(", ")}\n`);
   }
 
@@ -48,7 +51,7 @@ async function main(): Promise<void> {
   if (!publicKeyPem) process.stderr.write("no application public key (VONAGE_APPLICATION_PUBLIC_KEY_PEM or _PATH): the create-call gateway will refuse every caller\n");
   const privateKeyPem = applicationPrivateKeyPem(config);
   if (!privateKeyPem) process.stderr.write("no application private key (VONAGE_PRIVATE_KEY_PEM or _PATH): the consent gate and the demonstration call are off\n");
-  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, consents, declarations, resolver, declaration, applicationPublicKeyPem: publicKeyPem, applicationPrivateKeyPem: privateKeyPem });
+  const app = buildServer({ config, store, decisions, ledger, graphStore, holds, consents, declarations, insights, resolver, declaration, applicationPublicKeyPem: publicKeyPem, applicationPrivateKeyPem: privateKeyPem });
   const address = await app.listen({ port: config.PORT, host: "0.0.0.0" });
   app.log.info({ address, origin: config.ORIGIN_ANSWER_URL, policy: config.POLICY_MODE, store: store.name, nanpaFileUpdated: resolver.sources.nanpa.fileUpdated, declared: Object.keys(declaration), reference: config.REFERENCE_APP === "on" ? config.REFERENCE_MODE : "off" }, "preflight api listening");
 

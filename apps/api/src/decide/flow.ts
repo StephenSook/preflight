@@ -3,6 +3,7 @@ import { decide, declaredEndpointsOf, diffDeclared, evaluateGraph, evaluatePath,
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import type { Config } from "../config.js";
 import type { DecisionRecord } from "../store/decisionStore.js";
+import type { InsightLookups } from "../insights/lookups.js";
 import type { DeclarationStore } from "../store/declarationStore.js";
 import type { GraphStore } from "../store/graphStore.js";
 
@@ -13,6 +14,8 @@ export interface FlowDeps {
   declaration: FlowDeclaration;
   declarations?: DeclarationStore | undefined;
   resolver: NumberFactsResolver;
+  /** The paid Identity Insights lookup: its cache is read before a decision, the lookup itself runs after a hold. */
+  lookups?: InsightLookups | undefined;
 }
 
 export interface FlowInput {
@@ -40,6 +43,8 @@ export interface FlowOutcome {
   /** Node ids of the executed path after this decision (for the next callback of this call). */
   pathNodeIds: string[];
   coverage: ReturnType<FlowGraph["coverage"]>;
+  /** What the Identity Insights queue did with a hold: scheduled, cached, inflight, cooling, allowance, unsupported; absent when no lookup applies. */
+  lookup?: string | undefined;
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
@@ -111,7 +116,8 @@ export class FlowDecider {
     const toNumber = str(p["to"]);
     const humanParty = direction === "inbound" ? fromNumber : toNumber;
     const callerId = direction === "inbound" ? toNumber : fromNumber;
-    const facts = resolver.resolve(humanParty ?? "", input.now);
+    // The cache is this process's own table, never the platform: a paid lookup never sits inside a decision.
+    const facts = resolver.resolve(humanParty ?? "", input.now, await this.deps.lookups?.cached(humanParty));
     const callFacts = { from: callerId, lineType: facts.lineType, withinHours: facts.withinHours };
 
     const parsed = parseNcco(input.nccoBytes.trim().length === 0 ? "[]" : input.nccoBytes);
@@ -149,6 +155,11 @@ export class FlowDecider {
       reason = reasonFor(decision, ge.verdicts);
     }
 
+    // A hold the free tables could not resolve (timezone unknown or split) schedules the paid lookup for after
+    // the response; the next decision for this line reads its answer from the cache.
+    let lookup: string | undefined;
+    if (decision === "hold" && facts.withinHours === null && this.deps.lookups) lookup = await this.deps.lookups.enqueue(humanParty);
+
     // What this call runs next: from the object's first action (or the continuation) up to and including the first branching node.
     const executed = rootId ? executedFrom(graph, rootId) : [];
     const pathNodeIds = [...prefixNodeIds, ...executed];
@@ -173,7 +184,7 @@ export class FlowDecider {
       originLatencyMs: input.originLatencyMs,
       verifyLatencyMs: input.verifyLatencyMs,
     };
-    return { decision, reason, evaluation, record, responseBytes: routed.bytes, rewrote: routed.rewrote, pathNodeIds, coverage: graph.coverage(declaredEndpointsOf(declaration)) };
+    return { decision, reason, evaluation, record, responseBytes: routed.bytes, rewrote: routed.rewrote, pathNodeIds, coverage: graph.coverage(declaredEndpointsOf(declaration)), lookup };
   }
 
   async coverage(): Promise<ReturnType<FlowGraph["coverage"]>> {

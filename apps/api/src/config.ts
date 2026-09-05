@@ -33,6 +33,10 @@ const schema = z.object({
   /** Daily allowances that bound what a public page can spend of the account's balance. */
   VERIFY_STARTS_PER_DAY: z.coerce.number().int().nonnegative().default(40),
   DEMO_CALLS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
+  // Identity Insights: the paid lookup that resolves a hold the free tables could not. Off by default; costs money per lookup.
+  IDENTITY_INSIGHTS: z.enum(["on", "off"]).default("off"),
+  IDENTITY_INSIGHTS_HOST: z.string().url().default("https://api-eu.vonage.com"),
+  INSIGHTS_PER_DAY: z.coerce.number().int().nonnegative().default(20),
   VONAGE_API_HOST: z.string().url().default("https://api.nexmo.com"),
   /** The developer's real answer URL that Preflight forwards to. */
   ORIGIN_ANSWER_URL: z.string().url(),

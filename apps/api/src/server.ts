@@ -6,7 +6,9 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import type { Canonical } from "@preflight/ledger";
 import { declarationSchema, type Config } from "./config.js";
 import { reconcile, type CarrierRecord } from "./reconcile.js";
+import { InsightLookups } from "./insights/lookups.js";
 import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
+import { MemoryInsightStore, type InsightStore } from "./store/insightStore.js";
 import { FlowDecider } from "./decide/flow.js";
 import { holdNcco, safeNcco } from "./decide/ncco.js";
 import { ledgerDraftFor } from "./decide/record.js";
@@ -36,6 +38,8 @@ export interface ServerDeps {
   /** The environment's seed declaration; a stored one (Setup screen) wins when present. */
   declaration: FlowDeclaration;
   declarations?: DeclarationStore;
+  /** Cached Identity Insights answers; used only when IDENTITY_INSIGHTS is on and the application key is present. */
+  insights?: InsightStore;
   /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
   applicationPublicKeyPem?: string | undefined;
   /** PEM of the application's private key; with it the consent gate and the demonstration call are enabled. */
@@ -82,8 +86,13 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   const clock = deps.now ?? Date.now;
   const bus = new DecisionBus();
   const decisions = publishing(deps.decisions, bus);
-  const flow = new FlowDecider({ config, graphStore, declaration, declarations, resolver });
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
+  const privateKeyPem = deps.applicationPrivateKeyPem;
+  const applicationId = config.VONAGE_APPLICATION_ID;
+  const mintToken = privateKeyPem && applicationId ? () => mintApplicationJwt(applicationId, privateKeyPem, clock()) : undefined;
+  // The paid lookup that resolves a hold the free tables could not: only with the application key, only when switched on.
+  const lookups = config.IDENTITY_INSIGHTS === "on" && mintToken ? new InsightLookups({ store: deps.insights ?? new MemoryInsightStore(), host: config.IDENTITY_INSIGHTS_HOST, fetchImpl, token: mintToken, perDay: config.INSIGHTS_PER_DAY, now: clock, log: app.log }) : undefined;
+  const flow = new FlowDecider({ config, graphStore, declaration, declarations, resolver, lookups });
 
   // Keep the exact bytes: payload_hash is computed over what Vonage sent, not over a re-serialisation.
   app.addContentTypeParser(["application/json", "application/x-www-form-urlencoded", "text/plain"], { parseAs: "string" }, (_req, body, done) => {
@@ -195,9 +204,6 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   registerBranchHook(app, { config, flow, graphStore, decisions, ledger, store, fetchImpl, clock, ingress, record });
   registerCallGateway(app, { config, flow, graphStore, decisions, ledger, holds, fetchImpl, clock, applicationPublicKeyPem: deps.applicationPublicKeyPem });
   // The consent gate mints the application's own tokens for Verify v2 and for the demonstration call.
-  const privateKeyPem = deps.applicationPrivateKeyPem;
-  const applicationId = config.VONAGE_APPLICATION_ID;
-  const mintToken = privateKeyPem && applicationId ? () => mintApplicationJwt(applicationId, privateKeyPem, clock()) : undefined;
   const verify = mintToken ? vonageVerify({ apiHost: config.VONAGE_API_HOST, fetchImpl, token: mintToken }) : undefined;
   registerConsent(app, { config, consents: deps.consents ?? new MemoryConsentStore(), ledger, verify, mintToken, clock });
   // The held queue and the stream both need the dashboard token: a phone number is personal data.
@@ -210,7 +216,10 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   app.get<{ Querystring: { status?: string; limit?: string } }>("/api/held", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
     const status = (["open", "placed", "cancelled", "all"].includes(req.query.status ?? "") ? req.query.status : "open") as "open" | "placed" | "cancelled" | "all";
-    return { status, holds: await holds.list(status, Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100))) };
+    const list = await holds.list(status, Math.min(500, Math.max(1, Number(req.query.limit ?? 100) || 100)));
+    // Each row says where the paid lookup stands for its line: pending, ok (with the answer), error, none, or off.
+    const rows = await Promise.all(list.map(async (h) => ({ ...h, lookup: lookups ? await lookups.status(h.humanParty) : { state: "off" as const } })));
+    return { status, lookups: lookups ? "on" : "off", holds: rows };
   });
   app.post<{ Params: { id: string }; Body: string }>("/api/held/:id/decide", async (req, reply) => {
     if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });

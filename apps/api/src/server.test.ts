@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, generateKeyPairSync } from "node:crypto";
 import { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import { MemoryLedgerStore } from "./store/ledgerStore.js";
 import { MemoryEventStore } from "./store/eventStore.js";
 import { MemoryGraphStore } from "./store/graphStore.js";
 import { MemoryHoldStore } from "./store/holdStore.js";
+import { MemoryInsightStore } from "./store/insightStore.js";
 import { sha256Hex } from "./vonage/verifyWebhook.js";
 
 const SECRET = "test-signature-secret";
@@ -355,6 +356,57 @@ describe("preflight api ingress", () => {
     expect((await ledger.verify()).ok).toBe(true);
     const summary = (await server.inject({ method: "GET", url: "/api/summary" })).json() as { reconciliation: Record<string, unknown> };
     expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, window: { start: at(-3600_000), end: at(3600_000) } });
+  });
+
+  it("resolves a hold the free tables could not with one Identity Insights lookup after the response, never inside a decision", async () => {
+    // 208 320 spans America/Boise and America/Los_Angeles; at 14:30Z they disagree (08:30 open, 07:30 closed), so strict policy holds.
+    const AT = Date.parse("2026-09-05T14:30:00Z");
+    const signAt = (raw: string): string => {
+      const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+      const body = b64url(JSON.stringify({ iat: Math.floor(AT / 1000), jti: "j", iss: "Vonage", payload_hash: sha256Hex(raw), api_key: API_KEY }));
+      return `Bearer ${head}.${body}.${createHmac("sha256", SECRET).update(`${head}.${body}`).digest("base64url")}`;
+    };
+    const platformCalls: Array<{ url: string; body: unknown; auth: string | undefined }> = [];
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/identity-insights/")) {
+        platformCalls.push({ url: String(url), body: JSON.parse(String(init?.body)), auth: (init?.headers as Record<string, string> | undefined)?.["authorization"] });
+        return new Response(JSON.stringify({ request_id: "r-1", insights: { format: { time_zones: ["America/Boise"], is_valid: true }, current_carrier: { name: "Verizon", network_type: "MOBILE" } } }), { status: 200 });
+      }
+      return fetch(url, init);
+    }) as typeof fetch;
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pem = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+    const insights = new MemoryInsightStore();
+    const decisions = new MemoryDecisionStore();
+    const config = loadConfig({ VONAGE_API_KEY: API_KEY, VONAGE_SIGNATURE_SECRET: SECRET, VONAGE_APPLICATION_ID: "00000000-0000-4000-8000-000000000001", ORIGIN_ANSWER_URL: `${originUrl}/answer`, ORIGIN_TIMEOUT_MS: "200", PUBLIC_BASE_URL: "https://preflight.example", LOG_LEVEL: "silent", IDENTITY_INSIGHTS: "on", INSIGHTS_PER_DAY: "1" });
+    const server = buildServer({ config, store: new MemoryEventStore(), decisions, ledger: new MemoryLedgerStore(), graphStore: new MemoryGraphStore(), holds: new MemoryHoldStore(), insights, resolver, declaration: DECLARATION, applicationPrivateKeyPem: pem, fetchImpl, now: () => AT });
+    served = FLOWS.connectOnly;
+    const raw = JSON.stringify({ ...OUTBOUND, uuid: "call-I1", to: "12083200100" });
+    const first = await server.inject({ method: "POST", url: "/v/answer", payload: raw, headers: { "content-type": "application/json", authorization: signAt(raw) } });
+    expect(first.headers["x-preflight-decision"]).toBe("hold");
+    expect((await decisions.recent(1))[0]?.facts).toMatchObject({ withinHours: null, hoursBasis: expect.stringContaining("disagree"), lineTypeSource: "nanpa", lineTypeConfidence: "low" });
+    // The response went out before the platform was asked; the answer lands in the cache moments later.
+    let cached = await insights.get("2083200100");
+    for (let i = 0; i < 200 && cached?.status !== "ok"; i += 1) {
+      await new Promise((r) => setTimeout(r, 10));
+      cached = await insights.get("2083200100");
+    }
+    expect(cached).toMatchObject({ status: "ok", httpStatus: 200, insight: { timeZones: ["America/Boise"], lineType: "wireless", carrier: "Verizon" } });
+    expect(platformCalls).toHaveLength(1);
+    expect(platformCalls[0]).toMatchObject({ url: "https://api-eu.vonage.com/identity-insights/v1/requests", body: { phone_number: "+12083200100", insights: { format: {}, current_carrier: {}, original_carrier: {} } }, auth: expect.stringMatching(/^Bearer /) });
+    // The same line, the next call: decided from the cache, no second lookup.
+    const raw2 = JSON.stringify({ ...OUTBOUND, uuid: "call-I2", to: "12083200100" });
+    const second = await server.inject({ method: "POST", url: "/v/answer", payload: raw2, headers: { "content-type": "application/json", authorization: signAt(raw2) } });
+    expect(second.headers["x-preflight-decision"]).toBe("pass");
+    expect((await decisions.recent(1))[0]?.facts).toMatchObject({ zones: ["America/Boise"], withinHours: true, hoursBasis: "America/Boise by Identity Insights", lineType: "wireless", lineTypeSource: "identity_insights", lineTypeConfidence: "high" });
+    expect(platformCalls).toHaveLength(1);
+    // The daily allowance (one) is spent: another split line holds and is not looked up.
+    const raw3 = JSON.stringify({ ...OUTBOUND, uuid: "call-I3", to: "12083250100" });
+    const third = await server.inject({ method: "POST", url: "/v/answer", payload: raw3, headers: { "content-type": "application/json", authorization: signAt(raw3) } });
+    expect(third.headers["x-preflight-decision"]).toBe("hold");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(platformCalls).toHaveLength(1);
+    expect(await insights.get("2083250100")).toBeUndefined();
   });
 
   it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
