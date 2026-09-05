@@ -6,7 +6,7 @@
 // numbers), and the cockpit is unlocked with DASHBOARD_TOKEN.
 // Usage (from the repository root): node --env-file=.env apps/web/tests/record-cockpit.mjs <outDir>
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const out = process.argv[2] ?? "recordings";
@@ -44,12 +44,13 @@ await page.waitForTimeout(4000);
 await page.goto(`${base}/app/#log`);
 await page.waitForTimeout(12000);
 const seconds = Math.round((Date.now() - started) / 1000);
+// Playwright names the file by a random id and finishes writing it when the page closes; the
+// page's own video handle names this take's file (an earlier take's file must never be picked up).
+const video = page.video();
 await page.close();
 await ctx.close();
 await browser.close();
-
-// Playwright names the file by a random id; give it the take's name.
-const webm = readdirSync(out).filter((f) => f.endsWith(".webm")).map((f) => `${out}/${f}`).sort()[0];
+const webm = video ? await video.path() : undefined;
 const named = `${out}/cockpit-two-beats-${new Date(started).toISOString().replace(/[:.]/g, "-")}.webm`;
 if (webm) renameSync(webm, named);
 writeFileSync(`${named}.log.txt`, log);
