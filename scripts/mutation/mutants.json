@@ -65,9 +65,58 @@
   {
     "id": "rates-abandonment-over-all-answered",
     "file": "packages/engine/src/rates.ts",
-    "find": "const abandoned = byPerson.filter((c) => !c.connectedHuman);",
-    "replace": "const abandoned = answered.filter((c) => !c.connectedHuman);",
+    "find": "const abandoned = byPerson.filter((c) => !(c.pathHasConnect && c.otherLegAnswered));",
+    "replace": "const abandoned = answered.filter((c) => !(c.pathHasConnect && c.otherLegAnswered));",
     "why": "The denominator is the point: abandonment is measured over calls answered by a person, and a machine-answered call is neither abandoned nor in the denominator."
+  },
+  {
+    "id": "rates-planned-connect-counts-as-connected",
+    "file": "packages/engine/src/rates.ts",
+    "find": "!(c.pathHasConnect && c.otherLegAnswered)",
+    "replace": "!c.pathHasConnect",
+    "why": "A connect on the planned path is not a connected person; only an answered leg in the same conversation is. This is the defect the second review pass found."
+  },
+  {
+    "id": "rates-connect-leg-is-a-dial",
+    "file": "packages/engine/src/rates.ts",
+    "find": "c.direction === \"outbound\" && !c.connectLeg",
+    "replace": "c.direction === \"outbound\"",
+    "why": "The representative's leg is the far end of a connect, not a dial to a consumer; counting it would put an answered, never-connected leg in every P6 denominator."
+  },
+  {
+    "id": "rates-in-progress-counted-as-ended",
+    "file": "packages/engine/src/rates.ts",
+    "find": "const ended = dials.filter((c) => c.outcome !== undefined && TERMINAL.has(c.outcome));",
+    "replace": "const ended = dials;",
+    "why": "A call still in progress has no outcome yet; counting it would report abandonment and unanswered shares on calls that have not finished."
+  },
+  {
+    "id": "rates-negative-ring-time-counts",
+    "file": "packages/engine/src/rates.ts",
+    "find": "x.s !== null && x.s > 0",
+    "replace": "x.s !== null",
+    "why": "An end recorded before the ringing is a clock artefact, not a ring cut short; counting it would fail P7 on bad timestamps."
+  },
+  {
+    "id": "rates-busy-is-rung-out",
+    "file": "packages/engine/src/rates.ts",
+    "find": "const RUNG_OUT = new Set([\"unanswered\", \"timeout\", \"cancelled\"]);",
+    "replace": "const RUNG_OUT = new Set([\"unanswered\", \"timeout\", \"cancelled\", \"busy\"]);",
+    "why": "A busy line is ended by the network in about a second; treating it as a disconnected ring would fail P7 on every busy signal."
+  },
+  {
+    "id": "rates-own-answer-proves-connect",
+    "file": "packages/engine/src/rates.ts",
+    "find": "t.otherLegAnswered = others !== undefined && [...others].some((u) => u !== t.uuid);",
+    "replace": "t.otherLegAnswered = others !== undefined;",
+    "why": "A call's own answer must not count as the answered leg of its connect; only another leg of the conversation does."
+  },
+  {
+    "id": "rates-connecting-leg-is-its-own-far-end",
+    "file": "packages/engine/src/rates.ts",
+    "find": "t.connectLeg = !t.pathHasConnect && t.conversationUuid !== undefined",
+    "replace": "t.connectLeg = t.conversationUuid !== undefined",
+    "why": "The leg whose path connects is the dial; marking it as the far end of its own connect would drop every connected call from the denominator."
   },
   {
     "id": "rates-ring-threshold-fourteen",

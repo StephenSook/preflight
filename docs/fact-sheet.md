@@ -11,7 +11,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 
 <!-- generated:static -->
 - Tests: 301 across 87 suites (vitest, `pnpm test`)
-- Mutants: 48 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
+- Mutants: 55 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
 - Properties (Tier 1, armed by default):
@@ -29,7 +29,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T09:51:52.313Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Read at 2026-09-05T09:56:31.851Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
 - Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
 - Evidence log: 12 entries, head `sha256:c0dcc776f228b4478cf33037269359e43146c0766b485a32e9f0ea27ce7e4cd1`, verify ok (12 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)

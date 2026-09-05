@@ -229,10 +229,10 @@ The engine's own guarantees are tests, not claims:
 - a formula and its negation are complementary on every prefix and at every end of flow;
 - the 48-object corpus carries expected atoms, verdicts, decision and witness path per file, every
   label derived by hand before any run, so a reviewer checks a label by reading the object;
-- a mutation harness (`pnpm mutate`) applies 48 hand-written mutations one at a time (weak until
+- a mutation harness (`pnpm mutate`) applies 55 hand-written mutations one at a time (weak until
   turned strict, the live-human clause dropped, calling-hour boundaries moved, inconclusive collapsed
   to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
-  a failing test for every one; the last run killed 48 of 48;
+  a failing test for every one; the last run killed 55 of 55;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
   synthetically is caught at the hook on the first call and at answer time on the next;
 - the "runs in the browser" claim is a test: the engine is bundled for the browser, the bundle is

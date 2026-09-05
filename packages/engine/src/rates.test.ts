@@ -97,5 +97,10 @@ describe("rate properties over event telemetry", () => {
     expect(r).toMatchObject({ calls: 3, outbound: 2, answeredByPerson: 1, abandoned: 0 });
     expect(r.properties[0]).toMatchObject({ id: "P6", verdict: "true", n: 1, figure: 0 });
     expect(r.properties[1]).toMatchObject({ id: "P7", verdict: "inconclusive" }); // b's ring time is negative by receipt time, excluded
+    // A call's own answer proves nothing about its connect: alone in its conversation, with a connect on the path, it was never connected.
+    const solo = telemetryFromEvents([ev("s", "answered", iso(3), { conversation_uuid: "CON-3" }), ev("s", "completed", iso(20), { conversation_uuid: "CON-3", duration: "17" })], () => true);
+    expect(solo).toHaveLength(1);
+    expect(solo[0]).toMatchObject({ uuid: "s", pathHasConnect: true, otherLegAnswered: false, connectLeg: false });
+    expect(campaignRates(solo).properties[0]).toMatchObject({ id: "P6", verdict: "false", n: 1, figure: 1 });
   });
 });
