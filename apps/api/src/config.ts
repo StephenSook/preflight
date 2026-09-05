@@ -100,10 +100,11 @@ export function applicationPublicKeyPem(config: Pick<Config, "VONAGE_APPLICATION
   return undefined;
 }
 
-const declarationSchema = z.object({
+export const declarationSchema = z.object({
   identification: z.object({ phrases: z.array(z.string()).optional(), streamUrls: z.array(z.string()).optional() }).optional(),
   optOut: z.object({ eventUrlPatterns: z.array(z.string()).optional() }).optional(),
   endpoints: z.array(z.string()).optional(),
+  flow: z.record(z.string().min(1), z.array(z.array(z.string().min(1)))).optional(),
 });
 
 /** The declared identification beat and opt-out handler. Absent means nothing identifies and nothing offers opt-out. */

@@ -311,6 +311,57 @@ describe("preflight api ingress", () => {
     const nine = await server.inject({ method: "POST", url: fixedHook.pathname + fixedHook.search, payload: nineRaw, headers: { "content-type": "application/json", authorization: sign(nineRaw) } });
     expect(nine.headers["x-preflight-decision"]).toBe("pass");
     expect((nine.json() as Array<{ text: string }>)[0]?.text).toContain("will not receive these calls again");
+
+    // The declared-versus-actual diff over what discovery saw: the timeout branch is the one state the
+    // developer never declared, and it is the one that speaks; the press-1 branches were declared and never seen.
+    const diff = (await server.inject({ method: "GET", url: "/api/flow" })).json() as { nodes: Array<{ endpoint: string; label: string; status: string; speaksSynthetic: boolean; text?: string }>; missing: Array<{ endpoint: string; index: number | null; action: string | null }>; counts: Record<string, number>; roots: string[]; openBranches: string[] };
+    const undeclared = diff.nodes.filter((n) => n.status === "undeclared");
+    expect(undeclared).toEqual([expect.objectContaining({ endpoint: "/reference/menu", label: "talk#0", speaksSynthetic: true, text: expect.stringContaining("We could not reach you") })]);
+    expect(diff.nodes.filter((n) => n.endpoint === "/reference/optout")).toEqual([expect.objectContaining({ label: "talk#0", status: "declared" })]);
+    expect(diff.missing).toEqual(expect.arrayContaining([{ endpoint: "/reference/menu", index: 0, action: "connect" }, { endpoint: "/reference/optout", index: 0, action: "connect" }]));
+    expect(diff.counts).toMatchObject({ undeclared: 1, undeclaredSpeaking: 1, neverObserved: 2, endpointsDeclared: 3, endpointsObserved: 3 });
+    expect(diff.roots).toHaveLength(2); // the broken and the fixed answer objects each start a path
+    expect(diff.openBranches).toEqual([]);
+  });
+
+  it("serves Setup behind the dashboard token; a replaced declaration is an evidence-log entry the next decision obeys", async () => {
+    served = FLOWS.syntheticWithOptOut;
+    const off = app();
+    expect((await off.server.inject({ method: "GET", url: "/api/setup" })).statusCode).toBe(404);
+    const token = "dashboard-token-for-tests-2";
+    const auth = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    // Advisory, because the opt-out input's callback has never been observed and strict policy would hold that open branch.
+    const { server, ledger } = app({ DASHBOARD_TOKEN: token, POLICY_MODE: "advisory" });
+    expect((await server.inject({ method: "GET", url: "/api/setup" })).statusCode).toBe(403);
+    const before = (await server.inject({ method: "GET", url: "/api/setup", headers: auth })).json() as Record<string, unknown>;
+    expect(before).toMatchObject({ urls: { answer: "https://preflight.example/v/answer", event: "https://preflight.example/v/event", fallback: "https://preflight.example/v/fallback" }, policy: "advisory", declaration: DECLARATION, declaration_source: "environment", declared_by: null });
+    expect(before["declaration_hash"]).toMatch(/^sha256:[0-9a-f]{64}$/);
+
+    // Under the environment's declaration the flow identifies and offers opt-out: it passes.
+    expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S1" })).headers["x-preflight-decision"]).toBe("pass");
+
+    const bad = await server.inject({ method: "PUT", url: "/api/setup/declaration", headers: auth, payload: JSON.stringify({ declaration: { flow: { answer: "talk" } }, by: "S. Sookra" }) });
+    expect(bad.statusCode).toBe(400);
+    expect((bad.json() as { issues: string[] }).issues[0]).toContain("flow.answer");
+    expect((await server.inject({ method: "PUT", url: "/api/setup/declaration", headers: auth, payload: JSON.stringify({ declaration: DECLARATION }) })).statusCode).toBe(400);
+    expect((await server.inject({ method: "PUT", url: "/api/setup/declaration", payload: JSON.stringify({ declaration: DECLARATION, by: "x" }), headers: { "content-type": "application/json" } })).statusCode).toBe(403);
+
+    // A person declares a different identification phrase and the flow they believe they serve.
+    const replaced = { identification: { phrases: ["Preflight Demo Clinic calling"] }, optOut: { eventUrlPatterns: ["/webhooks/optout"] }, endpoints: ["/webhooks/optout"], flow: { answer: [["talk", "input"]] } };
+    const put = await server.inject({ method: "PUT", url: "/api/setup/declaration", headers: auth, payload: JSON.stringify({ declaration: replaced, by: "S. Sookra" }) });
+    expect(put.statusCode).toBe(200);
+    const view = put.json() as { declaration: unknown; declaration_source: string; declaration_hash: string; declared_by: string; ledger: { seq: number } };
+    expect(view).toMatchObject({ declaration: replaced, declaration_source: "stored", declared_by: "S. Sookra", ledger: { seq: 2 } });
+    const entry = (await ledger.entries(1, 1))[0];
+    expect(entry).toMatchObject({ seq: 2, kind: "declaration", call_uuid: null, decision: null, detail: { declaration_hash: view.declaration_hash, previous_hash: before["declaration_hash"], by: "S. Sookra", endpoints: ["answer", "/webhooks/optout"], identification_phrases: 1 } });
+    expect((await ledger.verify()).ok).toBe(true);
+
+    // The same object now speaks before anything that identifies under the new declaration: blocked, no restart needed.
+    const after = await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-S2" });
+    expect(after.headers["x-preflight-decision"]).toBe("block");
+    expect((after.json() as Array<{ text: string }>)[0]?.text).toMatch(/47 CFR 64\.1200\(b\)\(1\)|46-5-27\(g\)\(1\)/);
+    expect((await ledger.entries(0, 10)).map((e) => e.kind)).toEqual(["pass", "declaration", "block"]);
+    expect(((await server.inject({ method: "GET", url: "/api/flow" })).json() as { declared: { endpoints: string[] } }).declared.endpoints).toEqual(["answer", "/webhooks/optout"]);
   });
 
   it("streams decisions as server-sent events, with a replay of recent ones on connect", async () => {

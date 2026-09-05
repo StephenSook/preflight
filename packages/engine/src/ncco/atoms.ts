@@ -33,6 +33,13 @@ export interface FlowDeclaration {
   };
   /** Callback paths the developer says their flow has (e.g. "/webhooks/question"); the coverage denominator. */
   endpoints?: string[];
+  /**
+   * Per endpoint ("answer" for the answer URL, the callback path otherwise), the action-type sequences
+   * the developer believes it serves, one sequence per branch they know of, e.g.
+   * { "answer": [["talk", "input"]], "/webhooks/menu": [["connect"], ["talk"]] }. The declared-versus-actual
+   * diff colours every discovered node against this. An endpoint listed here counts as declared.
+   */
+  flow?: Record<string, string[][]>;
 }
 
 export interface CallFacts {

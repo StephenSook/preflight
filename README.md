@@ -106,6 +106,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Number facts | 204,776 NPA-NXX rows from the NANPA central office code file with state, rate center, operating company and a line-type prior; timezone by longest prefix from libphonenumber's map (2,046 entries); calling hours are three-valued when a prefix spans zones | `packages/numfacts/` |
 | Decision layer | Pass, block or hold per call over every observed path from here, prefixed by what the call already executed; the person on the line is the callee of an outbound call or the caller of an inbound one; strict policy holds on inconclusive, advisory passes with a warning; an object that is not an NCCO is blocked under either | `apps/api/src/decide/flow.ts` |
 | Passive graph discovery | Every served object merges into a transition system (nodes per action, sequential, branch and continue edges, observation counts); paths from a node end terminal, open or cyclic; coverage reports declared endpoints observed, states, edges, branch points and open branches | `packages/engine/src/graph/`, `apps/api/src/store/graphStore.ts` |
+| Declared-versus-actual diff | The developer declares, per endpoint, the action sequences they believe it serves (Setup: `GET /api/setup`, `PUT /api/setup/declaration`, both behind the dashboard token; every change names who made it and is an evidence-log entry carrying the declaration's hash, and the next decision uses it without a restart). `GET /api/flow` colours every discovered node declared or undeclared, names the undeclared ones that speak synthetically, and lists the declared endpoints and actions discovery has never seen | `packages/engine/src/graph/diff.ts`, `apps/api/src/store/declarationStore.ts`, `apps/api/src/server.ts` |
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
 | Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
@@ -222,10 +223,10 @@ The engine's own guarantees are tests, not claims:
 - a formula and its negation are complementary on every prefix and at every end of flow;
 - the 48-object corpus carries expected atoms, verdicts, decision and witness path per file, every
   label derived by hand before any run, so a reviewer checks a label by reading the object;
-- a mutation harness (`pnpm mutate`) applies 44 hand-written mutations one at a time (weak until
+- a mutation harness (`pnpm mutate`) applies 46 hand-written mutations one at a time (weak until
   turned strict, the live-human clause dropped, calling-hour boundaries moved, inconclusive collapsed
   to true, Büchi acceptance negated, chain links unchecked, canonical key order removed) and requires
-  a failing test for every one; the last run killed 44 of 44;
+  a failing test for every one; the last run killed 46 of 46;
 - the HTTP suite replays the spec's own example end to end: the untraced timeout branch that speaks
   synthetically is caught at the hook on the first call and at answer time on the next.
 
@@ -284,8 +285,8 @@ What is not built yet, so nobody has to guess:
   shaped the design is measured, not assumed (docs/fact-sheet.md). The web app is not deployed.
 - The dashboard (six screens over server-sent events), the public site, the browser sandbox and the
   softphone are not started.
-- The declared-versus-actual diff, the rate properties P6 to P8 and Vonage Identity Insights as the
-  paid line-type lookup are planned and not present in the code. Wired or cut, at submission time.
+- The rate properties P6 to P8 and Vonage Identity Insights as the paid line-type lookup are planned
+  and not present in the code. Wired or cut, at submission time.
 
 ## Honesty and limitations
 

@@ -29,3 +29,4 @@ export { PROPERTIES, compiledProperties, propertySpec, type PropertyId, type Pro
 export { decide, evaluateNcco, evaluatePath, labelOf, type Decision, type Evaluation, type EvaluationContext, type PropertyVerdict, type WitnessStep } from "./evaluate.js";
 export { FlowGraph, isBranching, nodeIdOf, payloadHashOf, type Coverage, type EdgeKind, type FlowEdge, type FlowNode, type FlowPath, type ObserveResult } from "./graph/graph.js";
 export { evaluateGraph, type GraphEvaluation, type PathEvaluation } from "./graph/evaluateGraph.js";
+export { declaredEndpointsOf, diffDeclared, type DiffEdge, type DiffMissing, type DiffNode, type DiffStatus, type FlowDiff } from "./graph/diff.js";

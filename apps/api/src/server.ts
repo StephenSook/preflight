@@ -1,9 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
-import type { FlowDeclaration } from "@preflight/engine";
+import { declaredEndpointsOf, type FlowDeclaration } from "@preflight/engine";
 import { referenceApp } from "@preflight/reference";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-import type { Config } from "./config.js";
+import { declarationSchema, type Config } from "./config.js";
+import { declarationHash, MemoryDeclarationStore, type DeclarationStore } from "./store/declarationStore.js";
 import { FlowDecider } from "./decide/flow.js";
 import { holdNcco, safeNcco } from "./decide/ncco.js";
 import { ledgerDraftFor } from "./decide/record.js";
@@ -30,7 +31,9 @@ export interface ServerDeps {
   graphStore: GraphStore;
   holds: HoldStore;
   resolver: NumberFactsResolver;
+  /** The environment's seed declaration; a stored one (Setup screen) wins when present. */
   declaration: FlowDeclaration;
+  declarations?: DeclarationStore;
   /** PEM of the application's public key; without it the create-call gateway refuses every caller. */
   applicationPublicKeyPem?: string | undefined;
   /** PEM of the application's private key; with it the consent gate and the demonstration call are enabled. */
@@ -72,11 +75,12 @@ function percentile(sorted: number[], p: number): number | null {
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
   const { config, store, ledger, graphStore, holds, resolver, declaration } = deps;
+  const declarations = deps.declarations ?? new MemoryDeclarationStore();
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clock = deps.now ?? Date.now;
   const bus = new DecisionBus();
   const decisions = publishing(deps.decisions, bus);
-  const flow = new FlowDecider({ config, graphStore, declaration, resolver });
+  const flow = new FlowDecider({ config, graphStore, declaration, declarations, resolver });
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
 
   // Keep the exact bytes: payload_hash is computed over what Vonage sent, not over a re-serialisation.
@@ -237,6 +241,62 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   // Public, unauthenticated recompute endpoints: what the user gets, never whether the system is right.
   app.get("/api/coverage", async () => flow.coverage());
+  // The declared-versus-actual diff: the discovered graph coloured against what the developer declared.
+  // No phone numbers here, only the application's own call-control objects.
+  app.get("/api/flow", async () => flow.diff());
+
+  // Setup (spec screen 6): the three URLs to point the application at, the origin, the policy, and the
+  // declaration in force. Reading it needs the dashboard token because the origin is an internal address.
+  const setupView = async () => {
+    const stored = await declarations.current();
+    const base = config.PUBLIC_BASE_URL?.replace(/\/$/, "");
+    return {
+      urls: base ? { answer: `${base}/v/answer`, event: `${base}/v/event`, fallback: `${base}/v/fallback` } : null,
+      origin: config.ORIGIN_ANSWER_URL,
+      policy: config.POLICY_MODE,
+      declaration: stored?.declaration ?? declaration,
+      declaration_source: stored ? "stored" : "environment",
+      declaration_hash: stored?.hash ?? declarationHash(declaration),
+      declared_by: stored?.declaredBy ?? null,
+      declared_at: stored?.declaredAt ?? null,
+    };
+  };
+  app.get("/api/setup", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    return setupView();
+  });
+  // A declaration shapes two atoms (identifies, offers_optout) and the coverage denominator, so every
+  // change names who made it and becomes an evidence-log entry carrying the declaration's hash.
+  app.put<{ Body: string }>("/api/setup/declaration", async (req, reply) => {
+    if (!dashboardAuth(req.headers.authorization)) return reply.code(config.DASHBOARD_TOKEN ? 403 : 404).send({ error: config.DASHBOARD_TOKEN ? "dashboard token rejected" : "the dashboard is not enabled on this deployment" });
+    let body: { declaration?: unknown; by?: unknown };
+    try {
+      body = JSON.parse(typeof req.body === "string" ? req.body : "{}") as { declaration?: unknown; by?: unknown };
+    } catch {
+      return reply.code(400).send({ error: "body must be JSON" });
+    }
+    const by = typeof body.by === "string" ? body.by.trim() : "";
+    if (by.length === 0) return reply.code(400).send({ error: 'expected {"declaration": {...}, "by": "<name>"}: every declaration names who made it' });
+    const parsed = declarationSchema.safeParse(body.declaration);
+    if (!parsed.success) return reply.code(400).send({ error: "declaration is invalid", issues: parsed.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`) });
+    const previous = (await declarations.current())?.hash ?? declarationHash(declaration);
+    const at = new Date(clock()).toISOString();
+    const rec = await declarations.set(parsed.data as FlowDeclaration, by, at);
+    const entry = await ledger.append({
+      ts: at,
+      kind: "declaration",
+      call_uuid: null,
+      decision: null,
+      property: null,
+      citation: null,
+      witness: [],
+      ncco_hash: null,
+      line_type: null,
+      detail: { declaration_hash: rec.hash, previous_hash: previous, by, endpoints: declaredEndpointsOf(rec.declaration), identification_phrases: rec.declaration.identification?.phrases?.length ?? 0, optout_patterns: rec.declaration.optOut?.eventUrlPatterns?.length ?? 0 },
+    });
+    req.log.info({ by, hash: rec.hash, seq: entry.seq }, "flow declaration replaced");
+    return { ...(await setupView()), ledger: { seq: entry.seq, entry_hash: entry.entry_hash } };
+  });
   app.get("/api/summary", async () => {
     const recent = await decisions.recent(500);
     const verify = recent.map((r) => r.verifyLatencyMs).filter((x): x is number => x !== null).sort((a, b) => a - b);

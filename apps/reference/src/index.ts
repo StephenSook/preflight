@@ -64,8 +64,15 @@ export function optoutReply(digits: string | undefined, agent: string): unknown[
 }
 
 /** The declaration a developer of this application would enter in Setup. */
-export function referenceDeclaration(): { identification: { phrases: string[] }; optOut: { eventUrlPatterns: string[] }; endpoints: string[] } {
-  return { identification: { phrases: [IDENTIFICATION] }, optOut: { eventUrlPatterns: ["/reference/optout"] }, endpoints: ["/reference/menu", "/reference/optout"] };
+export function referenceDeclaration(): { identification: { phrases: string[] }; optOut: { eventUrlPatterns: string[] }; endpoints: string[]; flow: Record<string, string[][]> } {
+  return {
+    identification: { phrases: [IDENTIFICATION] },
+    optOut: { eventUrlPatterns: ["/reference/optout"] },
+    endpoints: ["/reference/menu", "/reference/optout"],
+    // What this application's developer believes it serves. The menu's timeout branch (a synthesized
+    // voice with no opt-out) is deliberately absent: it is the branch nobody traced, and the diff shows it.
+    flow: { answer: [["talk", "input"]], "/reference/menu": [["connect"]], "/reference/optout": [["connect"], ["talk"]] },
+  };
 }
 
 export const referenceApp: FastifyPluginAsync<ReferenceOptions> = async (app: FastifyInstance, opts) => {

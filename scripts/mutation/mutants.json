@@ -49,6 +49,20 @@
     "why": "The first draft was an always over the actions, so an open path with a perfectly good caller id was held on P4 until every branch had been observed. Caller id is set on the call request; it is known at the first action, like calling hours."
   },
   {
+    "id": "diff-endpoint-without-list-rejects",
+    "file": "packages/engine/src/graph/diff.ts",
+    "find": "if (!sequences || sequences.length === 0) return true;",
+    "replace": "if (!sequences || sequences.length === 0) return false;",
+    "why": "An endpoint the developer declared without an action list exists by their own account; every node it serves is declared by endpoint, never painted red."
+  },
+  {
+    "id": "diff-declared-by-presence-not-position",
+    "file": "packages/engine/src/graph/diff.ts",
+    "find": "return sequences.some((seq) => seq[index] === action);",
+    "replace": "return sequences.some((seq) => seq.includes(action));",
+    "why": "The diff is positional: a talk declared first does not license a talk that turns up third, and the missing list must name the position the developer expected."
+  },
+  {
     "id": "evaluate-null-fact-passes",
     "file": "packages/engine/src/evaluate.ts",
     "find": "if (nullFact) return { id: p.id, citation: p.citation, verdict: \"inconclusive\", reason: REASON_FOR_NULL[nullFact] };",

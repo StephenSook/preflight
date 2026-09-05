@@ -1,14 +1,17 @@
 import { createHash } from "node:crypto";
-import { decide, evaluateGraph, evaluatePath, isBranching, parseNcco, propertySpec, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type FlowGraph, type NccoAction, type PropertyVerdict } from "@preflight/engine";
+import { decide, declaredEndpointsOf, diffDeclared, evaluateGraph, evaluatePath, isBranching, parseNcco, propertySpec, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type FlowDiff, type FlowGraph, type NccoAction, type PropertyVerdict } from "@preflight/engine";
 import type { NumberFactsResolver } from "@preflight/numfacts";
 import type { Config } from "../config.js";
 import type { DecisionRecord } from "../store/decisionStore.js";
+import type { DeclarationStore } from "../store/declarationStore.js";
 import type { GraphStore } from "../store/graphStore.js";
 
 export interface FlowDeps {
   config: Config;
   graphStore: GraphStore;
+  /** The declaration the environment seeds (FLOW_DECLARATION_JSON); a stored declaration, when one exists, wins. */
   declaration: FlowDeclaration;
+  declarations?: DeclarationStore | undefined;
   resolver: NumberFactsResolver;
 }
 
@@ -93,8 +96,14 @@ export class FlowDecider {
     return { bytes: rewrote.length > 0 ? JSON.stringify(raw) : bytes, rewrote };
   }
 
+  /** The declaration in force: the newest one a person entered in Setup, else the environment's seed. */
+  async currentDeclaration(): Promise<FlowDeclaration> {
+    return (await this.deps.declarations?.current())?.declaration ?? this.deps.declaration;
+  }
+
   async decide(input: FlowInput, prefixNodeIds: readonly string[] = []): Promise<FlowOutcome> {
-    const { config, declaration, resolver } = this.deps;
+    const { config, resolver } = this.deps;
+    const declaration = await this.currentDeclaration();
     const p = input.payload ?? {};
     const rawDirection = str(p["direction"]);
     const direction: DecisionRecord["direction"] = rawDirection === "inbound" || rawDirection === "outbound" ? rawDirection : "unknown";
@@ -164,13 +173,18 @@ export class FlowDecider {
       originLatencyMs: input.originLatencyMs,
       verifyLatencyMs: input.verifyLatencyMs,
     };
-    const declaredEndpoints = ["answer", ...(declaration.endpoints ?? [])];
-    return { decision, reason, evaluation, record, responseBytes: routed.bytes, rewrote: routed.rewrote, pathNodeIds, coverage: graph.coverage(declaredEndpoints) };
+    return { decision, reason, evaluation, record, responseBytes: routed.bytes, rewrote: routed.rewrote, pathNodeIds, coverage: graph.coverage(declaredEndpointsOf(declaration)) };
   }
 
   async coverage(): Promise<ReturnType<FlowGraph["coverage"]>> {
     const graph = await this.deps.graphStore.load();
-    return graph.coverage(["answer", ...(this.deps.declaration.endpoints ?? [])]);
+    return graph.coverage(declaredEndpointsOf(await this.currentDeclaration()));
+  }
+
+  /** The declared-versus-actual diff over the discovered graph (spec screen 3). Reads only; decides nothing. */
+  async diff(): Promise<FlowDiff> {
+    const graph = await this.deps.graphStore.load();
+    return diffDeclared(graph, await this.currentDeclaration());
   }
 }
 
