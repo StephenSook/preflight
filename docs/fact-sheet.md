@@ -11,7 +11,7 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 
 <!-- generated:static -->
 - Tests: 305 across 89 suites (vitest, `pnpm test`)
-- Mutants: 56 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed); last recorded run: 2026-09-05 at 2206fe0, 56 killed, 0 survived of 56 (`scripts/mutation/last-run.json`, written by the harness)
+- Mutants: 56 hand-written (`scripts/mutation/mutants.json`, `pnpm mutate` requires every one killed); last recorded run: 2026-09-05 at 4e377d9, 56 killed, 0 survived of 56, sources b59ff962d590 (`scripts/mutation/last-run.json`, written by the harness over the restored sources; CI fails when mutants.json or a mutated source changed since)
 - Labelled corpus: 48 call-control objects (`corpus/ncco`, `pnpm replay corpus/ncco`)
 - Number-facts table: 204776 NPA-NXX rows (`packages/numfacts/data/co-codes.tsv`)
 - Properties (Tier 1, armed by default):
@@ -29,13 +29,13 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T10:31:14.193Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Read at 2026-09-05T10:48:27.648Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
 - Decisions: 0 passed, 4 blocked, 1 held; 18 signed event webhooks stored
-- Evidence log: 12 entries, head `sha256:c0dcc776f228b4478cf33037269359e43146c0766b485a32e9f0ea27ce7e4cd1`, verify ok (12 entries recomputed from genesis)
+- Evidence log: 14 entries, head `sha256:44667b4cc5732d0902fc4c1b907d6af489eda7336c774377b58f4fb29c1b4f59`, verify ok (14 entries recomputed from genesis)
 - Coverage: 1 of 3 declared endpoints observed, 2 states, 1 edges, 1 open branch(es)
 - Declared versus actual: 2 declared states, 0 undeclared (0 speaking synthetically), 2 declared and never observed
 - Latency over the last 5 decisions: verify p50 306.8 ms, p95 761.8 ms; origin p50 152.2 ms, p95 261.3 ms
-- Last carrier reconciliation (2026-09-05T09:11:13.190Z): 2 carrier records, 2 matched, 0 placed around the interlock, 0 leaked past a refusal
+- Last carrier reconciliation (2026-09-05T10:33:20.150Z): 0 carrier records, 0 matched, 0 placed around the interlock, 0 leaked past a refusal
 <!-- /generated:live -->
 
 ## HAND-ENTERED (each row: figure, primary source URL, verified on)
