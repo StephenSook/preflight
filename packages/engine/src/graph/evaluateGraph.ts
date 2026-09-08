@@ -49,7 +49,7 @@ export function evaluateGraph(graph: FlowGraph, rootId: string, ctx: { declarati
   });
 
   const verdicts: PropertyVerdict[] = PROPERTIES.map((p) => aggregate(p.id, p.citation, evaluations));
-  return { verdicts, paths: evaluations, decision: decide(verdicts, ctx.policy) };
+  return { verdicts, paths: evaluations, decision: evaluations.length === 0 ? "hold" : decide(verdicts, ctx.policy) };
 }
 
 function primeWitness(witness: WitnessStep[], path: FlowPath): WitnessStep[] {

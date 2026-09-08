@@ -234,6 +234,10 @@ function parseAction(raw: Raw, index: number, issues: Issues): NccoAction {
       return compact<InputAction>({ action, index, type: type as InputAction["type"], eventUrl: strArr(raw, "eventUrl", path, issues), eventMethod: method(raw, "eventMethod", path, issues), mode: oneOf(["synchronous", "asynchronous"] as const)(raw, "mode", path, issues), dtmf, speech: obj(raw, "speech", path, issues) });
     }
     case "connect": {
+      if (raw["eventType"] === "synchronous") {
+        issues.error(`${path}.eventType`, "synchronous connect callbacks can replace the NCCO and are not supported");
+        return unknown(raw, index, action);
+      }
       const endpointRaw = raw["endpoint"];
       if (!Array.isArray(endpointRaw) || endpointRaw.length === 0) {
         issues.error(`${path}.endpoint`, "connect requires a non-empty endpoint array");

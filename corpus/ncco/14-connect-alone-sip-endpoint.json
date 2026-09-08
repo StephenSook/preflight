@@ -1,6 +1,6 @@
 {
-  "name": "a single connect to a SIP endpoint",
-  "description": "A SIP URI is a live endpoint, like phone, app and vbc. Nothing is spoken by the platform, so no property has anything to fail on; the call goes straight to a person. Every connect field is exercised.",
+  "name": "a synchronous connect to a SIP endpoint is unsupported",
+  "description": "A synchronous connect callback can replace the call-control object outside the input and notify hooks. This mode is refused rather than treating the SIP connection as proof that its unobserved replacement is safe.",
   "declaration": {
     "identification": {
       "phrases": [
@@ -45,7 +45,7 @@
   ],
   "expect": {
     "kinds": [
-      "connect"
+      "unknown"
     ],
     "atoms": [
       {
@@ -53,10 +53,10 @@
         "synthetic": false,
         "identifies": false,
         "offers_optout": false,
-        "connects_human": true
+        "connects_human": false
       }
     ],
-    "errors": 0,
+    "errors": 1,
     "terminal": {
       "facts": {
         "from": "14045550100",
@@ -64,13 +64,13 @@
         "withinHours": true
       },
       "verdicts": {
-        "P1": "true",
-        "P2": "true",
-        "P3": "true",
-        "P4": "true",
-        "P5": "true"
+        "P1": "inconclusive",
+        "P2": "inconclusive",
+        "P3": "inconclusive",
+        "P4": "inconclusive",
+        "P5": "inconclusive"
       },
-      "decision": "pass"
+      "decision": "hold"
     }
   }
 }

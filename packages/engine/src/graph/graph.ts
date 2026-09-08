@@ -80,7 +80,10 @@ function stableStringify(v: unknown): string {
 }
 
 export const payloadHashOf = (a: NccoAction): string => `sha256:${sha256Hex(canonicalAction(a))}`;
-export const nodeIdOf = (endpoint: string, index: number, action: NccoAction): string => sha256Hex(`${endpoint}\n${index}\n${canonicalAction(action)}`).slice(0, 24);
+const legacyNodeIdOf = (endpoint: string, index: number, action: NccoAction): string => sha256Hex(`${endpoint}\n${index}\n${canonicalAction(action)}`).slice(0, 24);
+const objectDigestOf = (actions: readonly NccoAction[]): string => sha256Hex(JSON.stringify(actions.map(canonicalAction)));
+const nodeIdFromDigest = (endpoint: string, index: number, action: NccoAction, objectDigest: string): string => sha256Hex(JSON.stringify(["object-v2", endpoint, index, canonicalAction(action), objectDigest])).slice(0, 24);
+export const nodeIdOf = (endpoint: string, index: number, action: NccoAction, objectActions: readonly NccoAction[]): string => nodeIdFromDigest(endpoint, index, action, objectDigestOf(objectActions));
 const edgeKey = (from: string, to: string, kind: EdgeKind): string => `${from}|${to}|${kind}`;
 
 export class FlowGraph {
@@ -89,13 +92,13 @@ export class FlowGraph {
 
   static from(nodes: Iterable<FlowNode>, edges: Iterable<FlowEdge>): FlowGraph {
     const g = new FlowGraph();
-    for (const n of nodes) g.nodes.set(n.id, n);
-    for (const e of edges) g.edges.set(edgeKey(e.from, e.to, e.kind), e);
+    for (const n of nodes) if (n.id !== legacyNodeIdOf(n.endpoint, n.index, n.action)) g.nodes.set(n.id, n);
+    for (const e of edges) if (g.nodes.has(e.from) && g.nodes.has(e.to)) g.edges.set(edgeKey(e.from, e.to, e.kind), e);
     return g;
   }
 
-  private touchNode(endpoint: string, action: NccoAction, at: string): { node: FlowNode; created: boolean } {
-    const id = nodeIdOf(endpoint, action.index, action);
+  private touchNode(endpoint: string, action: NccoAction, at: string, objectDigest: string): { node: FlowNode; created: boolean } {
+    const id = nodeIdFromDigest(endpoint, action.index, action, objectDigest);
     const existing = this.nodes.get(id);
     if (existing) {
       existing.lastSeen = at;
@@ -123,12 +126,14 @@ export class FlowGraph {
    * `actions` with `from` set records that the callback returned nothing and the object continued.
    */
   observeObject(endpoint: string, actions: readonly NccoAction[], at: string, from?: { nodeId: string; kind: "input_branch" | "notify_branch" }): ObserveResult {
+    if (from && !this.nodes.has(from.nodeId)) throw new Error(`unknown branching node ${from.nodeId}`);
+    const objectDigest = objectDigestOf(actions);
     let newNodes = 0;
     let newEdges = 0;
     const nodeIds: string[] = [];
     let prev: string | undefined;
     for (const a of actions) {
-      const { node, created } = this.touchNode(endpoint, a, at);
+      const { node, created } = this.touchNode(endpoint, a, at, objectDigest);
       if (created) newNodes += 1;
       if (prev && this.touchEdge(prev, node.id, "sequential", at)) newEdges += 1;
       nodeIds.push(node.id);

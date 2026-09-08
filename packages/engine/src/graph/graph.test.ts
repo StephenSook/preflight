@@ -20,6 +20,45 @@ const TIMEOUT_BRANCH = actions([{ action: "talk", text: "We could not reach you.
 const OPTOUT_MENU = actions([{ action: "talk", text: "Press nine to stop these calls." }, { action: "input", type: ["dtmf"], eventUrl: ["https://origin.example/webhooks/optout"] }]);
 
 describe("passive graph discovery", () => {
+  it("canonicalizes a large object's actions only a constant number of times per observation", () => {
+    let reads = 0;
+    const object = Array.from({ length: 800 }, (_, index) => ({ action: "talk" as const, index, get text() { reads += 1; return "This is Preflight"; } }));
+    const graph = new FlowGraph();
+    const observed = graph.observeObject("answer", object, T);
+    expect(observed.nodeIds).toHaveLength(800);
+    expect(reads).toBeGreaterThanOrEqual(800);
+    expect(reads).toBeLessThanOrEqual(3200);
+    expect(observed.nodeIds[0]).toBe(nodeIdOf("answer", 0, object[0]!, object));
+  });
+
+  it("keeps shared prefixes and terminal boundaries separate across object versions", () => {
+    const graph = new FlowGraph();
+    const longer = [...ANSWER.slice(0, 1), ...DIGIT_BRANCH.map((action) => ({ ...action, index: 1 }))];
+    const first = graph.observeObject("answer", longer, T);
+    const shorter = graph.observeObject("answer", longer.slice(0, 1), T);
+    expect(shorter.nodeIds[0]).not.toBe(first.nodeIds[0]);
+    expect(shorter.nodeIds[0]).toMatch(/^[0-9a-f]{24}$/);
+    expect(graph.paths(shorter.nodeIds[0]!)[0]).toMatchObject({ end: "terminal", labels: ["talk#0"] });
+    expect(evaluateGraph(graph, shorter.nodeIds[0]!, { declaration: decl, facts, policy: "strict" }).decision).toBe("block");
+    expect(evaluateGraph(graph, first.nodeIds[0]!, { declaration: decl, facts, policy: "strict" }).decision).toBe("pass");
+    const divergent = graph.observeObject("answer", [...longer.slice(0, 1), ...TIMEOUT_BRANCH.map((action) => ({ ...action, index: 1 }))], T);
+    expect(graph.paths(divergent.nodeIds[0]!)).toHaveLength(1);
+    expect(evaluateGraph(graph, divergent.nodeIds[0]!, { declaration: decl, facts, policy: "strict" }).decision).toBe("block");
+  });
+
+  it("excludes legacy identities and holds missing paths even in advisory mode", () => {
+    const graph = new FlowGraph();
+    const observed = graph.observeObject("answer", ANSWER, T);
+    const legacyIds = ["15377a2ef046c01a97c4fb09", "9f46962a451868494f1ae78d"];
+    const legacy = [...graph.nodes.values()].map((node, index) => ({ ...node, id: legacyIds[index]! }));
+    const restored = FlowGraph.from(legacy, [{ from: legacy[0]!.id, to: legacy[1]!.id, kind: "sequential", firstSeen: T, observations: 1 }]);
+    expect(restored.nodes.size).toBe(0);
+    expect(restored.edges.size).toBe(0);
+    expect(evaluateGraph(restored, legacy[0]!.id, { facts, policy: "advisory" }).decision).toBe("hold");
+    expect(() => restored.observeObject("branch", DIGIT_BRANCH, T, { nodeId: legacy[1]!.id, kind: "input_branch" })).toThrow("unknown branching node");
+    expect(restored.nodes.size).toBe(0);
+    expect(restored.observeObject("answer", ANSWER, T).nodeIds).toEqual(observed.nodeIds);
+  });
   it("merges an object into nodes and sequential edges, and counts repeat observations instead of duplicating", () => {
     const g = new FlowGraph();
     const first = g.observeObject("answer", ANSWER, T);
@@ -27,7 +66,7 @@ describe("passive graph discovery", () => {
     const again = g.observeObject("answer", ANSWER, "2026-09-06T21:15:00.000Z");
     expect(again).toMatchObject({ newNodes: 0, newEdges: 0 });
     expect(g.nodes.get(first.nodeIds[0] as string)).toMatchObject({ observations: 2, firstSeen: T, lastSeen: "2026-09-06T21:15:00.000Z", endpoint: "answer", index: 0 });
-    expect(first.nodeIds[0]).toBe(nodeIdOf("answer", 0, ANSWER[0] as never));
+    expect(first.nodeIds[0]).toBe(nodeIdOf("answer", 0, ANSWER[0] as never, ANSWER));
   });
 
   it("reports a never-observed branch as an open path and holds it", () => {

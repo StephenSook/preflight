@@ -29,7 +29,7 @@ describe("the engine in a browser", () => {
       evaluateNcco: (parsed: unknown, ctx: unknown) => { decision: string; verdicts: Array<{ id: string; verdict: string }> };
       FlowGraph: new () => { observeObject: (endpoint: string, actions: unknown[], at: string) => { nodeIds: string[] } };
       diffDeclared: (graph: unknown, declaration: unknown) => { counts: { states: number; undeclared: number } };
-      nodeIdOf: (endpoint: string, index: number, action: unknown) => string;
+      nodeIdOf: (endpoint: string, index: number, action: unknown, objectActions: unknown[]) => string;
       PROPERTIES: Array<{ id: string }>;
     };
     expect(engine.PROPERTIES.map((p) => p.id)).toEqual(["P1", "P2", "P3", "P4", "P5"]);
@@ -40,7 +40,7 @@ describe("the engine in a browser", () => {
     expect(ev.verdicts.find((v) => v.id === "P3")?.verdict).toBe("false");
     const graph = new engine.FlowGraph();
     const { nodeIds } = graph.observeObject("answer", parsed.actions, "2026-09-05T12:00:00.000Z");
-    expect(nodeIds[0]).toBe(engine.nodeIdOf("answer", 0, parsed.actions[0]));
+    expect(nodeIds[0]).toBe(engine.nodeIdOf("answer", 0, parsed.actions[0], parsed.actions));
     expect(nodeIds[0]).toMatch(/^[0-9a-f]{24}$/);
     expect(engine.diffDeclared(graph, { ...declaration, flow: { answer: [["talk"]] } }).counts).toMatchObject({ states: 2, undeclared: 1 });
   });

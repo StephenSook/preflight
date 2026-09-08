@@ -56,6 +56,19 @@ describe("P1..P5 against the labelled corpus, each object taken as one terminal 
 });
 
 describe("what the evaluator refuses to guess", () => {
+  it.each([
+    [{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }], timeout: "bad" }],
+    [{ action: "connect", endpoint: [{ type: "fax" }, { type: "phone", number: "14045550123" }] }],
+    [{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }] }, null],
+    [{ action: "connect", endpoint: [{ type: "phone", number: "14045550123" }], eventType: "synchronous", eventUrl: ["https://origin.example/fallback"] }],
+  ].map((object) => ({ object })))("fails closed on partially parsed objects and unsupported callbacks: $object", ({ object }) => {
+    const parsed = parseNcco(object);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.actions.length).toBeGreaterThan(0);
+    const evaluation = evaluateNcco(parsed, { facts: { from: "14045550100", lineType: "wireless", withinHours: true }, terminal: true });
+    expect(evaluation.decision).toBe("hold");
+    expect(evaluation.verdicts.some((verdict) => verdict.verdict === "inconclusive")).toBe(true);
+  });
   const decl: FlowDeclaration = { identification: { phrases: ["this is a message from preflight demo clinic"] }, optOut: { eventUrlPatterns: ["/webhooks/optout"] } };
   const compliant = parseNcco([
     { action: "talk", text: "This is a message from Preflight Demo Clinic." },

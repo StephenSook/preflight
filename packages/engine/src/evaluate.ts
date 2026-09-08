@@ -101,7 +101,12 @@ export function evaluateNcco(parsed: ParseResult, ctx: EvaluationContext): Evalu
       decision: "hold",
     };
   }
-  return evaluatePath(parsed.actions, ctx);
+  const evaluation = evaluatePath(parsed.actions, ctx);
+  if (!parsed.ok && evaluation.decision === "pass") {
+    const reason = `the object is not a valid NCCO: ${parsed.issues.find((issue) => issue.severity === "error")?.message ?? "unknown defect"}`;
+    return { ...evaluation, decision: "hold", verdicts: evaluation.verdicts.map((verdict) => ({ id: verdict.id, citation: verdict.citation, verdict: "inconclusive", reason })) };
+  }
+  return evaluation;
 }
 
 /**
