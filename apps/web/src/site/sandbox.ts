@@ -19,10 +19,40 @@ export const SAMPLES: Record<string, { label: string; object: unknown; declarati
   garbage: { label: "not an object at all", object: { hello: "world" } },
 };
 
+function validateDeclaration(value: unknown): FlowDeclaration {
+  const record = (item: unknown, path: string): Record<string, unknown> => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`${path} must be an object`);
+    return item as Record<string, unknown>;
+  };
+  const strings = (item: unknown, path: string) => {
+    if (!Array.isArray(item) || !item.every((entry) => typeof entry === "string")) throw new Error(`${path} must be an array of strings`);
+  };
+  const declaration = record(value, "declaration");
+  for (const field of Object.keys(declaration)) {
+    if (!["identification", "optOut", "endpoints", "flow"].includes(field)) throw new Error(`unknown declaration field: ${field}`);
+  }
+  for (const [section, fields] of [["identification", ["phrases", "streamUrls"]], ["optOut", ["eventUrlPatterns"]]] as const) {
+    if (!(section in declaration)) continue;
+    const nested = record(declaration[section], `declaration.${section}`);
+    for (const field of Object.keys(nested)) {
+      if (!(fields as readonly string[]).includes(field)) throw new Error(`unknown declaration field: ${section}.${field}`);
+      strings(nested[field], `declaration.${section}.${field}`);
+    }
+  }
+  if ("endpoints" in declaration) strings(declaration["endpoints"], "declaration.endpoints");
+  if ("flow" in declaration) {
+    for (const [endpoint, branches] of Object.entries(record(declaration["flow"], "declaration.flow"))) {
+      if (!Array.isArray(branches)) throw new Error(`declaration.flow.${endpoint} must be an array of branches`);
+      for (const branch of branches) strings(branch, `declaration.flow.${endpoint} branch`);
+    }
+  }
+  return declaration as FlowDeclaration;
+}
+
 function unwrap(parsed: unknown): { object: unknown; declaration?: FlowDeclaration } {
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray((parsed as { ncco?: unknown }).ncco)) {
-    const c = parsed as { ncco: unknown; declaration?: FlowDeclaration };
-    return c.declaration ? { object: c.ncco, declaration: c.declaration } : { object: c.ncco };
+    const c = parsed as { ncco: unknown; declaration?: unknown };
+    return "declaration" in c ? { object: c.ncco, declaration: validateDeclaration(c.declaration) } : { object: c.ncco };
   }
   return { object: parsed };
 }
@@ -38,35 +68,37 @@ export function initSandbox(root: HTMLElement): void {
 
   const run = () => {
     const t0 = performance.now();
-    let parsedJson: unknown;
+    decisionEl.textContent = "not evaluated";
+    decisionEl.className = "decision is-held";
+    decisionEl.removeAttribute("aria-label");
+    out.replaceChildren();
+    if (issuesEl) issuesEl.textContent = "";
+    if (timing) timing.textContent = "";
     try {
-      parsedJson = JSON.parse(input.value);
+      const parsedJson: unknown = JSON.parse(input.value);
+      const { object, declaration } = unwrap(parsedJson);
+      const decl = declInput?.value.trim() ? validateDeclaration(JSON.parse(declInput.value)) : declaration;
+      const parsed = parseNcco(object);
+      if (parsed.issues.some((issue) => issue.severity === "error")) {
+        throw new Error(parsed.issues.map((issue) => `${issue.path || "(object)"}: ${issue.message}`).join("\n"));
+      }
+      const ev = evaluateNcco(parsed, { ...(decl ? { declaration: decl } : {}), facts: FACTS, terminal: true });
+      const decision = decide(ev.verdicts, "strict");
+      const ms = performance.now() - t0;
+      const verdicts = renderVerdictList(ev.verdicts, TITLES);
+      out.replaceChildren(verdicts);
+      decisionEl.textContent = decision === "pass" ? "cleared" : decision === "block" ? "no-go" : "hold short";
+      decisionEl.className = `decision ${decision === "pass" ? "is-passed" : decision === "block" ? "is-blocked" : "is-held"}`;
+      decisionEl.setAttribute("aria-label", `decision: ${decision}`);
+      if (issuesEl) issuesEl.textContent = parsed.issues.map((issue) => `${issue.severity} ${issue.path || "(object)"}: ${issue.message}`).join("\n");
+      if (timing) timing.textContent = `${ms.toFixed(1)} ms in this browser, ${ev.verdicts.length} properties, calling hours taken as inside the window`;
     } catch (err) {
-      decisionEl.textContent = "not JSON";
+      decisionEl.textContent = "invalid input";
       decisionEl.className = "decision is-held";
+      decisionEl.removeAttribute("aria-label");
       out.replaceChildren();
       if (issuesEl) issuesEl.textContent = err instanceof Error ? err.message : String(err);
-      return;
     }
-    const { object, declaration } = unwrap(parsedJson);
-    let decl = declaration;
-    if (declInput && declInput.value.trim()) {
-      try {
-        decl = JSON.parse(declInput.value) as FlowDeclaration;
-      } catch {
-        // A malformed declaration is ignored; the issues line says so below.
-      }
-    }
-    const parsed = parseNcco(object);
-    const ev = evaluateNcco(parsed, { ...(decl ? { declaration: decl } : {}), facts: FACTS, terminal: true });
-    const decision = decide(ev.verdicts, "strict");
-    const ms = performance.now() - t0;
-    decisionEl.textContent = decision === "pass" ? "cleared" : decision === "block" ? "no-go" : "hold short";
-    decisionEl.className = `decision ${decision === "pass" ? "is-passed" : decision === "block" ? "is-blocked" : "is-held"}`;
-    decisionEl.setAttribute("aria-label", `decision: ${decision}`);
-    out.replaceChildren(renderVerdictList(ev.verdicts, TITLES));
-    if (issuesEl) issuesEl.textContent = parsed.issues.length > 0 ? parsed.issues.map((i) => `${i.severity} ${i.path || "(object)"}: ${i.message}`).join("\n") : "";
-    if (timing) timing.textContent = `${ms.toFixed(1)} ms in this browser, ${ev.verdicts.length} properties, calling hours taken as inside the window`;
   };
 
   for (const chip of root.querySelectorAll<HTMLButtonElement>("[data-sandbox-sample]")) {
@@ -79,9 +111,8 @@ export function initSandbox(root: HTMLElement): void {
     });
   }
   root.querySelector<HTMLButtonElement>("[data-sandbox-run]")?.addEventListener("click", run);
-  input.addEventListener("input", () => {
-    if (input.value.trim().length > 0) run();
-  });
+  input.addEventListener("input", run);
+  declInput?.addEventListener("input", run);
   const first = SAMPLES["broken"];
   if (first) {
     input.value = JSON.stringify(first.object, null, 2);

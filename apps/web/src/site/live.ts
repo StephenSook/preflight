@@ -18,7 +18,8 @@ export async function hydrateLive(): Promise<void> {
   try {
     summary = await api.summary();
   } catch (err) {
-    text("[data-live-status]", `The host did not answer: ${err instanceof Error ? err.message : String(err)}. The counts below are blank, not invented.`);
+    for (const selector of ["[data-live-blocked]", "[data-live-held]", "[data-live-passed]"]) text(selector, "...");
+    text("[data-live-status]", `The host did not answer: ${err instanceof Error ? err.message : String(err)}. Decision counts are unavailable.`);
     return;
   }
   text("[data-live-blocked]", String(summary.decisions.block));

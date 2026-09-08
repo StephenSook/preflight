@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "node tests/frontend-regressions.mjs"
   },
   "dependencies": {
     "@preflight/engine": "workspace:*",

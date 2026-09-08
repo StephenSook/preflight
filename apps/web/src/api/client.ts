@@ -139,9 +139,10 @@ export interface DecisionEvent {
   verdicts: Array<{ id: string; verdict: string; citation: string }>;
   decidedAt: string;
   callUuid?: string;
+  nccoHash?: string;
   verifyLatencyMs?: number;
   originLatencyMs?: number | null;
-  facts?: { state?: string; rateCenter?: string; lineType?: string; lineTypeSource?: string; lineTypeConfidence?: string; withinHours?: boolean };
+  facts?: { state?: string; rateCenter?: string; lineType?: string; lineTypeSource?: string; lineTypeConfidence?: string; withinHours?: boolean | null };
   terminal?: boolean;
   holdId?: string;
   seq?: number;

@@ -1,5 +1,7 @@
 /** Tiny DOM helpers: elements are built, never parsed, so nothing from the host can become markup. */
 
+import type { DecisionEvent } from "../api/client.js";
+
 type Child = Node | string | null | undefined | false;
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, children: Child[] | string = []): HTMLElementTagNameMap[K] {
@@ -28,4 +30,14 @@ export const fmtDate = (iso: string): string => {
 };
 
 export const stateClass = (decision: string): string => (decision === "block" ? "is-blocked" : decision === "hold" ? "is-held" : "is-passed");
-export const stateWord = (decision: string): string => (decision === "block" ? "BLOCKED" : decision === "hold" ? "HELD" : "PLACED");
+export const stateWord = (decision: string): string => (decision === "block" ? "BLOCKED" : decision === "hold" ? "HELD" : "PASSED");
+
+export const decisionKey = (decision: DecisionEvent): string => JSON.stringify([decision.callUuid ?? null, decision.decidedAt, decision.nccoHash ?? null, decision.humanParty ?? null]);
+
+export function verdictSummary(decision: DecisionEvent): string {
+  const verdicts = Array.isArray(decision.verdicts) ? decision.verdicts : [];
+  if (verdicts.length === 0) return "monitor verdicts unavailable";
+  if (verdicts.every((verdict) => verdict.verdict === "true")) return "every monitor true";
+  if (verdicts.some((verdict) => verdict.verdict === "false")) return "includes failed monitors";
+  return "includes inconclusive monitors";
+}
