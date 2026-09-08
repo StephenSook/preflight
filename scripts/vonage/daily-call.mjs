@@ -8,6 +8,7 @@
 // Env: PREFLIGHT_API_URL, VONAGE_APPLICATION_ID, VONAGE_PRIVATE_KEY (PEM) or VONAGE_PRIVATE_KEY_PATH,
 //      VONAGE_PUBLIC_NUMBER, VONAGE_FROM_NUMBER, REFERENCE_ADMIN_TOKEN, DAILY_CALL_PLACE (on | off).
 import { appJwt, loadEnv } from "./jwt.mjs";
+import { assertCallEvidence } from "./call-proof.mjs";
 
 const { env } = loadEnv();
 const api = (env.PREFLIGHT_API_URL || "").replace(/\/$/, "");
@@ -72,6 +73,8 @@ if (!placeEnabled) {
 await setMode("fixed");
 let exit = 0;
 try {
+  const proofStart = (await (await fetch(`${api}/api/ledger/head`)).json()).seq;
+  const positiveEventsBefore = (await (await fetch(`${api}/health`)).json()).events;
   const placed = await createCall("fixed flow through the gateway");
   if (placed.status !== 201 || placed.decision !== "pass" || !placed.uuid) {
     console.error(`expected the fixed flow to be placed (201, pass, a call uuid), got ${placed.status} ${placed.decision}`);
@@ -81,8 +84,10 @@ try {
     // fifteen seconds in; the mode stays fixed until then, or the legs would be answered with the broken
     // flow and blocked at answer time (measured 2026-09-05, ledger entries 33 to 35).
     await new Promise((r) => setTimeout(r, 40_000));
-    const head = (await (await fetch(`${api}/api/ledger/head`)).json()).seq;
-    const entries = (await (await fetch(`${api}/api/ledger/entries?after=${Math.max(0, head - 8)}&limit=8`)).json()).entries || [];
+    const entries = (await (await fetch(`${api}/api/ledger/entries?after=${proofStart}&limit=1000`)).json()).entries;
+    if (entries?.length >= 1000) throw new Error("the proof window exceeds its ledger limit");
+    const positiveEventsAfter = (await (await fetch(`${api}/health`)).json()).events;
+    console.log(JSON.stringify({ positiveControl: assertCallEvidence({ uuid: placed.uuid, entries, eventsBefore: positiveEventsBefore, eventsAfter: positiveEventsAfter }) }));
     console.log(JSON.stringify({ afterTheCall: entries.filter((e) => e.call_uuid === placed.uuid || !e.call_uuid).map((e) => ({ seq: e.seq, kind: e.kind, decision: e.decision, property: e.property })) }));
   }
 } finally {

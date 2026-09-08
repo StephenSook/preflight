@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
+    "test:ops": "node --test scripts/vonage/call-proof.test.mjs",
     "mutate": "node scripts/mutation/run.mjs",
     "verify:engine": "vitest run packages/engine --reporter=verbose",
     "ledger:verify": "tsx --conditions=development packages/cli/src/cli.ts verify-ledger",

@@ -35,6 +35,12 @@ jobs:
         env:
           # The Postgres integration suite fails, never skips, when this is missing under CI.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Call-proof guard tests
+        run: pnpm test:ops
+      - name: Install browser test engines
+        run: pnpm --filter @preflight/web exec playwright install --with-deps chromium webkit
+      - name: Browser regressions (isolated fixtures, Chromium and WebKit)
+        run: pnpm --filter @preflight/web test:browser
       - name: AI-tone gate (prose surfaces)
         run: bash scripts/ai-tone-gate.sh
       - name: fact sheet and README counts agree with the repository

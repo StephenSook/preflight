@@ -87,7 +87,7 @@ try {
     out = (err.stdout || "").toString();
   }
   const summaryLine = out.split("\n").find((l) => /^\d+ objects,/.test(l)) ?? "";
-  note(REPLAY_EXPECTED.test(summaryLine), `npx preflight-interlock@${PUBLISHED_CLI} replay prints the state the README states`, `exit ${code}: ${summaryLine}`);
+  note(code === 0 && REPLAY_EXPECTED.test(summaryLine), `npx preflight-interlock@${PUBLISHED_CLI} replay prints the state the README states`, `exit ${code}: ${summaryLine}`);
 } catch (err) {
   note(false, "npx preflight-interlock replay", String(err.message).slice(0, 200));
 }

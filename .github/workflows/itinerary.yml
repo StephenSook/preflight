@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: every command on the judge page, executed
+      - name: Public endpoints and published-CLI smoke checks
         env:
           PREFLIGHT_API_URL: ${{ vars.PREFLIGHT_API_URL }}
         run: node scripts/ops/itinerary.mjs
