@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased: September 8, 2026
+## September 8, 2026: CLI 0.2.1 and web refresh
 
 These changes address defects found during the September 8 repository review.
-Source changes do not establish parity with a deployed service or an npm release.
+CLI 0.2.1 is published and reproduces all 48 current corpus labels from an empty npm cache.
+The refreshed website's served HTML and assets match the local build; live desktop, mobile and
+accessibility checks pass. These checks are separate from the dated call evidence in the fact sheet.
 
 ### Engine and CLI
 

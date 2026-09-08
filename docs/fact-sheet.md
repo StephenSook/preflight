@@ -29,13 +29,13 @@ Static, derived from the repository (`pnpm fact-sheet`; CI fails when this block
 Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never checked, it changes daily):
 
 <!-- generated:live -->
-- Read at 2026-09-05T20:31:44.452Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
-- Decisions: 26 passed, 17 blocked, 5 held; 110 signed event webhooks stored
-- Evidence log: 59 entries, head `sha256:98b61ba01b771b49e8d7633c72ad163fe53c7ff1ec002b4c820ea892f2e4e67a`, verify ok (59 entries recomputed from genesis)
+- Read at 2026-09-08T19:16:12.262Z from https://preflight-api-rc34.onrender.com (deployed version 0.1.0, policy strict, store postgres)
+- Decisions: 46 passed, 25 blocked, 9 held; 177 signed event webhooks stored
+- Evidence log: 99 entries, head `sha256:dc1b1a339f0bc20fe102629ebd8cda378abdbd0755f102a2e7ef50a10b56b9cc`, verify ok (99 entries recomputed from genesis)
 - Coverage: 3 of 3 declared endpoints observed, 6 states, 4 edges, 0 open branch(es)
 - Declared versus actual: 5 declared states, 1 undeclared (1 speaking synthetically), 2 declared and never observed
-- Latency over the last 48 decisions: verify p50 66 ms, p95 703.9 ms; origin p50 3.8 ms, p95 201.6 ms
-- Last carrier reconciliation (2026-09-05T10:33:20.150Z): 0 carrier records, 0 matched, 0 placed around the interlock, 0 leaked past a refusal
+- Latency over the last 80 decisions: verify p50 66 ms, p95 692.8 ms; origin p50 3.7 ms, p95 152.2 ms
+- Last carrier reconciliation (2026-09-08T08:15:43.170Z): 0 carrier records, 0 matched, 0 placed around the interlock, 0 leaked past a refusal
 <!-- /generated:live -->
 
 ## HAND-ENTERED (each row: figure, primary source URL, verified on)
@@ -51,8 +51,8 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 | Atlanta workshop coupon | `ATLDICHF26`, 15 USD credit | https://developer.vonage.com/en/events/register/dialedin-atlanta-a-createher-fest-tech-series (linked from the Devpost welcome email of 2026-08-14) | 2026-09-04 |
 | Calling-hours window | 8 a.m. to 9 p.m. local time at the called party's location | 47 CFR 64.1200(c)(1), eCFR vintage 2026-09-02, quoted in citations.json (id cfr-64.1200-c-1) | 2026-09-04 |
 | Platform acceptable-use line on unanswered and short calls | "Having a high volume of unanswered phone calls, or phone calls (including text-to-speech communications) that are less than twelve seconds in length." Under Telecommunications-Specific Limitations; the policy gives no number for "high volume" | https://www.vonage.com/legal/acceptable-use-policy/ (Updated: February 3, 2025), quoted in packages/rules/data/citations.json (id vonage-aup-telecom-unanswered-short) | 2026-09-05 |
-| Deployed API | https://preflight-api-rc34.onrender.com (Render free plan, virginia, service srv-dad5t10n74is73ddjmu0, auto-deploy from main); the signature secret on the host is a placeholder until the real one is set | Render API response at creation, 2026-09-04 06:00 UTC | 2026-09-04 |
-| Published CLI | `preflight-interlock@0.2.0` on npm, published 2026-09-05 18:57:35 UTC by the account owner (web login approved by hand), tarball shasum 89b8ee737252559e9b6119920ebf67d9fcc42c79. From an empty directory, `npx -y preflight-interlock@0.2.0 replay` reproduces every one of the 48 committed labels (exit 0) and `verify-ledger` recomputes the live host's chain from genesis; the daily itinerary job asserts both. The earlier 0.1.0 (2026-09-04) predates spec corrections 5 to 7 and fails five labels by those corrections' own design | https://www.npmjs.com/package/preflight-interlock; scripts/ops/itinerary.mjs | 2026-09-05 |
+| Deployed API | https://preflight-api-rc34.onrender.com (Render free plan, virginia, service srv-dad5t10n74is73ddjmu0, auto-deploy from main); deployment of commit 2c905a0 is live, health reports Postgres and the evidence chain verifies | Render deploy dep-dag5gfvlk1mc73fkf2o0; public health and ledger verification | 2026-09-08 |
+| Published CLI | `preflight-interlock@0.2.1` on npm, published 2026-09-08 19:10:22 UTC, source commit cabdbe9, tarball shasum ca0e81ec31b471ed7a60c83d5fd3d98903826d17. An empty directory and empty npm cache reproduced all 48 current corpus labels (exit 0) and verified the live ledger. Older 0.2.0 predates the September 8 fixes and no longer matches every current label | npm registry metadata; clean-cache published artifact verification | 2026-09-08 |
 
 ## MEASUREMENTS (each row: what, value, how measured, when)
 
@@ -107,6 +107,14 @@ Live, read from the deployed host at the stamped time (`pnpm fact-sheet`; never 
 - The updated source passed the full unit and disposable-Postgres suite with `CI=true`; its count is generated above. The database role was explicitly NOSUPERUSER. The separate call-proof guard suite passed 9 tests. These tests do not place production calls.
 - A disposable copy with independently installed dependencies passed frozen install, builds, README API startup with dummy configuration, and all 48 corpus labels through both the source CLI and its packaged artifact. This verifies the captured source, not the older npm release.
 - An isolated mutation experiment over the current package sources caught all 56 listed mutants through failed assertions, with zero survivors or invalid runs. Unmutated and restored suites passed with zero skipped tests; every target was restored byte-for-byte. Its report SHA-256 is `0c627ac92472a81c20ad37fc00d5ccd2f8f53caee5c220d83be849f3ea6008c5`. After committing the package fixes, the guarded root `pnpm mutate` run independently caught all 56 mutants, restored a clean package tree and refreshed `scripts/mutation/last-run.json`. The generated section records that run's commit, time and source digest.
+
+### September 8 website and CLI release
+
+- The dedicated Vercel project `preflight-web` serves https://preflight-web-nine.vercel.app from deployment https://preflight-4n276rz66-ssookra-7703s-projects.vercel.app. HTML and referenced assets for `/`, `/app/` and `/phone/` were byte-compared with the local build. Live desktop and mobile checks passed with no reported console, request or overflow failures; axe reported zero violations on all eight page/width checks.
+- Published CLI 0.2.1 reports its version correctly, replays all 48 labels, and verified 88 ledger entries from genesis at the check time. Registry tarball shasum matches the locally tested package. These release checks do not replace the separate live call proof.
+- Fresh graph identities first held both unobserved flows. Two explicit operator releases between the account's own numbers observed the fixed and broken continuations, without changing global strict policy. This preparation is separate from the strict-path proof below.
+- Strict-path proof, 19:13 to 19:14 UTC: the broken flow returned HTTP 409/P3 block in 130 ms, `placed: false`, no platform UUID (ledger entry 94). Signed-event count stayed 165 for 60 seconds. The fixed flow returned HTTP 201/pass in 320 ms for call `7f3c48a0-94db-4399-ad74-5fa673a4d827` (entry 95); its answer and continuation decisions both passed (entries 97 and 99). Signed-event count increased from 165 to 177. The reference mode was restored to broken and read back, policy remained strict, and the graph had no open branches. The 99-entry chain verified to `sha256:dc1b1a339f0bc20fe102629ebd8cda378abdbd0755f102a2e7ef50a10b56b9cc`. This is API and signed-webhook evidence, not a new listening test on a physical handset.
+- The public itinerary passed every step after these calls settled: live routes, published CLI object check and 48-label replay, and independent verification of the 99-entry ledger. A preliminary run overlapped the preparation call and compared different valid heads (90 and 92 entries); that failed comparison was not counted as a pass.
 
 ## SPEC CORRECTIONS (defects found in PREFLIGHT_Product_Specification v1.0 during the build, with the check that found each)
 

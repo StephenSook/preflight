@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 // The release on npm and what the README says its replay of the committed corpus prints: every
 // label matches. A publish that lags the engine fails this walk instead of a judge.
-const PUBLISHED_CLI = "0.2.0";
+const PUBLISHED_CLI = "0.2.1";
 const REPLAY_EXPECTED = /48 objects, 48 match their labels/;
 const CORPUS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../corpus/ncco");
 

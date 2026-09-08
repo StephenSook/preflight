@@ -330,18 +330,18 @@ branch; they stay in the public log, as anything sealed there does.
 rekor-cli get --log-index 2707993586 --format json
 ```
 
-Release 0.2.0 is published. Node and npm are required; its ledger and object checks run from an
-empty directory. This release predates the September 8 malformed-input and ledger-page fixes:
+Release 0.2.1 is published with the September 8 malformed-input, graph-version and ledger-page fixes.
+Node and npm are required; its ledger and object checks run from an empty directory:
 
 ```bash
-npx -y preflight-interlock@0.2.0 verify-ledger https://preflight-api-rc34.onrender.com
-npx -y preflight-interlock@0.2.0 check my-flow.json        # exit 0 pass, 2 block, 3 hold
+npx -y preflight-interlock@0.2.1 verify-ledger https://preflight-api-rc34.onrender.com
+npx -y preflight-interlock@0.2.1 check my-flow.json        # exit 0 pass, 2 block, 3 hold
+npx -y preflight-interlock@0.2.1 replay corpus/ncco       # from the clone: 48 labels match, exit 0
 ```
 
-For the corrected engine and current corpus, use `pnpm replay corpus/ncco` from this checkout.
-The September 8 corpus rejects synchronous connect callbacks, so the older npm release no longer
-matches every current label. A replacement release and its clean-directory verification are pending;
-the daily itinerary intentionally fails the published-corpus parity check until that is resolved.
+The published artifact reproduces all 48 current corpus labels, verified with an empty npm cache.
+The daily itinerary checks this parity and the live ledger. `pnpm replay corpus/ncco` runs the same
+corpus against the source checkout. Older releases do not match every current label.
 
 ## Data sources and licenses
 
