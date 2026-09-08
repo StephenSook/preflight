@@ -2,15 +2,15 @@
 
 **The call that doesn't happen.**
 
-Preflight is a pre-dial compliance interlock for the Vonage Voice API. It sits inside your own Vonage
-account, in the call-control path, reads the call flow your server is about to serve, runs monitors
-compiled from the federal and Georgia telemarketing rules over it, and stops the call before the
-carrier is ever asked to place it if that flow would break the law. No model decides. A three-valued
-monitor built from the statute does, and it holds rather than guesses.
+Preflight checks the call flow your server is about to serve through the Vonage Voice API. Its
+create-call gateway refuses requests that fail an encoded structural check, before forwarding
+them to the carrier. The checks cite selected federal and Georgia telemarketing provisions; they
+do not determine whether a call is lawful. No language model decides. Three-valued monitors report
+true, false or inconclusive, and strict policy holds an inconclusive request.
 
 [![CI](https://github.com/StephenSook/preflight/actions/workflows/ci.yml/badge.svg)](https://github.com/StephenSook/preflight/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-307%20passing-3fb950.svg)](./packages)
+[![Tests](https://img.shields.io/badge/tests-468%20passing-3fb950.svg)](./packages)
 [![Node 22](https://img.shields.io/badge/node-22-339933.svg?logo=nodedotjs&logoColor=white)](./.nvmrc)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](./tsconfig.base.json)
 [![Vonage Voice API](https://img.shields.io/badge/Vonage-Voice_API-8b5cf6.svg)](https://developer.vonage.com/en/voice/voice-api/overview)
@@ -20,36 +20,36 @@ engine in your browser; every number on the page is read from the host on load),
 [/app/](https://preflight-web-nine.vercel.app/app/), the API at
 [preflight-api-rc34.onrender.com](https://preflight-api-rc34.onrender.com/api/summary), the CLI on
 [npm](https://www.npmjs.com/package/preflight-interlock), and a
-[three-minute itinerary](./docs/judges.md) a stranger can walk with a terminal and nothing installed.
+[verification itinerary](./docs/judges.md), with browser-only checks and terminal prerequisites listed.
 
 Built for the DIALED IN Builder Challenge (CreateHER Fest x Vonage, Atlanta cohort). This README
-describes what runs today; anything not yet built is listed under [Honest status](#honest-status),
-never implied.
+describes this source revision; deployments and the published CLI may lag it. Dated live evidence
+and remaining limits are listed under [Honest status](#honest-status).
 
-> **The sentence a judge should be able to repeat.** It read the call flow the server was about to
-> serve, decided it would break federal law, and stopped the call before the network ever saw it.
+> Inspect the failing path, correct the flow, and retry. A request refused by the gateway is not
+> sent to the carrier.
 
 ## The problem
 
-A developer ships a call flow with a branch nobody traced. That branch reaches a synthesized voice on
-a wireless number without consent, and liability accrues at 500 USD per call rather than per campaign
-(47 U.S.C. 227(b)(3), trebled at the court's discretion). Every incumbent compliance product answers
-one question: may I dial this number? They scrub lists. None of them looks at the call flow itself,
-and the platform that executes the flow ships documentation instead of a checker, because being wrong
-is expensive for a platform in a way it is not for a tool the caller runs themselves. Preflight is
-that tool.
+An untraced call-flow branch can omit an identification or opt-out step. Checking a destination
+number alone does not inspect those branches. Preflight gives the developer a graph of observed
+actions and a failing path to inspect. Its reference application contains a deliberate timeout
+defect so the checker and the corrected flow can be tested side by side. Consent, exemptions and
+legal applicability still require separate assessment.
 
 ## What it does
 
 Three fields change in your Vonage application: `answer_url`, `event_url` and `fallback_answer_url`
 point at Preflight instead of at your server, and Preflight is told where your real server lives.
-Nothing else changes. Then, on every call:
+Outbound creation requests must also go through `POST /v/calls` for pre-dial enforcement. Changing
+the webhooks alone cannot prevent dialing. On the answer and branch paths:
 
 1. Vonage calls Preflight with a signed JWT. Preflight verifies the signature (HS256 against the
-   per-application secret, selected by the `api_key` claim, with the payload hash checked) and rejects
+   account signature secret, selected by the `api_key` claim, with the payload hash checked) and rejects
    anything unsigned with 403 before touching any state.
-2. Preflight forwards the request unchanged to your real answer URL and times that round trip
-   separately from its own work, so a slow origin is never blamed on the interlock.
+2. Preflight forwards the request to your real answer URL, removing its private placement
+   correlation parameter when present. The origin latency measures time to response headers,
+   not the complete body download; the gateway's verification metric can include body-read time.
    Outbound calls go through the create-call gateway instead, because the platform fires the
    answer webhook only once a call is answered.
 3. Your server responds with its NCCO. Preflight parses it into typed actions and reads the atom
@@ -68,10 +68,11 @@ Nothing else changes. Then, on every call:
 
 ## Preflight in one loop
 
-> A call list and a running application go in. Every call whose flow would reach a prohibited state is
-> blocked before dial, the rest are placed, and a signed log comes out naming what was blocked and
-> under which rule. The developer opens a blocked row, reads the exact action path that would have
-> reached the prohibited state, fixes the flow, and the same number rings.
+> A create-call request and a running application go in. The gateway blocks a request when the
+> checked flow violates an armed property, holds uncertain requests under strict policy, and
+> forwards passing requests to Vonage. The evidence log records the decision and placement result.
+> The developer reads the failing action path, fixes the flow, and tries again. Calls that bypass
+> the gateway cannot be stopped before dial; answer and branch hooks check them after placement.
 
 ## The property set
 
@@ -121,7 +122,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Softphone tokens | `POST /api/softphone/token` mints a Client SDK user token from the application's private key: a judge token (public, capped per day by a durable slot taken under a database lock before the platform is asked and released if it refuses, a fresh `judge-` user created through the Users API) so a person with no phone at hand places the demonstration call from the page, or the scheduler's token (dashboard token) so the fixed flow's live leg is answered in the browser. Each is the application token plus a subject and the ACL Vonage's own backend guide gives a voice user, with a short life. The application carries the RTC capability (`scripts/vonage/enable-rtc.mjs`); RTC events land on `/v/rtc` and are not stored. The page that runs the softphone is `/phone/` on the web app | `apps/api/src/softphone/routes.ts`, `scripts/vonage/enable-rtc.mjs` |
 | Web app | One Vite app, three entries, deployed to the dedicated Vercel project `preflight-web`: the public site (the hero draws the reference flow from the engine in the browser and lights the branch that breaks 47 CFR 64.1200(b)(3); live counters, the ledger head, the last reconciliation and seal and the rate properties are read from the host on every load; the sandbox runs the same engine on a pasted object; the consent gate in three steps), the cockpit (`/app/`: live monitor, block detail, flow graph, held queue, evidence log, setup; the token stays in the tab's session), and the phone page (`/phone/`: push subscription with a service worker, the browser softphone). Motion follows the design checkpoint: a data-attribute library with a reduced-motion branch in every module | `apps/web/` |
 | Branch hook | On pass, input and notify callbacks are rewritten to route through Preflight, so the replacement object (or its absence) is observed, evaluated as a continuation, and can be stopped mid-call with the safe object | `apps/api/src/hooks/branch.ts` |
-| Create-call gateway | `POST /v/calls` takes a create-call request with the caller's own Vonage token, verified against the application's public key before anything is fetched; obtains the flow (inline, or a marked dry-run pre-fetch of the answer URL, which may only be Preflight's own answer URL or the configured origin host), verifies it, and only on pass forwards to the platform; block and hold return 409 and nothing reaches the carrier | `apps/api/src/gateway/calls.ts` |
+| Create-call gateway | `POST /v/calls` requires an application JWT, not a Client SDK user token, verified before fetching. It checks inline NCCO or pre-fetches the configured origin; a supplied `answer_url` must name exactly this host's `/v/answer` so the live answer cannot bypass enforcement. Passing requests are forwarded to the platform; block and hold return 409 without placement. A released hold reserves at most one platform request, including when that request's result is ambiguous | `apps/api/src/gateway/calls.ts` |
 | Reference application | The deliberately small notification flow behind the public number: a broken mode whose menu timeout branch speaks with no opt-out, and a fixed mode with the keypress routed to the declared opt-out handler; mounted under `/reference` on the same host and switchable at runtime with a token, so the film's fix is one request | `apps/reference/src/index.ts` |
 | Held queue | A call the interlock could not decide under strict policy waits for a person; deciding it needs the dashboard token and a name, writes an override entry to the ledger, and a re-submission carrying the hold id places the call only for that destination | `apps/api/src/store/holdStore.ts`, `apps/api/src/gateway/calls.ts` |
 | Consent gate | `POST /api/consent/start` calls the visitor's phone with a four-digit code over Verify v2's voice channel; `/api/consent/check` grants a single-use, fifteen-minute consent, written to the ledger with a keyed hash of the number (HMAC under the application's private key, so the public log cannot be walked back to a number) and never its digits; `/api/demo/call` places one call to that number through the create-call gateway with a token the process mints from its own application key, so the interlock decides it like any other call. A block does not spend the consent; a placed call does, once. Daily allowances bound what a public page can spend | `apps/api/src/consent/` |
@@ -131,7 +132,7 @@ Every row names the file where the behavior lives. Nothing in this table is a sc
 | Statute text and citations | 47 CFR 64.1200 at the 2026-09-02 eCFR vintage, O.C.G.A. 46-5-27 as amended by SB 73, and PSC rule 515-14-1-.03, committed with hashes; every quoted clause is a byte-for-byte substring of its source and is either used by a property or excused with a written reason, both directions tested | `packages/rules/` |
 | Evidence log | Canonical JSON, sha256 hash chain from genesis, a Postgres table that refuses UPDATE and DELETE twice over (revoked grants plus a trigger), advisory-locked appends, public `head`, `entries` and `verify` endpoints | `packages/ledger/`, `apps/api/src/store/ledgerStore.ts`, `apps/api/src/db/migrations/0003_ledger.sql` |
 | Transparency-log seal | Daily workflow signs the chain head with a P-256 key, uploads a `hashedrekord` to Sigstore Rekor, verifies it back from the public log, and records the seal in the ledger | `.github/workflows/seal.yml`, `packages/ledger/keys/preflight-ledger-public.pem` |
-| Carrier-side reconciliation | Nightly, the platform's own call records for the last 26 hours (Reports API) are posted to the interlock, which matches every record to a decided call by uuid, reports the rest as placed around the interlock, and names as a leak any record that lines up with a request the gateway refused (same two lines, within two minutes). The report is an evidence-log entry, the summary carries the last one, and a mismatch fails the job so GitHub's failure email is the alarm | `apps/api/src/reconcile.ts`, `scripts/vonage/reconcile.mjs`, `.github/workflows/reconcile.yml` |
+| Carrier-side reconciliation | Nightly, Reports API records for the last 26 hours are matched by UUID. Outbound records require a recorded gateway placement with platform status 201; an answer-time observation alone cannot hide a bypass. Inbound records match observed inbound calls. Unmatched calls, possible leaks near a gateway refusal and known placements missing from the pull are reported. Historical rows with unknown provenance are not assumed to be gateway placements. A mismatch fails the job; the report and last result remain in the evidence log and summary | `apps/api/src/reconcile.ts`, `scripts/vonage/reconcile.mjs`, `.github/workflows/reconcile.yml` |
 | Event store | Every signed event webhook body persisted with its received-at timestamp, the raw material for the rate properties | `apps/api/src/store/pgEventStore.ts` |
 
 ## Architecture
@@ -220,22 +221,52 @@ docs/                fact-sheet.md (the only source for any number), api.md, jud
 ## Quickstart
 
 Prerequisites: Node 22 and pnpm 10. A Postgres database is optional; without `DATABASE_URL` the
-service runs on in-memory stores and says so on `/health`.
+service runs on in-memory stores and says so on `/health`. Memory data is lost on restart.
 
 ```bash
 git clone https://github.com/StephenSook/preflight.git
 cd preflight
 pnpm install --frozen-lockfile
-cp .env.example .env            # fill in the Vonage values from your dashboard
-pnpm dev:api                    # http://localhost:3131/health
-pnpm dev:web                    # http://localhost:5173, proxying /api to the deployed host
 ```
 
-Point a Vonage application's answer, event and fallback URLs at `/v/answer`, `/v/event` and
-`/v/fallback` on a public host, set `ORIGIN_ANSWER_URL` to your real server, and place a call.
+For a credential-free local inspection, create a new `.env` at the repository root with only:
+
+```dotenv
+VONAGE_API_KEY=local-placeholder
+VONAGE_SIGNATURE_SECRET=local-placeholder
+ORIGIN_ANSWER_URL=http://127.0.0.1:3131/reference/answer
+SELF_PING=off
+```
+
+These are dummy values for local inspection, not Vonage credentials. Do not set `DATABASE_URL`
+or copy the template's placeholder database URL for this mode. No application key is present,
+so the create-call gateway refuses callers and demonstration calls are disabled. The reference
+route is not enabled; this setup tests the public reads and browser sandbox, not telephony.
 
 ```bash
-pnpm test                       # every suite, 307 tests
+pnpm dev:api                    # terminal 1; reads the root .env and resolves key paths from the root
+VITE_API_URL=http://127.0.0.1:3131 pnpm dev:web  # terminal 2, from the repository root
+curl http://localhost:3131/health              # must report store: memory
+curl http://localhost:3131/api/summary         # initially empty counts
+```
+
+Open http://localhost:5173 for the browser sandbox. The cockpit requires a dashboard token.
+Without `VITE_API_URL`, the web development server proxies API requests to the deployed host,
+not your local API. Environment variables already exported in the shell override `.env` values.
+
+For real Vonage use, start from `.env.example` instead and fill in the account values, application
+key paths and real `ORIGIN_ANSWER_URL`. Remove `DATABASE_URL` unless using Postgres. Point the
+application's answer, event and fallback URLs at `/v/answer`, `/v/event` and `/v/fallback` on your
+public host. The local placeholder setup above does not establish a working platform integration.
+
+For Postgres integration tests, use a **dedicated disposable test database** owned by a login role
+created with **NOSUPERUSER**. Set `DATABASE_URL` to that role's connection URL. Never use production
+or a shared development database: the tests mutate data, and a superuser bypasses the ledger's
+permission restrictions, invalidating its rejection tests. Without a database, integration tests
+are not run (they skip locally and fail under CI); a local unit-only run is not a full-suite pass.
+
+```bash
+pnpm test                       # every suite, 468 tests; requires the disposable database described above
 pnpm verify:engine              # the engine suites alone, verbose
 pnpm replay corpus/ncco         # every labelled object reproduces its label, offline
 pnpm ledger:verify https://preflight-api-rc34.onrender.com   # recompute the live chain from genesis
@@ -246,7 +277,8 @@ pnpm --filter @preflight/numfacts fetch   # refresh the number-facts tables from
 
 CI runs on every push to `main`: lint, typecheck, the web app's build, the full vitest suite, an
 AI-tone gate over every prose surface, the fact-sheet check (the README's counts and the recorded
-mutation run must match the tree), gitleaks over the full history, and Socket's dependency report.
+mutation run must match the tree), offline call-proof guards, Chromium and WebKit UI regressions
+against isolated test fixtures, and gitleaks over the full history.
 The Postgres integration suites (event store, decision store, ledger, softphone slots) run against
 a real database in CI and are written to fail, never skip, when `DATABASE_URL` is missing. Beyond
 CI, scheduled jobs exercise the deployed system rather than assert it: the seal daily, the carrier
@@ -298,17 +330,18 @@ branch; they stay in the public log, as anything sealed there does.
 rekor-cli get --log-index 2707993586 --format json
 ```
 
-The CLI is published, so the same checks run from any empty directory with nothing installed:
+Release 0.2.0 is published. Node and npm are required; its ledger and object checks run from an
+empty directory. This release predates the September 8 malformed-input and ledger-page fixes:
 
 ```bash
 npx -y preflight-interlock@0.2.0 verify-ledger https://preflight-api-rc34.onrender.com
 npx -y preflight-interlock@0.2.0 check my-flow.json        # exit 0 pass, 2 block, 3 hold
-npx -y preflight-interlock@0.2.0 replay corpus/ncco        # every one of the 48 labels reproduces, exit 0
 ```
 
-Release 0.2.0 carries the current engine (the earlier 0.1.0 predates spec corrections 5 to 7 and
-fails five labels by those corrections' own design); the daily itinerary job replays the committed
-corpus with the published release from a clean directory and fails if a label stops matching.
+For the corrected engine and current corpus, use `pnpm replay corpus/ncco` from this checkout.
+The September 8 corpus rejects synchronous connect callbacks, so the older npm release no longer
+matches every current label. A replacement release and its clean-directory verification are pending;
+the daily itinerary intentionally fails the published-corpus parity check until that is resolved.
 
 ## Data sources and licenses
 
@@ -342,9 +375,11 @@ What is live, what stands on little data, and what is built but not yet proven, 
 - The web app is deployed at https://preflight-web-nine.vercel.app: the public site (the sandbox
   runs the engine in the browser; every number on the page is read from the host on load), the
   cockpit's six screens over server-sent events, and the phone page. Both of its lines are proven
-  end to end in a real browser by `apps/web/tests/phone-proof.mjs`: a held-queue push delivered and
+  end to end in a real browser by `apps/web/tests/phone-proof.mjs`: a test push delivered and
   shown as a notification, and a Client SDK call placed to the reference flow and decided by the
-  interlock (docs/fact-sheet.md). Neither has yet been run from a handset.
+  interlock (docs/fact-sheet.md). On September 8, a physical iPhone also displayed the test push
+  and placed an audible softphone call matching a P3 block in the ledger. Exact spoken wording
+  and delivery of a newly generated hold notification on that handset were not verified.
 - The rate properties P6 to P8 stand on the calls this host has seen; until the scripted batch of
   human-answered calls runs, the figures rest on a handful of calls and the basis line says how many.
 

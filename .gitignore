@@ -37,6 +37,7 @@ out/
 
 # --- private working docs (strategy-laden; not for the public repo) ---
 CLAUDE.md
+/AGENTS.md
 .claude/
 
 # raw number-facts downloads; the derived tables beside them are committed

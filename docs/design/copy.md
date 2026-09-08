@@ -1,181 +1,94 @@
-# Public site copy, first draft for the Sat 2026-09-05 20:00 checkpoint
+# Public copy, claim-accuracy revision
 
-Every number here comes from `docs/fact-sheet.md`. Where a figure is live it is marked LIVE and the
-site reads it from `/api/summary` on every load; the copy never hard-codes it. Where a figure would
-help but has no fact-sheet row yet, the line is marked NOT YET SOURCED and stays out of the build
-until the row exists. Plain declaratives, no exclamation marks, no adjectives doing the work.
+This file replaces the earlier September 5 copy draft. Historical design-checkpoint text is superseded for claims by this file, the current README and `../film/script.md`; its visual design decisions are unchanged. Do not copy obsolete approval dates, liability claims or placement labels from the checkpoint.
 
-Voice: a pilot's checklist read aloud. Short sentences. The tower says "cleared", "hold short" or
-"no-go", and so does the product.
+Only source-backed behavior is described. Deployment must be checked separately. Dated physical-device and gateway evidence comes from `../fact-sheet.md`. Browser fixtures are never product telemetry.
 
-## Preloader
+## Hero
 
-- Mark: the runway centreline draws across the screen, the handset mark pops in, then out.
-- No words. Reduced motion: no preloader.
+**Headline:** Inspect a failing call flow before the carrier is asked to dial.
 
-## 1. Hero (paper)
+**Subheadline:** Route outbound creation requests through Preflight to check the flow your server is about to serve. A block or hold stops forwarding to the carrier; the verdict and action path explain why. The checks cite selected federal and Georgia provisions. They do not decide whether a call is lawful.
 
-**Headline, option A (recommended):**
-Watch a call that would break federal law stop before the network ever hears it.
+**Note:** No language model decides. Encoded structural monitors report true, false or inconclusive.
 
-**Headline, option B:**
-The call that doesn't happen.
+Keep the existing layout, motion, section links and evidence-log link. No promise that a personal phone rings after a fix.
 
-**Headline, option C:**
-Your server is about to serve a call flow. Preflight reads it first.
+## Problem
 
-**Subheadline:**
-Preflight sits inside your Vonage account, in the call-control path. It reads the flow your own
-server is about to serve, runs monitors compiled from the federal and Georgia telemarketing rules
-over it, and refuses the call before the carrier is asked to place it. Then the fix is made and the
-same phone rings.
+**Title:** A deliberate timeout defect.
 
-**Handwritten note beside the hero:** no model decides.
+The reference application intentionally includes a timeout path that ends without reaching the declared opt-out handler. It is a demonstration flow, not a customer clinic or an undiscovered workshop incident. The graph compares observed callbacks with the declaration.
 
-**Primary call to action:** Dial it yourself (scrolls to section 5)
-**Secondary:** Read the evidence log (scrolls to section 7)
+**Branch label:** This path fails the P3 structural check.
 
-Why A: a sensory verb first, the restraint claim second, one sentence a judge can repeat. B is the
-README's own line and works as a section title later. C names the mechanism but loses the phone.
+**Limit:** Its citation is not a complete legal determination. Matching a phrase does not prove its truth; reaching a handler does not prove suppression was saved. No liability amounts or blanket claims about customer sectors.
 
-## 2. The problem, on a real object (sky)
+## Public counts
 
-**Section title:** One branch nobody traced.
+**Title:** Recomputed on every load.
 
-A call flow is a JSON object your server returns when the platform asks what to do. This one plays
-a greeting and connects you to a scheduler. On one branch, the one that runs when nobody presses a
-key, it speaks with a synthesized voice and offers no way to opt out. Nobody traced it, because no
-single document contains it: the platform asks your server for a new object every time a caller
-presses a key or stays silent.
+Labels: block decisions, hold decisions, pass decisions. These are not unique calls, confirmed placements or phones kept silent. One call can produce multiple decisions. Unavailable counts remain unavailable rather than zero.
 
-**Handwritten note on the red branch:** this line breaks 47 CFR 64.1200(b)(3)
+**Sticker:** decision counts.
 
-**Under the object:**
-Liability accrues per call, not per campaign: 500 USD for each violation under 47 U.S.C. 227(b)(3),
-up to three times that at the court's discretion for a willful or knowing violation. Georgia
-removed the knowledge requirement from its own statute on July 1, 2024 and extended liability to
-whoever the call is made on behalf of: up to 2,000 USD for each violation in Attorney General
-proceedings, up to 1,000 USD for each violation in a private action, no cap in a class action.
+A seal is a dated commitment to a head, not evidence that every scheduled run succeeded.
 
-## 3. The block, live (paper, safety-orange sticker)
+## How it works
 
-**Section title:** Recomputed on every load.
+1. **Read the flow.** The gateway reads inline objects or pre-fetches the configured origin. Signed answer and branch callbacks check flows after placement.
+2. **Run structural monitors.** Evaluate encoded properties using the available call facts and declaration. Do not call this compiling the law or determining legality.
+3. **Decide before the dial.** Gateway blocks and holds prevent forwarding. A pass permits a platform request; only its receipt establishes acceptance. Release approval is separate from resubmission.
+4. **Write the receipt.** Record decisions and placement results. Inspect each seal and reconciliation report's actual timestamp, window and outcome.
 
-Three counters, read from `/api/summary`: blocked before dial, held for a person, placed. Beneath
-them the evidence-log head hash and the verify command. LIVE.
+## Phone section
 
-**Caption:** These are the interlock's own counts on the deployed host, not a screenshot. Reload
-and they recompute. The chain head below is sealed to a public transparency log once a day.
+The reference number runs the deliberate demonstration flow. The builder confirmed speech through the iPhone Client SDK softphone, and the matching ledger record showed answer-time intervention on an already placed call. Exact audio wording was not verified.
 
-**Sticker:** the phone stayed silent
+A separate iPhone screenshot confirms the test notification, not a new held-call alert or closed-app delivery. The controlled account-owned-number gateway proof is distinct from the iPhone check. Never claim that this evidence shows the personal phone rang or stayed silent.
 
-## 4. How it works (pale sky, four fanned cards)
+The optional Verify form is implemented but not verified on the builder's personal number. It requests consent to a demonstration call, not a campaign. Private consent storage retains the number; the public consent entry uses a keyed hash. Do not use "never stored as digits."
 
-**Section title:** Four things, in order, every call.
+Identity Insights is an optional implemented lookup, not a claimed production result. Any live demonstration needs its own verified evidence.
 
-1. **Read the flow.** The platform calls Preflight instead of your server. Preflight verifies the
-   platform's signature, forwards the request to your real server unchanged, and reads the object
-   that comes back.
-2. **Compile the statute.** Five properties, each a formula over what the object does: calling
-   hours, identification first, an opt-out that can be reached, a caller id that is set, Georgia's
-   identification-first rule. Each carries its citation, and each quoted clause is a byte-for-byte
-   substring of the fetched text, enforced by a test.
-3. **Decide before the dial.** Every monitor is true, the object passes through byte for byte. Any
-   monitor is false, the call is refused and a safe object names the rule. A monitor that cannot
-   decide holds the call for a person, because it does not guess.
-4. **Write the receipt.** Every decision is an entry in a hash-chained log. The head is sealed to
-   Sigstore Rekor daily, and the platform's own call records are reconciled against the log every
-   night: nothing the interlock refused has reached the carrier.
+## Sandbox
 
-**Card note (handwritten, card 3):** outbound calls go through the gateway, because the platform
-only asks for the flow once a call is answered. Measured: answered at 868 ms, the flow asked for at
-1,009 ms.
+**Title:** Paste an object. No account.
 
-## 5. Dial it yourself (cobalt, white text)
+The engine runs locally in the browser. Show monitor verdicts, citations and a failing witness path where available. No latency guarantee. A pasted object does not reveal every branch a server might later serve. Calling-hour assumptions must remain visible.
 
-**Section title:** +1 943 244 5023
+## Evidence
 
-**Body:** That number runs the small notification flow from section 2, on purpose, with the defect
-in it. Call it and you hear the interlock intervene.
+**Title:** Inspect the recorded chain.
 
-**The consent gate, one sentence:** To have Preflight call you instead, enter your number; the
-platform calls it first and speaks a four-digit code, and only that code lets one demonstration
-call through. Your number is kept as a hash, never as digits.
+Hash and link recomputation checks internal consistency. Compare against an independently verified external seal to detect changes to sealed history. Neither proves complete event capture or prevents storage changes by its owner.
 
-**Buttons:** Call me with the code · I have the code
+Published CLI 0.2.0 predates current source fixes; the README records that limitation. Do not claim a replacement release is published before the parent verifies it. The displayed Rekor command is a command to run, not evidence that the browser independently verified the seal.
 
-**Below:** No phone at hand? The browser softphone places the same call from this page. (Built on
-`/phone/`; the call itself has not yet been placed from a browser, and the README says so.)
+Reconciliation lines must reflect the returned window and counts. Do not prefill zero leaks or describe a schedule as a passed audit.
 
-## 6. Sandbox (paper, mono)
+## Honest limits
 
-**Section title:** Paste an object. No account.
+- Structural checks do not verify consent, exemptions, business relationships or spoken truth.
+- Coverage is observed endpoints relative to the declaration, not proof of a complete flow.
+- A number prefix is a location proxy; mobile numbers travel.
+- The reference opt-out handler does not persist suppression records.
+- Demonstration consent is not campaign consent.
+- This is a structural checking tool, not legal advice.
 
-**Body:** The same engine that decides on the host runs here in your browser. Paste a call-control
-object and every property answers in under a second, with its citation and, on a false, the exact
-sequence of actions that reached the prohibited state.
+## Cockpit language
 
-**Small print:** A single object, not your whole flow. Discovery of the branches your server
-serves at runtime happens on the host, from traffic.
+Decision tokens: BLOCKED, HELD, PASSED. PASSED does not mean placed.
 
-## 7. The evidence (cockpit dark)
+- Live monitor: destination, rule/path, state, time. Preserve the reason, including an override with inconclusive monitors.
+- Decision detail: show the exact selected record. Unknown calling hours remain unknown; an unavailable record does not become a different decision.
+- Flow graph: distinguish observed/declared, observed/undeclared and declared/unobserved.
+- Held queue: show the returned open subset separately from recent history. "Approve release" and "Cancel" are the actions. Approval requires resubmission and does not place a call.
+- Evidence log: entry identity, decision, citation and hash, with verification limits.
+- Setup: webhook URLs, origin, current policy and declaration; install/rollback require credentials. Do not advertise a policy toggle or automatic outbound gateway routing.
 
-**Section title:** You cannot rewrite this, and neither can we.
+## Submission and recording
 
-**Body:** Every decision is an entry. Each entry hashes its own canonical form together with the
-previous entry's hash. The head is signed and uploaded to a public transparency log once a day.
-Anyone with the URL recomputes the chain from genesis:
+Use `../submission/devpost.md` for the local draft awaiting organizer eligibility and deadline confirmation. Use `../film/script.md` for conditional recording beats and deployed-SHA checks. No definite old submission deadline, fabricated workshop-code fallback or future-code-as-shipped claim.
 
-```
-npx preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com
-```
-
-**Reconciliation line, LIVE:** last carrier reconciliation: N records from the platform's own
-report, N matched, 0 leaked past a refusal.
-
-**Rekor line:** `rekor-cli verify --uuid <last seal>` printed with the last seal's uuid, LIVE.
-
-## 8. Honest limits (paper, accordion)
-
-The same text as the README's honesty section, verbatim, so the two cannot drift:
-
-- Preflight verifies the structure of your call flow against a published set of rules. It does not
-  verify consent, business relationships, or the content of what is spoken.
-- Coverage is reported as endpoints observed over endpoints declared. A branch never exercised has
-  never been checked, and the header says so.
-- A rate center is a proxy for where the called party is. Mobile numbers travel.
-- The consent gate records that a person consented to this demonstration call. It is not
-  campaign-level consent record-keeping.
-- Compliance tool, not legal advice.
-
-## 9. Footer (parallax)
-
-The public number, large. The repository. The evidence-log head. The handset visual swings in.
-
-**Line:** Built for the DIALED IN Builder Challenge, Atlanta cohort. Apache-2.0.
-
-## Dashboard copy (six screens, cockpit)
-
-Header, always visible: PREFLIGHT · LIVE · coverage N of M endpoints · N states · verify p50 N ms.
-Rows carry three tokens and three colours only: BLOCKED, HELD, PLACED.
-
-- Live Monitor: destination · rule / path · state.
-- Block Detail: "P3 · no opt-out reachable from a synthetic-speech state", the citation sentence,
-  WITNESS PATH, then the destination line: number · line type · via · confidence.
-- Flow Graph: green observed and declared; red observed, not declared, "NOT DECLARED"; amber
-  hollow declared, never observed, "declared, never observed, never verified".
-- Held Queue: reason, the lookup state (pending · resolved · off), two buttons: Place anyway,
-  Cancel. "Every override is a ledger entry."
-- Evidence Log: seq · time · kind · property · citation · hash, the verify command on the page.
-- Setup: three URLs to copy, the origin, the policy toggle, the declaration, Install and Roll back.
-
-## Devpost tagline (draft, sensory verb first, restraint second)
-
-Watch a call that would break federal law stop before the network ever hears it, then ring the
-moment the flow is fixed. No model decides; a monitor compiled from the statute does.
-
-## NOT YET SOURCED (kept out of the build until a fact-sheet row exists)
-
-- The size of the beneficiary population (registered numbers on the national registry; the FTC data
-  book figure) needs its primary-source row before it is printed anywhere.
-- The Capital One settlement figure, same rule.
+The preloader, colour choices, layout, motion and footer design are unchanged.

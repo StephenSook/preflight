@@ -1,10 +1,11 @@
 # Preflight HTTP reference
 
-Every route the deployed host serves, with who may call it and what it answers. Bodies are JSON;
+The routes in this source version, with who may call them and what they answer. Bodies are JSON;
 every error is `{ "error": "..." }` with a status that says why. Numbers a judge would quote come
 from `docs/fact-sheet.md`, not from here.
 
 Base URL of the reference deployment: `https://preflight-api-rc34.onrender.com`.
+The deployment can lag the source; local verification does not prove a change is live.
 
 ## Who may call what
 
@@ -32,6 +33,14 @@ parsed, discovered into the graph, evaluated. Answers the origin's bytes on pass
 notify callbacks rewritten to `/v/hook`), a safe object naming the rule on block, a hold object on
 hold. Headers: `x-preflight-decision` (`pass|block|hold`), `x-preflight-origin-ms`,
 `x-preflight-verify-ms`. 403 on a missing or forged signature, before any state is touched.
+A verified answer must name a new call UUID. The host claims it before forwarding; a duplicate
+answer receives 403 and cannot re-arm an already consumed branch. A failed origin request keeps
+the claim consumed rather than forwarding a retry twice.
+For an operator-released outbound request, the gateway adds a one-time placement capability to
+the answer URL. After signature and syntax validation, the answer UUID is claimed before that
+capability can bind the release. Replaying an already answered UUID cannot attach a fresh approval.
+An expired, unknown or destination-mismatched capability refuses the call and leaves its answer
+UUID consumed; retrying that UUID cannot turn the refusal into a pass.
 
 ### `GET|POST /v/event`
 The platform's event webhook. Verified and stored with its received time; 204. The rate
@@ -41,21 +50,45 @@ properties read these.
 The platform's fallback answer webhook. Verified; answers the safe object.
 
 ### `GET|POST /v/hook?n=<node>&m=<method>`
-Where a rewritten input or notify callback lands. Verified, forwarded to the origin's real callback
-recorded on the graph node (never from the query), the replacement object observed as a
-continuation and decided; the safe object stops the call mid-flow on a block.
+Where a rewritten input or notify callback lands. The signature and node stamp are verified,
+then the call's pending branch is claimed before forwarding to the origin's callback recorded on
+the graph node (never from the query). An explicit UUID must name that call; a UUID-null timeout
+must resolve to exactly one known leg in the conversation. Unknown, ambiguous, repeated or
+out-of-order callbacks receive 403 without forwarding. The replacement object is observed as a
+continuation and decided; the safe object stops the call mid-flow on a block. An origin failure
+consumes the claim rather than risking a duplicate forward on retry. A fingerprint of the signed
+payload and HTTP method also prevents replaying an earlier event when a menu becomes pending
+again. An identical payload is refused even if sent with a newly issued signature.
+
+Graph identities bind to the entire observed object. Stored observations using the earlier
+identity format are excluded from evaluation; in-flight paths using those identities fail closed.
+After upgrading, strict policy may hold a flow until its branches are observed again through an
+operator-approved call. Synchronous connect replacements are not routed by this version and are
+treated as unsupported, never as a verified pass.
 
 ### `POST /v/calls`
 The create-call gateway (ADR-001). Body: the platform's own create-call request (`to`, `from` or
 `random_from_number`, `answer_url` or `ncco`, `event_url`, ...). The bearer must be a JWT signed by
-this application's private key. The flow is obtained (inline, or a marked dry-run pre-fetch of the
-answer URL, which may only be this host's answer URL or the configured origin host) and evaluated.
+this application's private key, without Client SDK `sub` or `acl` claims. If supplied, `answer_url`
+must contain exactly this host's `/v/answer` URL, with no query, fragment or alternate URL;
+`PUBLIC_BASE_URL` must be configured. Direct-origin URLs are refused because their live answer
+would bypass the interlock. The flow is obtained inline or by a marked dry-run pre-fetch of the
+configured origin, then evaluated.
 On pass the platform's own status and body are passed through (201 when it created the call; a 401
 or 402 from the platform comes back as such, and the evidence-log entry then carries `placed: false`
 and `platform_status`); 409 `{ "decision": "block"|"hold", "reason", "verdicts",
 "holdId"? , "placed": false }` on refusal, nothing reaching the carrier; 400 on a malformed
-request; 401 on a token this application did not sign. `X-Preflight-Override: <holdId>` places a
-held request a named person has approved, for that destination only. The entry's `ncco_hash` is
+request; 401 on a token this application did not sign or a Client SDK token. `X-Preflight-Override:
+<holdId>` places a held request a named person has approved, for that destination only. A release
+reserves one placement before contacting the platform; another attempt receives 409. Failed or
+ambiguous placement attempts keep the reservation consumed and require operator reconciliation,
+not a blind retry. The gateway's internal answer capability expires after ten minutes and only
+its digest is stored. It binds the reserved release to the signed call UUID and expected
+destination even when the answer arrives before the platform's 201 response. The capability is
+removed from origin requests, stored webhook evidence and application request logs. Callers must
+not supply it themselves. A missing answer `direction` is inferred as outbound only from this
+binding; an explicit incompatible direction or Client SDK leg is refused.
+The entry's `ncco_hash` is
 the SHA-256 of the object's bytes as the origin served them; for an inline object it is over the
 object's compact JSON re-serialisation (`JSON.stringify`), not the request's raw bytes, so a
 stranger reproduces it from the object, not from the wire.
@@ -134,7 +167,7 @@ Body `{ "action": "place"|"cancel", "by": "<name>" }`. Writes an `override` evid
 404 when no open hold has that id. A placed hold is used by re-submitting the same create-call
 request with `x-preflight-override: <hold id>`; the override is bound to the hold's destination.
 The override travels with the call: the platform's answer webhook and every branch hook for that
-call (matched by call or conversation uuid) run on it, so a verdict strict policy would hold passes
+call (matched by exact call UUID; UUID-null branch events must resolve a unique conversation leg) run on it, so a verdict strict policy would hold passes
 for that call only, a false verdict still blocks, and each branch the call reaches is observed.
 The decision record says `policy: advisory` and names the hold and the person.
 
@@ -192,8 +225,12 @@ seal workflow after Rekor verified the entry. 201 with the `seal` entry.
 Body `{ window: {start, end}, records: [{call_id, direction, from, to, date_start, status?, duration?}] }`
 from the nightly reconciliation workflow (the platform's Reports API records for the window, at
 most 5,000, the window at most 31 days). 201 `{ report, ledger }` where the report counts records
-inside the window, matched, unmatched, leaks, refusals in the window, and carries a hash over the
-canonical records; 422 when the window holds more decisions than one request may span.
+inside the window, matched, unmatched, leaks, refusals in the window, and `decided_not_in_records`.
+An outbound record matches only a gateway decision with platform status 201 and the same call UUID;
+an answer-time observation alone is not evidence of pre-dial checking. An inbound record matches
+an observed inbound call. Historical rows whose source is unknown are not backfilled as gateway
+placements. Missing carrier records for known placements are reported, and the report carries a
+hash over the canonical records. 422 when the window holds more decisions than one request may span.
 
 ## Reference application (`REFERENCE_APP=on`)
 

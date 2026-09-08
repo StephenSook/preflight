@@ -5,13 +5,18 @@ guess. A change that turns an inconclusive verdict into a pass needs a citation 
 
 ## Before you open a pull request
 
-Run exactly what CI runs, each on its own exit code:
+Run exactly what CI runs, each on its own exit code. For integration tests, follow the README's
+Quickstart database prerequisites: a disposable database owned by a NOSUPERUSER login role,
+never a production or shared database. Tests mutate data; superusers bypass permission checks.
 
 ```bash
 pnpm lint
 pnpm typecheck
 pnpm --filter @preflight/web build
 pnpm test                        # needs DATABASE_URL for the Postgres integration suites; they skip locally without it and fail in CI
+pnpm test:ops                    # offline call-proof guards
+pnpm --filter @preflight/web exec playwright install --with-deps chromium webkit
+pnpm --filter @preflight/web test:browser  # local test fixtures, never production
 bash scripts/ai-tone-gate.sh     # prose surfaces: no em-dashes, no curly quotes, no marketing words
 pnpm fact-sheet:check            # the README's counts and the recorded mutation run must match the tree
 ```

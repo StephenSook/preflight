@@ -6,12 +6,12 @@
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#FFF4D6" />
     <title>Preflight, the call that doesn't happen</title>
-    <meta name="description" content="A pre-dial compliance interlock for the Vonage Voice API. Watch a call that would break federal law stop before the network ever hears it, then ring the moment the flow is fixed." />
+    <meta name="description" content="Inspect a failing call flow before the carrier is asked to dial. Structural checks for Vonage Voice API requests, with verdicts and evidence you can inspect." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta property="og:title" content="Preflight, the call that doesn't happen" />
-    <meta property="og:description" content="Watch a call that would break federal law stop before the network ever hears it, then ring the moment the flow is fixed. No model decides." />
+    <meta property="og:description" content="Inspect a failing call flow before the carrier is asked to dial. No language model decides; encoded structural monitors report the result." />
     <meta property="og:type" content="website" />
   </head>
   <body>
@@ -55,9 +55,9 @@
         <div class="grid" style="position: relative">
           <div class="content stack-l">
             <p class="kicker" data-hero-fade>Pre-dial compliance interlock for the Vonage Voice API</p>
-            <h1 id="hero-title" class="display display-xxl" data-hero-headline>Watch a call that would break federal law stop before the network ever hears it.</h1>
-            <p class="lead" data-hero-fade>Preflight sits inside your Vonage account, in the call-control path. It reads the flow your own server is about to serve, runs monitors compiled from the federal and Georgia telemarketing rules over it, and refuses the call before the carrier is asked to place it. Then the fix is made and the same phone rings.</p>
-            <p><span class="hand" data-hero-hand aria-hidden="true">no model decides</span><span class="visually-hidden">No model decides: a monitor compiled from the statute does.</span></p>
+            <h1 id="hero-title" class="display display-xxl" data-hero-headline>Inspect a failing call flow before the carrier is asked to dial.</h1>
+            <p class="lead" data-hero-fade>Route outbound creation requests through Preflight to check the flow your server is about to serve. A block or hold stops forwarding to the carrier; the verdict and action path explain why. The checks cite selected federal and Georgia provisions. They do not decide whether a call is lawful.</p>
+            <p><span class="hand" data-hero-hand aria-hidden="true">no model decides</span><span class="visually-hidden">No language model decides: encoded structural monitors report true, false or inconclusive.</span></p>
             <div class="actions" data-hero-fade>
               <a class="button is-primary" data-button href="#dial"><span class="label">Dial it yourself</span></a>
               <a class="button" data-button href="#evidence"><span class="label">Read the evidence log</span></a>
@@ -81,14 +81,14 @@
         <div class="inner grid">
           <div class="stack-l" style="grid-column: 1 / 7">
             <p class="kicker">The problem, on a real object</p>
-            <h2 id="problem-title" class="display display-l" data-stamp>One branch nobody traced.</h2>
-            <p class="lead max-30">A call flow is a JSON object your server returns when the platform asks what to do. This one plays a greeting and connects you to a scheduler. On one branch, the one that runs when nobody presses a key, it speaks with a synthesized voice and offers no way to opt out.</p>
-            <p class="body max-30">Nobody traced it, because no single document contains it: the platform asks your server for a new object every time a caller presses a key or stays silent.</p>
-            <p class="body max-30">Liability accrues per call, not per campaign: 500 USD for each violation under 47 U.S.C. 227(b)(3), up to three times that at the court's discretion for a willful or knowing violation. Georgia removed the knowledge requirement from its own statute on July 1, 2024 and extended liability to whoever the call is made on behalf of: up to 2,000 USD for each violation in Attorney General proceedings, up to 1,000 USD for each violation in a private action, no cap in a class action.</p>
+            <h2 id="problem-title" class="display display-l" data-stamp>A deliberate timeout defect.</h2>
+            <p class="lead max-30">A call flow is a JSON object your server returns when the platform asks what to do. This reference application has a deliberate defect: its timeout branch ends without reaching the declared opt-out handler. It is a demonstration flow, not a real clinic or customer call.</p>
+            <p class="body max-30">The platform can ask your server for another object after a keypress or timeout. Preflight compares observed paths with the developer's declaration, so missing and undeclared branches can be inspected.</p>
+            <p class="body max-30">The check is narrower than its cited source. Matching a phrase does not prove identification is truthful; reaching a declared handler does not prove an opt-out was saved. Consent, exemptions and legal applicability require separate assessment.</p>
           </div>
           <div class="stack" style="grid-column: 7 / -1">
             <pre class="object" data-object tabindex="0" role="region" aria-label="The answer object and the timeout branch's reply, as the reference application serves them"></pre>
-            <p><span class="hand" data-handwritten aria-hidden="true">this line breaks 47 CFR 64.1200(b)(3)</span><span class="visually-hidden">The highlighted line breaks 47 CFR 64.1200(b)(3).</span></p>
+            <p><span class="hand" data-handwritten aria-hidden="true">this path fails the P3 structural check</span><span class="visually-hidden">The highlighted path fails the P3 structural check, which cites 47 CFR 64.1200(b)(3).</span></p>
           </div>
         </div>
       </section>
@@ -98,20 +98,20 @@
         <div class="inner stack-l">
           <p class="kicker">The block, live</p>
           <h2 id="live-title" class="display display-l" data-stamp>Recomputed on every load.</h2>
-          <p class="lead max-40">These are the interlock's own counts on the deployed host, not a screenshot. Reload and they recompute. The chain head below is sealed to a public transparency log once a day.</p>
+          <p class="lead max-40">These are decision counts from the deployed host, not counts of unique calls or confirmed placements. One call can produce several decisions. Reload and they recompute. Seals record dated commitments to a chain head, not a guarantee that every scheduled run succeeded.</p>
           <div class="counters" data-live-counters data-sticker-group>
             <div class="counter is-blocked" data-plop-in="-2">
-              <div class="n mono" data-live-blocked data-counter>0</div>
-              <div class="what">blocked before the dial</div>
-              <span class="sticker" data-sticker="-8" aria-hidden="true">the phone stayed silent</span>
+              <div class="n mono" data-live-blocked data-counter>...</div>
+              <div class="what">block decisions</div>
+              <span class="sticker" data-sticker="-8" aria-hidden="true">decision counts</span>
             </div>
             <div class="counter is-held" data-plop-in="1">
-              <div class="n mono" data-live-held data-counter>0</div>
-              <div class="what">held for a person</div>
+              <div class="n mono" data-live-held data-counter>...</div>
+              <div class="what">hold decisions</div>
             </div>
             <div class="counter is-passed" data-plop-in="-1">
-              <div class="n mono" data-live-passed data-counter>0</div>
-              <div class="what">placed</div>
+              <div class="n mono" data-live-passed data-counter>...</div>
+              <div class="what">pass decisions</div>
             </div>
           </div>
           <div class="ledger-line">
@@ -128,31 +128,31 @@
       <section id="how" class="section block section-sky-pale" aria-labelledby="how-title">
         <div class="inner stack-l">
           <p class="kicker">How it works</p>
-          <h2 id="how-title" class="display display-l" data-stamp>Four things, in order, every call.</h2>
+          <h2 id="how-title" class="display display-l" data-stamp>From flow to decision record.</h2>
           <div class="callouts" data-callout>
             <article class="callout" data-callout-card tabindex="0">
               <div class="num" aria-hidden="true">1</div>
               <h3 class="display">Read the flow.</h3>
-              <p>The platform calls Preflight instead of your server. Preflight verifies the platform's signature, forwards the request to your real server unchanged, and reads the object that comes back.</p>
+              <p>The gateway reads inline call-control objects or pre-fetches the configured origin before forwarding a passing request. Signed answer and branch callbacks check the flow after placement.</p>
               <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M8 12h32v24H8z" /><path d="M14 20h20M14 27h12" /></svg>
             </article>
             <article class="callout" data-callout-card tabindex="0">
               <div class="num" aria-hidden="true">2</div>
-              <h3 class="display">Compile the statute.</h3>
-              <p>Five properties, each a formula over what the object does: calling hours, identification first, an opt-out that can be reached, a caller id that is set, Georgia's identification-first rule. Each quoted clause is a byte-for-byte substring of the fetched text, enforced by a test.</p>
+              <h3 class="display">Run structural monitors.</h3>
+              <p>The encoded properties check calling-hour facts, identification ordering, declared opt-out reachability and caller ID. Citations document their sources; a monitor result is not a complete legal determination.</p>
               <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 8h24v32H12z" /><path d="M18 16h12M18 22h12M18 28h8" /></svg>
             </article>
             <article class="callout" data-callout-card tabindex="0">
               <div class="num" aria-hidden="true">3</div>
               <h3 class="display">Decide before the dial.</h3>
-              <p>Every monitor is true, the object passes through byte for byte. Any monitor is false, the call is refused and a safe object names the rule. A monitor that cannot decide holds the call for a person, because it does not guess.</p>
-              <p><span class="hand" data-handwritten aria-hidden="true">measured, not assumed</span><span class="visually-hidden">Measured, not assumed:</span> <span class="small">outbound calls go through the gateway, because the platform only asks for the flow once a call is answered. Answered at 868 ms, the flow asked for at 1,009 ms.</span></p>
+              <p>On the gateway, a false verdict blocks forwarding; an inconclusive result holds under strict policy. A pass allows forwarding, not guaranteed placement. An approved release can permit inconclusive monitors and requires a separate resubmission.</p>
+              <p><span class="hand" data-handwritten aria-hidden="true">measured, not assumed</span><span class="visually-hidden">Measured, not assumed:</span> <span class="small">pre-dial checks require the gateway. The answer webhook checks an already answered call; changing webhooks alone cannot stop dialing.</span></p>
               <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="24" cy="24" r="16" /><path d="M16 24l6 6 10-12" /></svg>
             </article>
             <article class="callout" data-callout-card tabindex="0">
               <div class="num" aria-hidden="true">4</div>
               <h3 class="display">Write the receipt.</h3>
-              <p>Every decision is an entry in a hash-chained log. The head is sealed to Sigstore Rekor daily, and the platform's own call records are reconciled against the log every night: nothing the interlock refused has reached the carrier.</p>
+              <p>Decision records carry hashes and placement results. Scheduled jobs can seal a head to Sigstore Rekor and reconcile carrier records. Inspect each report's time window and outcome; a schedule is not proof that no call bypassed the gateway.</p>
               <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M10 10h20l8 8v20H10z" /><path d="M30 10v8h8M16 26h16M16 32h10" /></svg>
             </article>
           </div>
@@ -165,9 +165,9 @@
           <div class="stack-l" style="grid-column: 1 / 8">
             <p class="kicker">Dial it yourself</p>
             <h2 id="dial-title" class="display" data-stamp><a class="number" href="tel:+19432445023">+1 943 244 5023</a></h2>
-            <p class="lead max-30">That number runs the small notification flow from above, on purpose, with the defect in it. Call it and you hear the interlock intervene.</p>
-            <p class="body max-30">To have Preflight call you instead, enter your number; the platform calls it first and speaks a four-digit code, and only that code lets one demonstration call through. Your number is kept as a keyed hash, never as digits.</p>
-            <p class="small muted">No phone at hand? <a href="/phone/">The browser softphone</a> places the same call from a page.</p>
+            <p class="lead max-30">That number runs the deliberate reference flow. The builder confirmed speech through the iPhone Client SDK softphone; its matching ledger record showed answer-time intervention on an already placed call. Exact audio wording was not verified.</p>
+            <p class="body max-30">The optional Verify voice-code form is built but not verified on the builder's personal number. It requests consent to a demonstration call, not campaign consent. The private consent store retains the number; the public consent entry uses a keyed hash.</p>
+            <p class="small muted"><a href="/phone/">The browser softphone</a> uses the Client SDK. Separate evidence: an iPhone screenshot confirms a test push, not a new held-call alert or closed-app delivery. The owned-number gateway check is a different test, not proof that this iPhone rang or stayed silent.</p>
           </div>
           <div class="card" style="grid-column: 8 / -1" data-momentum>
             <form class="form" data-consent-form>
@@ -194,7 +194,7 @@
           <div class="stack-l" style="grid-column: 1 / 7">
             <p class="kicker">Sandbox</p>
             <h2 id="sandbox-title" class="display display-l" data-stamp>Paste an object. No account.</h2>
-            <p class="lead max-30">The same engine that decides on the host runs here in your browser. Paste a call-control object and every property answers in under a second, with its citation and, on a false, the exact sequence of actions that reached the prohibited state.</p>
+            <p class="lead max-30">The engine runs locally in your browser. Paste a call-control object to inspect monitor verdicts and citations, with a witness path when a property fails. The result checks the encoded structure, not legal compliance.</p>
             <p class="small muted max-30">A single object, not your whole flow. Discovery of the branches your server serves at runtime happens on the host, from traffic.</p>
             <div class="samples" role="group" aria-label="Sample objects">
               <button class="chip" type="button" data-sandbox-sample="broken">the broken timeout branch</button>
@@ -230,11 +230,11 @@
         </svg>
         <div class="inner stack-l" style="position: relative">
           <p class="kicker">The evidence</p>
-          <h2 id="evidence-title" class="display display-l" data-stamp>You cannot rewrite this, and neither can we.</h2>
-          <p class="lead max-40">Every decision is an entry. Each entry hashes its own canonical form together with the previous entry's hash. The head is signed and uploaded to a public transparency log once a day. Anyone with the URL recomputes the chain from genesis:</p>
-          <pre tabindex="0" role="region" aria-label="The verify command"><code>npx preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com</code></pre>
+          <h2 id="evidence-title" class="display display-l" data-stamp>Inspect the recorded chain.</h2>
+          <p class="lead max-40">Each entry hashes its canonical form together with the previous entry's hash. A verifier checks internal consistency; comparison with a verified external seal can reveal changes to sealed history. It does not prove complete event capture or prevent a database owner from changing storage. Published CLI 0.2.0 predates the current source hardening; check the repository's release disclosure before using it:</p>
+          <pre tabindex="0" role="region" aria-label="The verify command"><code>npx preflight-interlock@0.2.0 verify-ledger https://preflight-api-rc34.onrender.com</code></pre>
           <p class="body max-40"><strong>Last carrier reconciliation:</strong> <span data-live-reconciliation>reading the host…</span></p>
-          <p class="body max-40"><strong>The last seal, verified against the public log:</strong></p>
+          <p class="body max-40"><strong>Verify a recorded seal against the public log:</strong></p>
           <pre tabindex="0" role="region" aria-label="The Rekor verify command"><code data-live-rekor>rekor-cli verify --uuid &lt;the last seal's uuid, read from the log&gt;</code></pre>
           <p class="body max-40"><strong>Rate properties</strong>, from the platform's own event webhooks: <span class="small muted" data-live-rates-window>reading the host…</span></p>
           <ul class="verdicts" data-live-rates></ul>
@@ -261,7 +261,7 @@
             </div>
             <div class="accordion-item" data-accordion>
               <button type="button" data-accordion-trigger aria-expanded="false" aria-controls="limit-4">The consent gate is for this demonstration</button>
-              <div id="limit-4" data-accordion-panel hidden><p>The consent gate records that a person consented to this demonstration call. It is not campaign-level consent record-keeping.</p></div>
+              <div id="limit-4" data-accordion-panel hidden><p>The implemented gate records consent to a demonstration call. Personal-number Verify was not part of the verified demo. This is not campaign-level consent or durable opt-out record-keeping.</p></div>
             </div>
             <div class="accordion-item" data-accordion>
               <button type="button" data-accordion-trigger aria-expanded="false" aria-controls="limit-5">Compliance tool, not legal advice</button>
@@ -283,7 +283,7 @@
           <a href="/app/">the cockpit</a>
           <a href="/phone/">on the phone</a>
         </div>
-        <p class="small muted">Built for the DIALED IN Builder Challenge, Atlanta cohort. Apache-2.0. Every number on this page is read from the deployed host on load.</p>
+        <p class="small muted">Built for the DIALED IN Builder Challenge, Atlanta cohort. Apache-2.0. Decision counters and the ledger head are read from the deployed host on load.</p>
       </div>
       <figure class="visual" data-footer-visual aria-hidden="true">
         <img src="/img/handset-a.jpg" width="1400" height="781" alt="" loading="lazy" />

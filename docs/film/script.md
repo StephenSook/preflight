@@ -1,123 +1,140 @@
-# Film narration, draft 1 (for approval Mon 2026-09-07 by 12:00)
+# Film narration, claim-checked draft for approval
 
-Five minutes maximum. Every figure below is from `docs/fact-sheet.md`; a figure that changes daily is
-marked LIVE and is read off the screen in the take, not spoken from memory. Shots marked SCREEN
-depend on the web app and are cut to the API surface if the site misses its Monday 18:00 cutoff.
-Real calls, a real phone on the table, no fiction, no synthetic data. The narration is submitted as
-text beside the video, as the organizers ask.
+Target running time: five minutes. Timings are editorial allocations, not a verified organizer limit or deadline. Confirm current submission requirements before recording. No recording, rendering, calls or deployment verification were performed for this revision.
 
-Beat timing follows the specification's shot list and the organizers' four required beats: what
-the idea is, how it uses the Vonage APIs, how it hits the lenses, what problem it solves.
+Quoted blocks are proposed narration. SCREEN and RECORDING GATE paragraphs are instructions, not evidence that a take exists. Match the narration to the evidence actually shown.
 
-## 0:00 to 0:25, the problem on a real object (what the idea is)
+## Evidence boundaries
 
-SCREEN: a call-control object from the reference application, the timeout branch lit red.
+- Source of recorded measurements: `docs/fact-sheet.md`, especially "September 8 physical-device and gateway rechecks". Older generated totals are dated snapshots, not today's counts.
+- The builder confirmed audible speech through the iPhone Client SDK softphone. The screenshot and matching ledger record support an already placed call with answer-time intervention. Exact spoken wording was not verified. Do not invent a transcript or call this pre-dial blocking.
+- The user-supplied iPhone screenshot shows a native "Preflight test" notification. This proves that test push, not a newly generated hold notification or delivery while the app was closed. Use the actual screenshot with private details concealed, never a recreation.
+- The separate September 8 gateway check used controlled account-owned numbers. It recorded a refusal without a UUID, an unchanged signed-event count during the observation window, and a fixed-flow positive control with a platform receipt and subsequent decisions. It does not prove the builder's personal phone stayed silent or rang.
+- No personal-number Verify call, consent-code entry or personal ringing claim belongs in this film. That path was excluded by the user.
+- The reference application is a deliberately constructed demonstration flow, not a real clinic, customer deployment or undiscovered workshop incident. Its traffic can be real without its appointment text describing a real appointment.
+- Browser-regression fixtures are tests only. Never show their counts, decisions or notifications as product telemetry.
 
-> This is a call flow. It is a JSON object my server returns when the Vonage platform asks what to
-> do on a call. It plays a greeting and connects you to a scheduler. On one branch, the one that
-> runs when nobody presses a key, it speaks with a synthesized voice and offers no way to opt out.
-> I wrote this flow at the Atlanta workshop, and I did not know that branch was there until I built
-> this.
+## Before recording: required revalidation
 
-## 0:25 to 0:45, the promise
+1. Record the frontend and API deployments' source SHAs from their deployment records. Check the served UI and API behavior against those exact revisions. Local HEAD, a green branch run and the health version string are not deployment proof. If either deployed SHA cannot be established, do not call current workspace changes shipped.
+2. Re-read the fact sheet and source at those revisions. This draft was checked against the current workspace, including pending changes; it does not certify that those changes are live. Revalidate decision labels, detail links, release approval wording, gateway receipts and CLI behavior before filming them.
+3. Capture fresh timestamps, gateway responses and associated ledger records for any beat called live. Keep sensitive source evidence private. Never substitute an older record into a new take.
+4. Check coverage and open branches before promising a block. An unobserved continuation can produce a hold under strict policy. Say "held" when that is the result. Separately authorized preparation must use the existing operator path: release approval does not place a call, and resubmission is a separate action. Do not change global policy to manufacture a verdict.
+5. Confirm the owned-number target and caller ID before any authorized gateway run. Keep the reference flow fixed long enough to inspect subsequent decisions, then restore and read back its prior mode. Do not place a call as part of this script-editing task.
+6. If revalidation fails, cut the live claim or show dated evidence explicitly as a prior check. Never film expected success as observed success. Features absent from the checked deployment stay out of narration.
 
-> Preflight reads the call flow my server is about to serve, decides whether it would break federal
-> law, and stops the call before the network ever sees it. No model decides. A monitor compiled from
-> the statute does.
+## 0:00 to 0:25, the reference flow
 
-## 0:45 to 1:30, declared versus actual (how it uses the Voice API)
+SCREEN: the actual reference application's call-control object and timeout reply. Label "Deliberate reference application; not a customer call."
 
-SCREEN: the flow graph. Two colours: declared states, one undeclared state in red.
+> This is the reference application I use to test Preflight. The server returns a call-control
+> object to Vonage, then another object when the menu times out. That timeout path ends without
+> reaching the declared opt-out handler. The demonstration flow contains this defect deliberately,
+> so we can inspect the failure and the change side by side.
 
-> The platform asks my server for a new object every time a caller presses a key or stays silent,
-> so no single document contains the flow. Preflight sits on the answer and event webhooks, verifies
-> the platform's signed callbacks, and discovers the graph from real traffic. Here is what I
-> declared my flow does. Here is what it actually served. One state I never declared, and it
-> speaks.
+## 0:25 to 0:50, what Preflight checks
 
-## 1:30 to 2:30, the block, live (real-time window, uncut)
+SCREEN: monitor verdicts, distinguishing the encoded check from its cited source.
 
-SCREEN: the live monitor. The phone on the table, in frame. A number is submitted through the
-consent gate; the verification call is answered; the code is entered; the call is requested.
+> Preflight checks call-flow structure against explicit monitor rules, with citations to selected
+> federal and Georgia provisions. It does not decide whether a call is lawful. Through the
+> create-call gateway, a block or hold can stop the request before it is forwarded to Vonage.
+> The decision comes from encoded monitors, not a language model.
 
-> [Film prep, not spoken: the broken flow ends at an open input branch, and strict policy HOLDS an
-> open branch it has never observed; a held call never runs, so no call can observe the branch on
-> its own. The branch reaches the graph the way the product intends: a request through the gateway
-> is held, a named person releases it from the held queue, the request is re-submitted with the
-> override, the call runs on that override, the menu times out (no keypress), and the hook catches
-> the untraced branch mid-call. From the command line, `node --env-file=.env
-> scripts/ops/release-hold.mjs latest "<name>"` does the release and the re-submit. Then the
-> gateway BLOCKS on (b)(3) as the line says. Confirm `openBranches` is empty on `/api/flow` and
-> record it in the fact sheet at film time. Filmed with the branch unobserved, the row reads held,
-> not blocked. Done on the live host 2026-09-05 19:26 UTC: ledger entries 18 to 23, `openBranches`
-> empty, the gateway refusing with (b)(3) in 169 ms and 60 s of silence behind it (fact sheet).]
+## 0:50 to 1:20, declared versus observed
+
+SCREEN: the deployed graph, declaration and observed callback paths. Describe only the nodes actually present, not a prescribed state count.
+
+> The flow arrives in pieces. Preflight handles the answer webhook and subsequent flow callbacks,
+> verifies signed callbacks, and records the paths it observes. The graph compares those paths
+> with the developer's declaration. An unseen branch remains a gap in the evidence, not a reason
+> to announce that the whole flow passed.
+
+## 1:20 to 1:55, the builder's iPhone and test notification
+
+SCREEN: the actual iPhone softphone evidence and matching ledger entry, followed by the actual test-push screenshot. Label both "Recorded evidence, September 8" unless new evidence is separately captured and verified.
+
+> I heard speech through the Client SDK softphone on my iPhone. The matching ledger entry records
+> an answer-time block on that already placed call. That is different from stopping a request
+> before dialing. I have not verified the exact words that played.
 >
-> This is my phone. Preflight is also the create-call gateway, because the platform only asks for
-> the flow once a call is answered; I measured that: the call was answered at 868 milliseconds and
-> the flow was asked for at 1,009. So the request goes to Preflight first. It pre-fetches the flow,
-> runs every monitor, and refuses it. 47 CFR 64.1200(b)(3): no opt-out reachable from a state that
-> speaks. The row goes dark. The citation prints. And the phone stays silent.
+> This other screenshot shows the test notification arriving on the iPhone. It proves the test
+> push reached the device. It does not prove a new held-call alert or closed-app delivery.
 
-Hold the silence for a full beat. The absence is the product.
+RECORDING GATE: if original evidence cannot be shown safely, describe the user-reported check instead of substituting staged phone footage. Do not add a Verify prompt or portray the SDK call as the owned-number gateway test.
 
-## 2:30 to 3:15, the counterexample and the fix
+## 1:55 to 2:55, the separate pre-dial gateway check
 
-SCREEN: block detail with the witness path; the reference application switched to its fixed
-flow; the same number submitted again.
+SCREEN: an authorized fresh refusal and its ledger record, labelled "Controlled account-owned numbers; not the personal iPhone." Keep elapsed time visible for an uncut observation window. If using the September 8 record instead, label it as a prior check throughout and use past tense.
 
-> [Film prep, not spoken: strict policy holds the FIXED flow too, once, because its opt-out handler
-> is a branch the host has never observed. Before this take, release that hold against the fixed
-> flow (`scripts/ops/release-hold.mjs latest "<name>" --reference fixed`) so `/reference/optout`
-> is on the graph; from then on the fixed flow passes at the gateway. Done on the live host
-> 2026-09-05 19:38 UTC: ledger entries 27 to 31, coverage 3 of 3 declared endpoints observed
-> (fact sheet).]
+> This is a separate test between numbers controlled by the account. The request goes through
+> Preflight's create-call gateway. The response identifies the decision and its reason. Here the
+> request was refused and no call UUID was returned.
 
-> This is not a summary. It is the exact sequence of actions that would have reached the
-> prohibited state. The fix is one action: the keypress goes to the declared opt-out handler. Same
-> phone, same number, a few minutes apart.
+RECORDING GATE: speak that last sentence only after inspecting the response. Name block or hold exactly as returned. If the result differs, show it rather than reading this line.
 
-The phone rings. Answer it on camera.
+> During this observation window, the signed-event count did not increase. That is a bounded
+> check on this run, not proof that a personal phone stayed silent or that no other call could
+> bypass the gateway.
 
-## 3:15 to 3:50, the evidence
+RECORDING GATE: keep unrelated traffic out of the controlled window. The existing daily-call script observes 60 seconds; verify the response and both counts before using that figure. An unchanged count alone does not establish carrier-wide absence. The positive control follows as separate evidence.
 
-SCREEN: the evidence log, then a terminal.
+## 2:55 to 3:30, the changed flow and positive control
 
-> Every decision is an entry in a hash-chained log. The head is signed and uploaded to Sigstore's
-> public transparency log once a day. And every night, the platform's own call records are pulled
-> and reconciled against the log: every record a call the interlock decided, and no record lining
-> up with a request the gateway refused.
+SCREEN: the reference flow change, gateway response and subsequent decisions for the returned UUID. Keep the controlled owned-number label visible.
 
-Terminal, typed live: `npx -y preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com`.
+> The changed reference flow adds the opt-out instruction and routes the input to the declared
+> handler. A pass decision alone does not mean a call was placed. For the positive control, I
+> check the platform's acceptance response and call UUID, then inspect the later interlock
+> decisions associated with that call.
 
-> LIVE: read the entry count and "every hash and link recomputed from genesis" off the terminal.
-> You cannot rewrite this, and neither can I.
+RECORDING GATE: only report successful placement after HTTP 201, a UUID and a matching placement receipt. Only report later passes after reading those records. The current proof helper also requires signed events to increase. These checks do not establish what a person heard, that the personal iPhone rang, or that an opt-out was durably recorded.
 
-## 3:50 to 4:20, real-world potential (what problem it solves, who it is for)
+If a hold is shown, use this line instead:
 
-> Liability under the federal rule is per call, not per campaign: 500 dollars for each violation,
-> up to three times that at the court's discretion when it is willful. Georgia removed the knowledge
-> requirement from its own statute on July 1, 2024 and extended liability to whoever the call is
-> made on behalf of: up to 2,000 dollars for each violation in Attorney General proceedings, up to
-> 1,000 in a private action, with no cap in a class action. A clinic, a county office, a campus
-> alert system running notification calls on Vonage is now exposed for a vendor's flow it cannot
-> read. Preflight is the thing that reads it.
+> This request is held. Approving its release records a human decision; it does not dial. The
+> caller must resubmit the request. An override can allow inconclusive monitors, so it is not a
+> claim that every monitor became true.
 
-## 4:20 to 4:45, the honest limit
+## 3:30 to 4:00, inspectable evidence
 
-SCREEN: the header's coverage counter.
+SCREEN: ledger and verifier result. Do not type credentials on camera.
 
-> LIVE: read the coverage figure off the header. It has seen this many of the declared endpoints.
-> It has not verified the rest, and it says so. It checks structure and position, never whether the
-> words spoken are true. It is a compliance tool, not legal advice.
+> The evidence log links its entries with hashes. The verifier recomputes those hashes and links.
+> That checks the chain's internal consistency; it does not prove that every underlying event
+> was captured or that the decision was legally correct.
 
-## 4:45 to 5:00, close
+RECORDING GATE: the fact sheet records `preflight-interlock@0.2.0` as published. Re-test that pinned package from a clean directory before showing `npx -y preflight-interlock@0.2.0 verify-ledger https://preflight-api-rc34.onrender.com`. Do not attribute unpublished CLI hardening to that release. Read only the count and outcome the verified command actually prints.
 
-SCREEN: the public number, the URL, the repository.
+Optional, only if independently checked for this cut: show an actual Rekor seal and verify its relationship to the recorded head. Describe it as a dated anchor, not proof that every scheduled seal ran. Show carrier reconciliation only with its source records, time window and limits; a schedule or zero count does not prove no calls escaped.
 
-> Dial it yourself: plus one, nine four three, two four four, five zero two three. The code, the
-> corpus, the mutants and the log are public.
+## 4:00 to 4:35, who it helps and its limits
 
-## Not in this script, on purpose
+SCREEN: declaration, coverage and decision reason, not a liability estimate.
 
-- No registry size, no settlement figure: neither has a fact-sheet row with a primary source yet.
-- No latency number spoken; the header shows LIVE percentiles if the take wants them.
+> This is for developers operating voice flows who need to inspect what their callbacks actually
+> serve. The useful output is a specific path, a monitor result and a reason to investigate.
+> Coverage is relative to declared endpoints, not a certificate of completeness.
+>
+> Matching an identification phrase does not prove it is truthful. Reaching a declared opt-out
+> handler does not prove a suppression record was saved. Consent, exemptions and legal
+> applicability require separate assessment. This is a structural checking tool, not legal advice.
+
+## 4:35 to 5:00, close
+
+SCREEN: the public site and repository, after checking they load. Do not show a future feature or unavailable route as shipped.
+
+> You can inspect the reference flow and recorded evidence, and try the local browser checker
+> with your own call-control object. The phone check, test notification and pre-dial gateway
+> check are separate pieces of evidence. Each shows a specific part of the system, not a
+> guarantee of legal compliance.
+
+## Claim audit for the recording handoff
+
+- No invented workshop history, surprise discovery, customer story or exact audio transcript.
+- No personal-number Verify demonstration or unsupported ringing/silence claim.
+- No liability amounts or blanket claims about clinics, county offices or campus alerts.
+- No claim that the reference flow persists opt-out consent or suppression records.
+- No decision counts labelled as unique calls, confirmed placements or phones kept silent.
+- No unverified deployment, future code, scheduled-job success or complete legal determination.
+- Re-read `apps/reference/src/index.ts`, `packages/engine/src/properties.ts`, `apps/api/src/gateway/calls.ts`, `apps/api/src/push/routes.ts`, `apps/web/src/phone/page.ts`, `scripts/vonage/daily-call.mjs`, `scripts/vonage/call-proof.mjs` and CLI source at the recording's verified revisions.
