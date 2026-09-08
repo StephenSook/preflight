@@ -19,6 +19,9 @@ const pem = publicKey.export({ type: "spki", format: "pem" }) as string;
 const base = { application_id: APP, iat: Math.floor(NOW / 1000), exp: Math.floor(NOW / 1000) + 900, jti: "j" };
 
 describe("application JWT verification for the gateway", () => {
+  it.each([{ sub: "judge" }, { acl: { paths: {} } }, { sub: "" }, { acl: null }, { sub: "judge", acl: { paths: {} } }])("rejects subject or ACL claims: %j", (extra) => {
+    expect(verifyApplicationJwt({ authorization: token({ ...base, ...extra }), publicKeyPem: pem, applicationId: APP, now: () => NOW })).toMatchObject({ ok: false, reason: "client_token" });
+  });
   it("accepts a token signed by the application's private key for this application", () => {
     expect(verifyApplicationJwt({ authorization: token(base), publicKeyPem: pem, applicationId: APP, now: () => NOW })).toMatchObject({ ok: true, claims: { application_id: APP } });
   });

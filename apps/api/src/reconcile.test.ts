@@ -18,14 +18,14 @@ describe("carrier-side reconciliation", () => {
   });
 
   it("matches carrier records to decided calls by uuid, and reports the rest as placed around the interlock", () => {
-    const decisions = [decision({ callUuid: "known-1", decision: "pass" }), decision({ callUuid: "known-2", decision: "block", direction: "inbound" })];
+    const decisions = [decision({ callUuid: "known-1", decision: "pass", source: "gateway", platformStatus: 201 }), decision({ callUuid: "known-2", decision: "block", direction: "inbound", source: "webhook" })];
     const report = reconcile(window, [record({ call_id: "known-1" }), record({ call_id: "known-2", direction: "inbound" }), record({ call_id: "stranger", from: "14045550100", to: "14045550199" })], decisions);
     expect(report).toMatchObject({ carrier_records: 3, matched: 2, unmatched: 1, leaks: 0, refused_in_window: 0, decided_not_in_records: 0, unmatched_ids: ["stranger"], leaked_ids: [], missing_ids: [] });
     expect(report.records_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 
   it("counts a decided call with a platform uuid that the pull never returned, so an empty or mis-filtered pull is not a clean night", () => {
-    const decisions = [decision({ callUuid: "known-1", decision: "pass" }), decision({ callUuid: "known-9", decision: "pass" }), decision({ callUuid: "old-1", decision: "pass", decidedAt: iso(T0 - 7200_000) }), decision({ callUuid: "preflight-dryrun-aa", decision: "block" })];
+    const decisions = [decision({ callUuid: "known-1", source: "gateway", platformStatus: 201 }), decision({ callUuid: "known-9", source: "gateway", platformStatus: 201 }), decision({ callUuid: "old-1", source: "gateway", platformStatus: 201, decidedAt: iso(T0 - 7200_000) }), decision({ callUuid: "preflight-dryrun-aa", source: "gateway", decision: "block" })];
     const empty = reconcile(window, [], decisions);
     expect(empty).toMatchObject({ carrier_records: 0, decided_not_in_records: 2, missing_ids: ["known-1", "known-9"] });
     // A record outside the window still proves the platform knows the call.
@@ -35,7 +35,7 @@ describe("carrier-side reconciliation", () => {
 
   it("names a leak: a carrier record with no uuid Preflight knows, on the same two lines, moments after the gateway refused that request", () => {
     const refusedAt = T0;
-    const decisions = [decision({ decision: "block", decidedAt: iso(refusedAt) })];
+    const decisions = [decision({ source: "gateway", decision: "block", decidedAt: iso(refusedAt) })];
     const inside = reconcile(window, [record({ call_id: "leak-1", date_start: iso(refusedAt + 30_000) })], decisions);
     expect(inside).toMatchObject({ unmatched: 1, leaks: 1, leaked_ids: ["leak-1"], refused_in_window: 1 });
     // Two minutes after the refusal, no longer attributable to it; four seconds before, still the same attempt (clock skew).
@@ -43,8 +43,7 @@ describe("carrier-side reconciliation", () => {
     expect(reconcile(window, [record({ call_id: "skew", date_start: iso(refusedAt - 4_000) })], decisions).leaks).toBe(1);
     // Different lines, same moment: unmatched but not a leak of that refusal.
     expect(reconcile(window, [record({ call_id: "other", to: "14045550199", date_start: iso(refusedAt + 1_000) })], decisions)).toMatchObject({ unmatched: 1, leaks: 0 });
-    // A refusal that already carries a uuid was decided on the webhook path; the carrier record for it is matched, not a leak.
-    expect(reconcile(window, [record({ call_id: "wh-1" })], [decision({ callUuid: "wh-1", decision: "block" })])).toMatchObject({ matched: 1, leaks: 0, refused_in_window: 0 });
+    expect(reconcile(window, [record({ call_id: "wh-1" })], [decision({ callUuid: "wh-1", source: "webhook", decision: "block" })])).toMatchObject({ matched: 0, unmatched: 1, leaks: 0, refused_in_window: 0 });
   });
 
   it("hashes the records in canonical form so the same pull hashes the same regardless of field order or number formatting", () => {
@@ -54,21 +53,55 @@ describe("carrier-side reconciliation", () => {
   });
 
   it("classifies only records that started inside the window and reports the rest as outside it", () => {
-    const decisions = [decision({ decision: "hold", decidedAt: iso(T0 - 7200_000) })];
+    const decisions = [decision({ source: "gateway", decision: "hold", decidedAt: iso(T0 - 7200_000) })];
     const report = reconcile(window, [record({ call_id: "old", date_start: iso(T0 - 7200_000 + 10_000) }), record({ call_id: "in", date_start: iso(T0) })], decisions);
     expect(report).toMatchObject({ carrier_records: 1, outside_window: 1, refused_in_window: 0, unmatched: 1, leaks: 0, unmatched_ids: ["in"] });
   });
 
   it("treats the gateway's dry-run ids as no uuid: a refusal carrying one is a refusal, and no carrier record matches it", () => {
-    const decisions = [decision({ callUuid: "preflight-dryrun-a1b2c3d4e5f6", decision: "block", decidedAt: iso(T0) })];
+    const decisions = [decision({ source: "gateway", callUuid: "preflight-dryrun-a1b2c3d4e5f6", decision: "block", decidedAt: iso(T0) })];
     expect(reconcile(window, [record({ call_id: "real-platform-uuid", date_start: iso(T0 + 2000) })], decisions)).toMatchObject({ refused_in_window: 1, unmatched: 1, leaks: 1, leaked_ids: ["real-platform-uuid"] });
     expect(reconcile(window, [record({ call_id: "preflight-dryrun-a1b2c3d4e5f6", date_start: iso(T0 + 2000) })], decisions)).toMatchObject({ matched: 0, unmatched: 1 });
     expect(reconcile(window, [], decisions).refused_in_window).toBe(1);
   });
 
   it("a refusal placed with a random caller id is attributed by the destination alone", () => {
-    const decisions = [decision({ decision: "block", fromNumber: "random_from_number", decidedAt: iso(T0) })];
+    const decisions = [decision({ source: "gateway", decision: "block", fromNumber: "random_from_number", decidedAt: iso(T0) })];
     expect(reconcile(window, [record({ call_id: "x", from: "12125550100", date_start: iso(T0 + 1000) })], decisions).leaks).toBe(1);
     expect(reconcile(window, [record({ call_id: "y", from: "12125550100", to: "14045550199", date_start: iso(T0 + 1000) })], decisions).leaks).toBe(0);
+  });
+
+  it("keeps a direct outbound bypass unmatched and leaked despite its answer-time block", () => {
+    const decisions = [
+      decision({ source: "gateway", decision: "block", callUuid: "preflight-dryrun-refused" }),
+      decision({ source: "webhook", decision: "block", callUuid: "direct", decidedAt: iso(T0 + 3000) }),
+    ];
+    expect(reconcile(window, [record({ call_id: "direct" })], decisions)).toMatchObject({ matched: 0, unmatched: 1, leaks: 1, refused_in_window: 1, leaked_ids: ["direct"] });
+  });
+
+  it.each([undefined, "unknown", "webhook"] as const)("does not authorize outbound calls from %s provenance", (source) => {
+    const observed = decision({ callUuid: "direct", ...(source ? { source } : {}), platformStatus: 201 });
+    expect(reconcile(window, [record({ call_id: "direct" })], [observed])).toMatchObject({ matched: 0, unmatched: 1 });
+  });
+
+  it.each([undefined, 200, 400, 403, 500, 502])("does not count a gateway response %s as successful placement", (platformStatus) => {
+    const rejected = decision({ source: "gateway", callUuid: "rejected", ...(platformStatus === undefined ? {} : { platformStatus }) });
+    expect(reconcile(window, [record({ call_id: "rejected" })], [rejected])).toMatchObject({ matched: 0, unmatched: 1 });
+    expect(reconcile(window, [], [rejected])).toMatchObject({ decided_not_in_records: 0 });
+  });
+
+  it("does not use an inbound observation to authorize an outbound carrier record", () => {
+    const observed = decision({ direction: "inbound", source: "webhook", callUuid: "observed", decision: "block" });
+    expect(reconcile(window, [record({ call_id: "observed" })], [observed])).toMatchObject({ matched: 0, unmatched: 1 });
+    expect(reconcile(window, [record({ call_id: "observed", direction: "inbound" })], [observed])).toMatchObject({ matched: 1, unmatched: 0 });
+  });
+
+  it("matches historical inbound observations but never attributes an inbound call to a gateway refusal", () => {
+    const decisions = [decision({ direction: "inbound", callUuid: "historical" }), decision({ source: "gateway", decision: "block" })];
+    expect(reconcile(window, [record({ call_id: "historical", direction: "inbound" }), record({ call_id: "stranger", direction: "inbound" })], decisions)).toMatchObject({ matched: 1, unmatched: 1, leaks: 0 });
+  });
+
+  it("does not invent gateway refusals from historical records", () => {
+    expect(reconcile(window, [record({})], [decision({ decision: "block" })])).toMatchObject({ unmatched: 1, leaks: 0, refused_in_window: 0 });
   });
 });

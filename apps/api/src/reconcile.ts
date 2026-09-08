@@ -59,8 +59,11 @@ const DRY_RUN_PREFIX = "preflight-dryrun-";
 export const isPlatformUuid = (u: string | undefined): u is string => typeof u === "string" && u.length > 0 && !u.startsWith(DRY_RUN_PREFIX);
 
 export function reconcile(window: { start: string; end: string }, records: readonly CarrierRecord[], decisions: readonly DecisionRecord[]): ReconciliationReport {
-  const known = new Set(decisions.map((d) => d.callUuid).filter(isPlatformUuid));
-  const refused = decisions.filter((d) => (d.decision === "block" || d.decision === "hold") && !isPlatformUuid(d.callUuid));
+  const placed = decisions.filter((decision) => decision.direction === "outbound" && decision.source === "gateway" && decision.platformStatus === 201 && isPlatformUuid(decision.callUuid));
+  const inbound = decisions.filter((decision) => decision.direction === "inbound" && isPlatformUuid(decision.callUuid));
+  const knownOutbound = new Set(placed.map((decision) => decision.callUuid));
+  const knownInbound = new Set(inbound.map((decision) => decision.callUuid));
+  const refused = decisions.filter((decision) => decision.source === "gateway" && decision.direction === "outbound" && (decision.decision === "block" || decision.decision === "hold") && decision.platformStatus !== 201);
   const startMs = Date.parse(window.start);
   const endMs = Date.parse(window.end);
   const refusedInWindow = refused.filter((d) => {
@@ -78,12 +81,12 @@ export function reconcile(window: { start: string; end: string }, records: reado
   const unmatched: string[] = [];
   const leaked: string[] = [];
   for (const r of inside) {
-    if (known.has(r.call_id)) continue;
+    if ((r.direction === "outbound" && knownOutbound.has(r.call_id)) || (r.direction === "inbound" && knownInbound.has(r.call_id))) continue;
     unmatched.push(r.call_id);
     const started = Date.parse(r.date_start);
     const from = lineOf(r.from);
     const to = lineOf(r.to);
-    const leak = refused.some((d) => {
+    const leak = r.direction === "outbound" && refused.some((d) => {
       const decided = Date.parse(d.decidedAt);
       // A refusal placed with a random caller id has no line to compare; the destination alone attributes it.
       const refusedFrom = lineOf(d.fromNumber);
@@ -95,7 +98,7 @@ export function reconcile(window: { start: string; end: string }, records: reado
   // A decided call with a platform uuid that the pull did not return at all: an empty or mis-filtered
   // pull must not read as a clean night.
   const pulled = new Set(records.map((r) => r.call_id));
-  const missing = [...new Set(decisions.filter((d) => isPlatformUuid(d.callUuid) && Date.parse(d.decidedAt) >= startMs && Date.parse(d.decidedAt) <= endMs).map((d) => d.callUuid as string).filter((u) => !pulled.has(u)))];
+  const missing = [...new Set([...placed, ...inbound].filter((d) => Date.parse(d.decidedAt) >= startMs && Date.parse(d.decidedAt) <= endMs).map((d) => d.callUuid as string).filter((u) => !pulled.has(u)))];
 
   const canonicalRecords = inside.map((r) => ({ call_id: r.call_id, direction: r.direction, from: lineOf(r.from), to: lineOf(r.to), date_start: r.date_start }));
   return {

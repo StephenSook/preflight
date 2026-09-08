@@ -25,9 +25,14 @@ describe.skipIf(!url)("PgHoldStore (integration)", () => {
     expect(decided).toMatchObject({ holdId: id, status: "placed", decidedBy: "S. Sookra" });
     expect(await store.decide(id, "cancelled", "x", new Date().toISOString())).toBeUndefined();
     expect((await store.get(id))?.verdicts[0]).toMatchObject({ id: "P3", verdict: "inconclusive" });
+    const reservations = await Promise.all(Array.from({ length: 8 }, () => store.reservePlacement(id)));
+    expect(reservations.filter(Boolean)).toHaveLength(1);
+    expect(await new PgHoldStore(sql).reservePlacement(id)).toBe(false);
+    expect(await store.get(id)).toMatchObject({ placementReserved: true });
     await store.placed(id, `${id}-call`, `${id}-conv`);
     expect(await store.forCall(`${id}-call`, undefined)).toMatchObject({ holdId: id, placedCallUuid: `${id}-call`, placedConversationUuid: `${id}-conv` });
     expect(await store.forCall(undefined, `${id}-conv`)).toMatchObject({ holdId: id });
+    expect(await store.forCall(`${id}-sibling`, `${id}-conv`)).toBeUndefined();
     expect(await store.forCall(`${id}-nope`, `${id}-nope`)).toBeUndefined();
     expect(await store.forCall(undefined, undefined)).toBeUndefined();
   }, 30000);

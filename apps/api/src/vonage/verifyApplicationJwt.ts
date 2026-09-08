@@ -9,7 +9,7 @@ import { createVerify } from "node:crypto";
  */
 export interface ApplicationJwtResult {
   ok: boolean;
-  reason?: "missing" | "malformed" | "bad_signature" | "wrong_application" | "expired" | "not_yet_valid";
+  reason?: "missing" | "malformed" | "bad_signature" | "wrong_application" | "client_token" | "expired" | "not_yet_valid";
   claims?: { application_id?: string; iat?: number; exp?: number; jti?: string; sub?: string } | undefined;
 }
 
@@ -37,6 +37,7 @@ export function verifyApplicationJwt(input: { authorization: string | undefined;
   }
   if (!valid) return { ok: false, reason: "bad_signature", claims };
   if (claims?.application_id !== input.applicationId) return { ok: false, reason: "wrong_application", claims };
+  if (Object.hasOwn(claims, "sub") || Object.hasOwn(claims, "acl")) return { ok: false, reason: "client_token", claims };
   const nowSec = Math.floor((input.now ?? Date.now)() / 1000);
   const skew = 60;
   if (typeof claims.exp === "number" && claims.exp + skew < nowSec) return { ok: false, reason: "expired", claims };

@@ -21,6 +21,7 @@ import { FlowDecider } from "./decide/flow.js";
 import { holdNcco, safeNcco } from "./decide/ncco.js";
 import { ledgerDraftFor } from "./decide/record.js";
 import { registerCallGateway } from "./gateway/calls.js";
+import { PLACEMENT_QUERY, placementDigest } from "./gateway/placement.js";
 import { registerBranchHook } from "./hooks/branch.js";
 import { forwardToOrigin } from "./proxy/forward.js";
 import type { DecisionStore } from "./store/decisionStore.js";
@@ -87,6 +88,14 @@ export function parsePayload(req: FastifyRequest, raw: string): Record<string, u
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
 
+function redactedRequestUrl(url: string): string {
+  const offset = url.indexOf("?");
+  if (offset < 0) return url;
+  const query = new URLSearchParams(url.slice(offset + 1));
+  for (const key of ["token", PLACEMENT_QUERY]) if (query.has(key)) query.set(key, "[redacted]");
+  return `${url.slice(0, offset)}?${query.toString()}`;
+}
+
 /** The most decisions one reconciliation window may span; a larger window is refused rather than truncated. */
 export const RECONCILE_DECISION_LIMIT = 100000;
 
@@ -111,7 +120,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     logger: {
       level: config.LOG_LEVEL,
       serializers: {
-        req: (req) => ({ method: req.method, url: (req.url ?? "").replace(/([?&]token=)[^&]*/g, "$1[redacted]"), hostname: req.hostname, remoteAddress: req.ip }),
+        req: (req) => ({ method: req.method, url: redactedRequestUrl(req.url ?? ""), hostname: req.hostname, remoteAddress: req.ip }),
       },
     },
   });
@@ -146,7 +155,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   function ingress(req: FastifyRequest) {
     const verifyStart = performance.now();
-    const raw = rawPayloadOf(req);
+    let raw = rawPayloadOf(req);
     const verified = verifyVonageWebhook({
       authorization: req.headers.authorization,
       rawPayload: raw,
@@ -154,9 +163,30 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       secretFor,
       ...(deps.now ? { now: deps.now } : {}),
     });
-    if (verified.ok) app.log.info({ method: req.method, path: req.url.split("?")[0], payloadForm: verified.payloadForm }, "webhook verified");
     const payload = parsePayload(req, raw);
-    return { verifyStart, raw, verified, payload };
+    const offset = req.url.indexOf("?");
+    const query = new URLSearchParams(offset < 0 ? "" : req.url.slice(offset + 1));
+    let placement = query.has(PLACEMENT_QUERY) ? query.getAll(PLACEMENT_QUERY) : undefined;
+    if (placement !== undefined) {
+      query.delete(PLACEMENT_QUERY);
+      const cleanQuery = query.toString();
+      req.raw.url = `${req.url.slice(0, offset)}${cleanQuery ? `?${cleanQuery}` : ""}`;
+      if (req.query && typeof req.query === "object") delete (req.query as Record<string, unknown>)[PLACEMENT_QUERY];
+      if (req.method === "GET") raw = cleanQuery;
+    }
+    if (payload && Object.hasOwn(payload, PLACEMENT_QUERY)) {
+      delete payload[PLACEMENT_QUERY];
+      if (req.method !== "GET") {
+        placement = [];
+        raw = JSON.stringify(payload);
+        req.body = raw;
+      }
+    }
+    if (verified.ok && verified.claims.application_id !== undefined && verified.claims.application_id !== config.VONAGE_APPLICATION_ID) {
+      return { verifyStart, raw, verified: { ok: false as const, reason: "wrong_application" }, payload: undefined, placement };
+    }
+    if (verified.ok) app.log.info({ method: req.method, path: req.url.split("?")[0], payloadForm: verified.payloadForm }, "webhook verified");
+    return { verifyStart, raw, verified, payload, placement };
   }
 
   function record(kind: WebhookKind, req: FastifyRequest, raw: string, payload: Record<string, unknown> | undefined, extra: Partial<StoredWebhook>): Promise<void> {
@@ -185,10 +215,32 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     method: ["GET", "POST"],
     url: "/v/answer",
     handler: async (req, reply) => {
-      const { verifyStart, raw, verified, payload } = ingress(req);
+      const { verifyStart, raw, verified, payload, placement } = ingress(req);
       if (!verified.ok) {
         req.log.warn({ reason: verified.reason }, "rejected unsigned or invalid answer webhook");
         return reply.code(403).send({ error: "webhook signature rejected", reason: verified.reason });
+      }
+      const callUuid = str(payload?.["uuid"]);
+      let callPayload = payload;
+      let correlation: { digest: string; toNumber: string } | undefined;
+      if (placement !== undefined) {
+        const digest = placement.length === 1 ? placementDigest(placement[0] ?? "") : undefined;
+        const toNumber = str(payload?.["to"]);
+        const incompatibleDirection = payload?.["direction"] !== undefined && payload["direction"] !== "outbound";
+        const appLeg = payload?.["from_user"] !== undefined || payload?.["endpoint_type"] === "app";
+        if (!digest || !callUuid || !toNumber || incompatibleDirection || appLeg) {
+          return reply.code(403).send({ error: "placement correlation rejected" });
+        }
+        correlation = { digest, toNumber };
+      }
+      if (!callUuid || !await graphStore.claimAnswer(callUuid)) {
+        return reply.code(403).send({ error: "answer needs a new call UUID; repeated answers are refused" });
+      }
+      if (correlation) {
+        if (!await holds.bindPlacement(correlation.digest, callUuid, str(payload?.["conversation_uuid"]), correlation.toNumber, new Date(clock()).toISOString())) {
+          return reply.code(403).send({ error: "placement correlation rejected; this answer UUID cannot be retried" });
+        }
+        callPayload = { ...payload, direction: "outbound" };
       }
       const verifyLatencyMs = performance.now() - verifyStart;
       const originUrl = req.method === "GET" && raw ? `${config.ORIGIN_ANSWER_URL}?${raw}` : config.ORIGIN_ANSWER_URL;
@@ -209,10 +261,11 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       }
       const decideStart = performance.now();
       const override = await overrideFor(holds, payload);
-      const outcome = await flow.decide({ payload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override });
+      const outcome = await flow.decide({ payload: callPayload, nccoBytes: forwarded.bodyText, endpoint: "answer", now: new Date(clock()), originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs, override });
+      outcome.record.source = "webhook";
       const totalVerifyMs = verifyLatencyMs + (performance.now() - decideStart);
       outcome.record.verifyLatencyMs = totalVerifyMs;
-      await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, callContextOf(payload));
+      await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, callContextOf(callPayload));
       await decisions.append(outcome.record);
       await ledger.append(ledgerDraftFor(outcome));
       await record("answer", req, raw, payload, { originLatencyMs: forwarded.originLatencyMs, verifyLatencyMs: totalVerifyMs, decision: outcome.decision });

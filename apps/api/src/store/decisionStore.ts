@@ -3,6 +3,8 @@ import type { NumberFacts } from "@preflight/numfacts";
 import type { Sql } from "postgres";
 
 export interface DecisionRecord {
+  source?: "gateway" | "webhook" | "unknown";
+  platformStatus?: number;
   callUuid: string | undefined;
   conversationUuid: string | undefined;
   applicationId: string | undefined;
@@ -52,6 +54,8 @@ export class MemoryDecisionStore implements DecisionStore {
 }
 
 interface CallRow {
+  source: NonNullable<DecisionRecord["source"]>;
+  platform_status: number | null;
   id: string;
   call_uuid: string | null;
   conversation_uuid: string | null;
@@ -98,11 +102,11 @@ export class PgDecisionStore implements DecisionStore {
       const [row] = await tx<{ id: string }[]>`
         insert into calls (call_uuid, conversation_uuid, application_id, direction, from_number, to_number, human_party, state, rate_center,
           line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason,
-          decided_at, origin_latency_ms, verify_latency_ms)
+          decided_at, origin_latency_ms, verify_latency_ms, source, platform_status)
         values (${r.callUuid ?? null}, ${r.conversationUuid ?? null}, ${r.applicationId ?? null}, ${r.direction}, ${r.fromNumber ?? null}, ${r.toNumber ?? null},
           ${r.humanParty ?? null}, ${f.state ?? null}, ${f.rateCenter ?? null}, ${f.lineType}, ${f.lineTypeSource}, ${f.lineTypeConfidence}, ${f.zones},
           ${f.withinHours}, ${f.hoursBasis}, ${r.policy}, ${r.terminal}, ${r.nccoHash}, ${r.decision}, ${r.reason ?? null}, ${r.decidedAt},
-          ${r.originLatencyMs}, ${r.verifyLatencyMs})
+          ${r.originLatencyMs}, ${r.verifyLatencyMs}, ${r.source ?? "unknown"}, ${r.platformStatus ?? null})
         returning id::text as id`;
       if (!row) throw new Error("insert into calls returned no id");
       for (const v of r.verdicts) {
@@ -114,14 +118,14 @@ export class PgDecisionStore implements DecisionStore {
 
   async recent(limit: number): Promise<DecisionRecord[]> {
     const calls = await this.sql<CallRow[]>`select id::text as id, call_uuid, conversation_uuid, application_id, direction, from_number, to_number, human_party, state, rate_center,
-      line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms
+      line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms, source, platform_status
       from calls order by decided_at desc, id desc limit ${limit}`;
     return this.hydrate(calls);
   }
 
   async between(startIso: string, endIso: string, limit: number): Promise<DecisionRecord[]> {
     const calls = await this.sql<CallRow[]>`select id::text as id, call_uuid, conversation_uuid, application_id, direction, from_number, to_number, human_party, state, rate_center,
-      line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms
+      line_type, line_type_source, line_type_confidence, zones, within_hours, hours_basis, policy, terminal, ncco_hash, decision, reason, decided_at, origin_latency_ms, verify_latency_ms, source, platform_status
       from calls where decided_at >= ${startIso} and decided_at <= ${endIso} order by decided_at desc, id desc limit ${limit}`;
     return this.hydrate(calls);
   }
@@ -131,6 +135,8 @@ export class PgDecisionStore implements DecisionStore {
     const ids = calls.map((c) => c.id);
     const verdicts = await this.sql<VerdictRow[]>`select call_id::text as call_id, property_id, verdict, citation, witness, at_end, reason from verdicts where call_id = any(${ids}::bigint[]) order by id`;
     return calls.map((c) => ({
+      source: c.source,
+      ...(c.platform_status === null ? {} : { platformStatus: c.platform_status }),
       callUuid: c.call_uuid ?? undefined,
       conversationUuid: c.conversation_uuid ?? undefined,
       applicationId: c.application_id ?? undefined,

@@ -13,8 +13,12 @@ export interface GraphStore {
   save(nodes: readonly FlowNode[], edges: readonly FlowEdge[]): Promise<void>;
   callPath(callUuid: string): Promise<string[] | undefined>;
   /** Stores the executed path, and what the call's answer-time webhook said about it when given (a later write without context keeps the stored one). */
-  setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext): Promise<void>;
+  setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext, pendingNodeId?: string | null): Promise<void>;
   callContext(callUuid: string): Promise<CallContext | undefined>;
+  linkConversation(conversationUuid: string, callUuid: string): Promise<void>;
+  conversationCall(conversationUuid: string): Promise<string | undefined>;
+  claimAnswer(callUuid: string): Promise<boolean>;
+  claimBranch(callUuid: string, nodeId: string, conversationUuid?: string, eventFingerprint?: string): Promise<boolean>;
 }
 
 /** The fields of an answer-time webhook the decider reads about the call itself. */
@@ -31,7 +35,9 @@ export function callContextOf(payload: Record<string, unknown> | undefined): Cal
 export class MemoryGraphStore implements GraphStore {
   readonly name = "memory" as const;
   private readonly graph = new FlowGraph();
-  private readonly paths = new Map<string, { nodeIds: string[]; context: CallContext | undefined }>();
+  private readonly paths = new Map<string, { nodeIds: string[]; context: CallContext | undefined; pendingNodeId: string | null }>();
+  private readonly conversations = new Map<string, Set<string>>();
+  private readonly webhookClaims = new Map<string, Set<string>>();
   async load(): Promise<FlowGraph> {
     return FlowGraph.from([...this.graph.nodes.values()].map((n) => ({ ...n })), [...this.graph.edges.values()].map((e) => ({ ...e })));
   }
@@ -42,11 +48,42 @@ export class MemoryGraphStore implements GraphStore {
   async callPath(callUuid: string): Promise<string[] | undefined> {
     return this.paths.get(callUuid)?.nodeIds;
   }
-  async setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext): Promise<void> {
-    this.paths.set(callUuid, { nodeIds: [...nodeIds], context: context ?? this.paths.get(callUuid)?.context });
+  async setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext, pendingNodeId: string | null = nodeIds.at(-1) ?? null): Promise<void> {
+    this.paths.set(callUuid, { nodeIds: [...nodeIds], context: context ?? this.paths.get(callUuid)?.context, pendingNodeId });
   }
   async callContext(callUuid: string): Promise<CallContext | undefined> {
     return this.paths.get(callUuid)?.context;
+  }
+  async linkConversation(conversationUuid: string, callUuid: string): Promise<void> {
+    const calls = this.conversations.get(conversationUuid) ?? new Set<string>();
+    calls.add(callUuid);
+    this.conversations.set(conversationUuid, calls);
+  }
+  async conversationCall(conversationUuid: string): Promise<string | undefined> {
+    const calls = this.conversations.get(conversationUuid);
+    return calls?.size === 1 ? calls.values().next().value : undefined;
+  }
+  async claimAnswer(callUuid: string): Promise<boolean> {
+    const claims = this.webhookClaims.get(callUuid) ?? new Set<string>();
+    if (claims.has("answer")) return false;
+    claims.add("answer");
+    this.webhookClaims.set(callUuid, claims);
+    return true;
+  }
+  async claimBranch(callUuid: string, nodeId: string, conversationUuid?: string, eventFingerprint = nodeId): Promise<boolean> {
+    if (conversationUuid !== undefined) {
+      const calls = this.conversations.get(conversationUuid);
+      if (calls?.size !== 1 || !calls.has(callUuid)) return false;
+    }
+    const path = this.paths.get(callUuid);
+    if (!path || path.pendingNodeId !== nodeId || path.nodeIds.at(-1) !== nodeId) return false;
+    const claims = this.webhookClaims.get(callUuid) ?? new Set<string>();
+    const eventKey = `hook:${eventFingerprint}`;
+    if (claims.has(eventKey)) return false;
+    claims.add(eventKey);
+    this.webhookClaims.set(callUuid, claims);
+    path.pendingNodeId = null;
+    return true;
   }
 }
 
@@ -86,31 +123,63 @@ export class PgGraphStore implements GraphStore {
     return row?.node_ids;
   }
 
-  async setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext): Promise<void> {
-    await this.sql`insert into call_paths (call_uuid, node_ids, context, updated_at) values (${callUuid}, ${[...nodeIds]}, ${context ? this.sql.json(context as never) : null}, now())
-      on conflict (call_uuid) do update set node_ids = excluded.node_ids, context = coalesce(excluded.context, call_paths.context), updated_at = now()`;
+  async setCallPath(callUuid: string, nodeIds: readonly string[], context?: CallContext, pendingNodeId: string | null = nodeIds.at(-1) ?? null): Promise<void> {
+    await this.sql`insert into call_paths (call_uuid, node_ids, context, pending_node_id, updated_at) values (${callUuid}, ${[...nodeIds]}, ${context ? this.sql.json(context as never) : null}, ${pendingNodeId}, now())
+      on conflict (call_uuid) do update set node_ids = excluded.node_ids, context = coalesce(excluded.context, call_paths.context), pending_node_id = excluded.pending_node_id, updated_at = now()`;
   }
   async callContext(callUuid: string): Promise<CallContext | undefined> {
     const [row] = await this.sql<{ context: CallContext | null }[]>`select context from call_paths where call_uuid = ${callUuid}`;
     return row?.context ?? undefined;
   }
+  async linkConversation(conversationUuid: string, callUuid: string): Promise<void> {
+    await this.sql`insert into call_path_legs (conversation_uuid, call_uuid) values (${conversationUuid}, ${callUuid}) on conflict do nothing`;
+  }
+  async conversationCall(conversationUuid: string): Promise<string | undefined> {
+    const rows = await this.sql<{ call_uuid: string }[]>`select call_uuid from call_path_legs where conversation_uuid = ${conversationUuid} limit 2`;
+    return rows.length === 1 ? rows[0]?.call_uuid : undefined;
+  }
+  async claimAnswer(callUuid: string): Promise<boolean> {
+    const rows = await this.sql`insert into call_webhook_claims (call_uuid, event_key) values (${callUuid}, 'answer') on conflict do nothing returning call_uuid`;
+    return rows.length === 1;
+  }
+  async claimBranch(callUuid: string, nodeId: string, conversationUuid?: string, eventFingerprint = nodeId): Promise<boolean> {
+    return this.sql.begin(async (tx) => {
+      const rows = await tx`select call_uuid from call_paths
+        where call_uuid = ${callUuid} and pending_node_id = ${nodeId} and node_ids[cardinality(node_ids)] = ${nodeId}
+        and (${conversationUuid ?? null}::text is null or (select count(*) = 1 and min(call_uuid) = ${callUuid} from call_path_legs where conversation_uuid = ${conversationUuid ?? null}))
+        for update`;
+      if (rows.length !== 1) return false;
+      const claims = await tx`insert into call_webhook_claims (call_uuid, event_key) values (${callUuid}, ${`hook:${eventFingerprint}`}) on conflict do nothing returning call_uuid`;
+      if (claims.length !== 1) return false;
+      await tx`update call_paths set pending_node_id = null, updated_at = now() where call_uuid = ${callUuid}`;
+      return true;
+    });
+  }
 }
 
-/** The ids a webhook names a leg by. The platform's input event on a timeout carries `uuid: null` and only the conversation uuid (measured on the live host, 2026-09-05), so a path is kept under both and read by whichever arrives. */
+/** Timeout events can name only a conversation. Resolve those through its unique known leg; never store a conversation as a call-path alias. */
 export interface CallIds {
   callUuid?: string | undefined;
   conversationUuid?: string | undefined;
 }
 
-export async function rememberCallPath(store: GraphStore, ids: CallIds, nodeIds: readonly string[], context?: CallContext): Promise<void> {
-  if (ids.callUuid) await store.setCallPath(ids.callUuid, nodeIds, context);
-  if (ids.conversationUuid && ids.conversationUuid !== ids.callUuid) await store.setCallPath(ids.conversationUuid, nodeIds, context);
+export async function rememberCallPath(store: GraphStore, ids: CallIds & { decision?: "pass" | "hold" | "block" }, nodeIds: readonly string[], context?: CallContext, pendingNodeId?: string | null): Promise<void> {
+  if (ids.callUuid && ids.conversationUuid) await store.linkConversation(ids.conversationUuid, ids.callUuid);
+  const callUuid = await callUuidFor(store, ids);
+  if (callUuid) await store.setCallPath(callUuid, nodeIds, context, ids.decision && ids.decision !== "pass" ? null : pendingNodeId);
+}
+
+export async function callUuidFor(store: GraphStore, ids: CallIds): Promise<string | undefined> {
+  if (ids.callUuid !== undefined) return ids.callUuid;
+  return ids.conversationUuid ? store.conversationCall(ids.conversationUuid) : undefined;
 }
 
 export async function callPathFor(store: GraphStore, ids: CallIds): Promise<string[] | undefined> {
-  return (ids.callUuid ? await store.callPath(ids.callUuid) : undefined) ?? (ids.conversationUuid ? await store.callPath(ids.conversationUuid) : undefined);
+  const callUuid = await callUuidFor(store, ids);
+  return callUuid ? store.callPath(callUuid) : undefined;
 }
 
 export async function callContextFor(store: GraphStore, ids: CallIds): Promise<CallContext | undefined> {
-  return (ids.callUuid ? await store.callContext(ids.callUuid) : undefined) ?? (ids.conversationUuid ? await store.callContext(ids.conversationUuid) : undefined);
+  const callUuid = await callUuidFor(store, ids);
+  return callUuid ? store.callContext(callUuid) : undefined;
 }

@@ -96,18 +96,18 @@ describe("create-call gateway", () => {
     expect(originRequests.length).toBe(beforeOrigin);
   });
 
-  it("pre-fetches only from the configured origin host, never from a caller-chosen address", async () => {
+  it("requires the Preflight answer route and pre-fetches only the configured origin", async () => {
     const { server } = app();
     const beforeOrigin = originRequests.length;
-    for (const bad of ["http://127.0.0.1:1/answer", "http://169.254.169.254/latest/meta-data", "https://attacker.example/answer", "file:///etc/passwd"]) {
+    for (const bad of [`${originUrl}/answer`, "http://127.0.0.1:1/answer", "http://169.254.169.254/latest/meta-data", "https://attacker.example/answer", "file:///etc/passwd"]) {
       const res = await call(server, { ...BASE, answer_url: [bad] });
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toMatchObject({ error: expect.stringContaining("configured origin host") });
+      expect(res.json()).toMatchObject({ error: expect.stringContaining("this Preflight's /v/answer") });
     }
     expect(originRequests.length).toBe(beforeOrigin);
     // The configured origin host is reachable, and the origin serves a compliant connect-only object here.
     served = JSON.stringify(CONNECT_ONLY);
-    expect((await call(server, { ...BASE, answer_url: [`${originUrl}/answer`] })).statusCode).toBe(201);
+    expect((await call(server, { ...BASE, answer_url: ["https://preflight.example/v/answer"] })).statusCode).toBe(201);
     expect(originRequests.length).toBe(beforeOrigin + 1);
   });
 
@@ -171,7 +171,7 @@ describe("create-call gateway", () => {
     served = JSON.stringify(NONCOMPLIANT);
     const { server } = app();
     const before = originRequests.length;
-    const res = await call(server, { ...BASE, answer_url: [`${originUrl}/answer`] });
+    const res = await call(server, { ...BASE, answer_url: ["https://preflight.example/v/answer"] });
     expect(res.statusCode).toBe(409);
     expect(res.headers["x-preflight-decision"]).toBe("block");
     expect(Number(res.headers["x-preflight-origin-ms"])).toBeGreaterThanOrEqual(0);
@@ -195,9 +195,9 @@ describe("create-call gateway", () => {
   });
 
   it("fails closed when the answer URL does not answer the pre-dial check", async () => {
-    const { server } = app();
+    const { server } = app({ ORIGIN_ANSWER_URL: `${originUrl}/slow` });
     const before = platformRequests.length;
-    const res = await call(server, { ...BASE, answer_url: [`${originUrl}/slow`] });
+    const res = await call(server, { ...BASE, answer_url: ["https://preflight.example/v/answer"] });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ decision: "block", reason: expect.stringContaining("pre-dial check") });
     expect(platformRequests.length).toBe(before);
@@ -267,13 +267,19 @@ describe("create-call gateway", () => {
       return server.inject({ method: "POST", url: "/v/answer", payload: raw, headers: { "content-type": "application/json", authorization: webhookAuth(raw) } });
     };
     served = JSON.stringify(OPEN);
-    const leg = await answer({ uuid: "leg-2", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" });
+    const leg = await answer({ uuid: "vonage-uuid-1", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" });
     expect(leg.headers["x-preflight-decision"]).toBe("pass");
     expect((await decisions.recent(1))[0]).toMatchObject({ policy: "advisory", decision: "pass", reason: expect.stringContaining(holdId) });
+    expect((await answer({ uuid: "leg-2", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("hold");
+    expect((await decisions.recent(1))[0]).toMatchObject({ policy: "strict", decision: "hold" });
     // A leg of some other conversation is held as before, and a false verdict still blocks on the override.
     expect((await answer({ uuid: "leg-3", conversation_uuid: "CON-other", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("hold");
     served = JSON.stringify(NONCOMPLIANT);
-    expect((await answer({ uuid: "leg-4", conversation_uuid: "CON-vonage-1", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("block");
+    const releasedHold = await holds.get(holdId);
+    expect(releasedHold).toBeDefined();
+    await holds.create({ ...releasedHold!, holdId: "false-verdict-release", placedCallUuid: "false-verdict-call", placedConversationUuid: "CON-false-verdict" });
+    expect((await answer({ uuid: "false-verdict-call", conversation_uuid: "CON-false-verdict", direction: "outbound", to: "14042010000", from: "14045550100" })).headers["x-preflight-decision"]).toBe("block");
+    expect((await decisions.recent(1))[0]).toMatchObject({ policy: "advisory", decision: "block" });
     served = JSON.stringify(CONNECT_ONLY);
     // A release places one call: the same override re-submitted is refused, and the first binding stands.
     const again = await call(server, { ...BASE, ncco: OPEN }, { authorization: TOKEN, "x-preflight-override": holdId });

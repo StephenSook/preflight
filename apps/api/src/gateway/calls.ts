@@ -9,6 +9,7 @@ import { rememberCallPath, type GraphStore } from "../store/graphStore.js";
 import type { Hold, HoldStore } from "../store/holdStore.js";
 import type { LedgerStore } from "../store/ledgerStore.js";
 import { verifyApplicationJwt } from "../vonage/verifyApplicationJwt.js";
+import { PLACEMENT_QUERY, placementDigest } from "./placement.js";
 
 export interface GatewayDeps {
   config: Config;
@@ -78,10 +79,8 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
     const answerUrl = Array.isArray(body.answer_url) ? str(body.answer_url[0]) : undefined;
     const hasInline = Array.isArray(body.ncco);
     if (!hasInline && !answerUrl) return reply.code(400).send({ error: "either ncco or answer_url is required" });
-    // The pre-fetch reaches exactly one place: the configured origin. Either the caller named
-    // Preflight's own answer URL (the installed shape), or the same host as ORIGIN_ANSWER_URL.
-    if (answerUrl && !isPreflightAnswerUrl(answerUrl, config) && !isConfiguredOrigin(answerUrl, config)) {
-      return reply.code(400).send({ error: "answer_url must be this Preflight's /v/answer or a URL on the configured origin host; the pre-dial check fetches nowhere else" });
+    if (body.answer_url !== undefined && (!Array.isArray(body.answer_url) || body.answer_url.length !== 1 || !answerUrl || !isPreflightAnswerUrl(answerUrl, config))) {
+      return reply.code(400).send({ error: "answer_url must contain exactly this Preflight's /v/answer URL; direct-origin URLs bypass live enforcement" });
     }
 
     const verifyStart = performance.now();
@@ -94,7 +93,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
     } else {
       // A developer who installed Preflight points answer_url at Preflight itself; the pre-fetch
       // then goes to the real origin, not back into this service.
-      const target = isPreflightAnswerUrl(answerUrl as string, config) ? config.ORIGIN_ANSWER_URL : (answerUrl as string);
+      const target = config.ORIGIN_ANSWER_URL;
       const method = body.answer_method === "POST" ? "POST" : "GET";
       const params = { to: toNumber, from: fromNumber ?? "", uuid: dryRunId, conversation_uuid: "preflight-dryrun", direction: "outbound" };
       const forwarded = await forwardToOrigin(
@@ -138,7 +137,7 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       outcome.record.decision = "block";
       outcome.record.reason = originFailure;
     }
-    if (randomFrom && !fromNumber) {
+    if (randomFrom && !fromNumber && !originFailure && outcome.evaluation.verdicts.some((v) => v.id === "P4" && v.verdict === "false")) {
       // The platform picks one of the account's own numbers: a caller id will be present.
       for (const v of outcome.evaluation.verdicts) if (v.id === "P4" && v.verdict === "false") Object.assign(v, { verdict: "true", witness: undefined });
       if (outcome.decision === "block" && !outcome.evaluation.verdicts.some((v) => v.verdict === "false")) {
@@ -155,6 +154,16 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
 
     let placed: { status: number; bodyText: string; contentType: string | null } | undefined;
     if (outcome.decision === "pass") {
+      const capability = override && answerUrl ? randomBytes(32).toString("hex") : undefined;
+      const correlation = capability ? { hash: placementDigest(capability)!, expiresAt: new Date(clock() + 600_000).toISOString() } : undefined;
+      if (override && !await holds.reservePlacement(override.holdId, correlation)) {
+        return reply.code(409).send({ decision: "hold", placed: false, reason: `override ${override.holdId} already reserved a placement; its result must be reconciled before another release` });
+      }
+      if (capability && answerUrl) {
+        const correlatedAnswer = new URL(answerUrl);
+        correlatedAnswer.searchParams.set(PLACEMENT_QUERY, capability);
+        forwardBody = JSON.stringify({ ...JSON.parse(forwardBody) as CreateCallBody, answer_url: [correlatedAnswer.toString()] });
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
@@ -174,11 +183,13 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
         const v = JSON.parse(placed.bodyText) as { uuid?: unknown; conversation_uuid?: unknown };
         if (typeof v.uuid === "string") outcome.record.callUuid = v.uuid;
         if (typeof v.conversation_uuid === "string") outcome.record.conversationUuid = v.conversation_uuid;
-        await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, { direction: "outbound", ...(fromNumber ? { from: fromNumber } : {}), to: toNumber });
+        if (hasInline && !answerUrl && placed.status === 201 && typeof v.uuid === "string" && v.uuid.length > 0) {
+          await rememberCallPath(graphStore, outcome.record, outcome.pathNodeIds, { direction: "outbound", ...(fromNumber ? { from: fromNumber } : {}), to: toNumber });
+        }
         // The override travels with the call: its answer webhook and branch hooks find the hold by these ids.
-        if (override && (typeof v.uuid === "string" || typeof v.conversation_uuid === "string")) await holds.placed(override.holdId, typeof v.uuid === "string" ? v.uuid : undefined, typeof v.conversation_uuid === "string" ? v.conversation_uuid : undefined);
-      } catch {
-        // The platform's body is returned to the caller verbatim whatever it is.
+        if (override && placed.status === 201 && (typeof v.uuid === "string" || typeof v.conversation_uuid === "string")) await holds.placed(override.holdId, typeof v.uuid === "string" ? v.uuid : undefined, typeof v.conversation_uuid === "string" ? v.conversation_uuid : undefined);
+      } catch (err) {
+        req.log.warn({ errorType: err instanceof Error ? err.name : "unknown", platformStatus: placed.status }, "platform response correlation failed; reservation retained, reconciliation required");
       }
     }
 
@@ -190,6 +201,8 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
       deps.onHold?.(hold);
     }
     outcome.record.verifyLatencyMs = performance.now() - verifyStart - (originLatencyMs ?? 0);
+    outcome.record.source = "gateway";
+    if (placed) outcome.record.platformStatus = placed.status;
     await decisions.append(outcome.record);
     await ledger.append(ledgerDraftFor(outcome, placed));
     req.log.info({ decision: outcome.decision, reason: outcome.reason, to: toNumber, callUuid: outcome.record.callUuid, placed: placed?.status, holdId, override }, "create-call gateway decided");
@@ -211,22 +224,11 @@ export function registerCallGateway(app: FastifyInstance, deps: GatewayDeps): vo
   });
 }
 
-function isConfiguredOrigin(url: string, config: Config): boolean {
-  try {
-    const u = new URL(url);
-    const o = new URL(config.ORIGIN_ANSWER_URL);
-    return (u.protocol === "http:" || u.protocol === "https:") && u.host === o.host;
-  } catch {
-    return false;
-  }
-}
-
 function isPreflightAnswerUrl(url: string, config: Config): boolean {
   try {
-    const u = new URL(url);
-    if (!u.pathname.endsWith("/v/answer")) return false;
-    if (!config.PUBLIC_BASE_URL) return true;
-    return u.host === new URL(config.PUBLIC_BASE_URL).host;
+    if (!config.PUBLIC_BASE_URL) return false;
+    const target = new URL(url);
+    return (target.protocol === "http:" || target.protocol === "https:") && target.href === new URL("/v/answer", config.PUBLIC_BASE_URL).href;
   } catch {
     return false;
   }

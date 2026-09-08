@@ -143,12 +143,12 @@ export class FlowDecider {
     const callFacts = { from: callerId, lineType: facts.lineType, withinHours: facts.withinHours };
 
     const parsed = parseNcco(input.nccoBytes.trim().length === 0 ? "[]" : input.nccoBytes);
-    const invalid = !parsed.ok && parsed.actions.length === 0 && input.nccoBytes.trim().length > 0;
-
     const graph = await this.deps.graphStore.load();
+    const missingHistory = prefixNodeIds.some((nodeId) => !graph.nodes.has(nodeId)) || (input.from !== undefined && !graph.nodes.has(input.from.nodeId));
+    const invalid = !parsed.ok || missingHistory;
     const at = input.now.toISOString();
     const observed = invalid ? { nodeIds: [], newNodes: 0, newEdges: 0 } : graph.observeObject(input.endpoint, parsed.actions, at, input.from);
-    await this.deps.graphStore.save([...graph.nodes.values()], [...graph.edges.values()]);
+    if (!invalid) await this.deps.graphStore.save([...graph.nodes.values()], [...graph.edges.values()]);
 
     const prefixActions = prefixNodeIds.map((id) => graph.nodes.get(id)?.action).filter((a): a is NccoAction => a !== undefined);
     const prefixLabels = labelsFor(graph, prefixNodeIds);
@@ -161,7 +161,7 @@ export class FlowDecider {
     if (invalid) {
       evaluation = { verdicts: [], callAtoms: { dest_wireless: null, dest_residential: null, within_hours: null, caller_id_present: false }, steps: [], decision: "block" };
       decision = "block";
-      reason = `the application's server returned something that is not a call-control object: ${parsed.issues[0]?.message ?? "unknown defect"}`;
+      reason = missingHistory ? "the call path uses missing or legacy graph nodes; a fresh observation is required" : `the application's server returned something that is not a call-control object: ${parsed.issues.find((issue) => issue.severity === "error")?.message ?? "unknown defect"}`;
     } else if (!rootId) {
       // An empty callback at the end of an object: the call ends here. Evaluate the executed path as terminal.
       const ev = evaluateGraphFromPrefix(prefixActions, prefixLabels, callFacts, declaration, policy);

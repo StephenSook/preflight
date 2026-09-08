@@ -288,8 +288,9 @@ describe("preflight api ingress", () => {
     expect(first.headers["x-preflight-decision"]).toBe("pass");
     const hookUrl = new URL((first.json() as Array<{ eventUrl?: string[] }>)[1]?.eventUrl?.[0] ?? "");
     expect(await graphStore.callPath("call-H1")).toHaveLength(2);
-    expect(await graphStore.callPath("CON-1")).toEqual(await graphStore.callPath("call-H1"));
-    expect(await graphStore.callContext("CON-1")).toEqual({ direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to });
+    expect(await graphStore.conversationCall("CON-1")).toBe("call-H1");
+    expect(await graphStore.callPath("CON-1")).toBeUndefined();
+    expect(await graphStore.callContext("call-H1")).toEqual({ direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to });
 
     // Vonage calls the hook with the input result; the origin's question handler returns the untraced branch.
     servedQuestion = JSON.stringify([{ action: "talk", text: "We could not reach you. Goodbye." }]);
@@ -375,7 +376,7 @@ describe("preflight api ingress", () => {
     expect(diff.openBranches).toEqual([]);
   });
 
-  it("reconciles the carrier's records against its own decisions behind the workflow token, and the summary carries the last result", async () => {
+  it("does not treat answer-time decisions as outbound authorization when reconciling carrier records", async () => {
     const at = (ms: number) => new Date(NOW + ms).toISOString();
     expect((await app().server.inject({ method: "POST", url: "/api/reconcile", payload: "{}", headers: { "content-type": "application/json" } })).statusCode).toBe(404);
     const token = "workflow-token-for-tests-1";
@@ -385,11 +386,10 @@ describe("preflight api ingress", () => {
     expect((await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ records: [] }), headers })).statusCode).toBe(400);
     expect((await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ window: { start: at(0), end: at(1000) }, records: [{ call_id: "x" }] }), headers })).statusCode).toBe(400);
 
-    // One call the interlock passed (with its uuid), one request it refused before any uuid existed.
     served = FLOWS.connectOnly;
     expect((await post(server, "/v/answer", { ...OUTBOUND, uuid: "call-R1" })).headers["x-preflight-decision"]).toBe("pass");
     served = FLOWS.syntheticNoOptOut;
-    expect((await post(server, "/v/answer", { direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from })).headers["x-preflight-decision"]).toBe("block");
+    expect((await post(server, "/v/answer", { uuid: "call-R2", direction: "outbound", to: OUTBOUND.to, from: OUTBOUND.from })).headers["x-preflight-decision"]).toBe("block");
 
     const records = [
       { call_id: "call-R1", direction: "outbound", from: OUTBOUND.from, to: OUTBOUND.to, date_start: at(1000), status: "ANSWERED" },
@@ -399,13 +399,13 @@ describe("preflight api ingress", () => {
     const res = await server.inject({ method: "POST", url: "/api/reconcile", payload: JSON.stringify({ window: { start: at(-3600_000), end: at(3600_000) }, records }), headers });
     expect(res.statusCode).toBe(201);
     const { report, ledger: link } = res.json() as { report: Record<string, unknown>; ledger: { seq: number } };
-    expect(report).toMatchObject({ carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, unmatched_ids: ["ghost-1", "stranger"], leaked_ids: ["ghost-1"] });
+    expect(report).toMatchObject({ carrier_records: 3, matched: 0, unmatched: 3, leaks: 0, refused_in_window: 0, unmatched_ids: ["call-R1", "ghost-1", "stranger"], leaked_ids: [] });
     expect(link.seq).toBe(3);
     const entry = (await ledger.entries(2, 1))[0];
-    expect(entry).toMatchObject({ kind: "reconciliation", detail: { carrier_records: 3, leaks: 1, records_hash: expect.stringMatching(/^sha256:/) } });
+    expect(entry).toMatchObject({ kind: "reconciliation", detail: { carrier_records: 3, leaks: 0, records_hash: expect.stringMatching(/^sha256:/) } });
     expect((await ledger.verify()).ok).toBe(true);
     const summary = (await server.inject({ method: "GET", url: "/api/summary" })).json() as { reconciliation: Record<string, unknown> };
-    expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 1, unmatched: 2, leaks: 1, refused_in_window: 1, decided_not_in_records: 0, window: { start: at(-3600_000), end: at(3600_000) } });
+    expect(summary.reconciliation).toMatchObject({ seq: 3, carrier_records: 3, matched: 0, unmatched: 3, leaks: 0, refused_in_window: 0, decided_not_in_records: 0, window: { start: at(-3600_000), end: at(3600_000) } });
   });
 
   it("resolves a hold the free tables could not with one Identity Insights lookup after the response, never inside a decision", async () => {
