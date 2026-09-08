@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { decide, evaluateNcco, parseNcco, PROPERTIES, type CallFacts, type Decision, type Evaluation, type FlowDeclaration, type PropertyVerdict, type Verdict } from "@preflight/engine";
-import { verifyChain, type LedgerEntry, type VerifyResult } from "@preflight/ledger";
+import { GENESIS_HASH, hashBody, verifyChain, type LedgerEntry, type VerifyResult } from "@preflight/ledger";
 
 /**
  * The library behind `npx preflight`: check one object, replay the labelled corpus, verify a
@@ -32,7 +32,7 @@ export interface CheckResult {
 export function checkObject(object: unknown, opts: CheckOptions): CheckResult {
   const parsed = parseNcco(object);
   const evaluation = evaluateNcco(parsed, { declaration: opts.declaration, facts: opts.facts, terminal: !opts.open });
-  const decision: Decision = decide(evaluation.verdicts, opts.policy ?? "strict");
+  const decision: Decision = parsed.ok ? decide(evaluation.verdicts, opts.policy ?? "strict") : evaluation.decision;
   return { decision, verdicts: evaluation.verdicts, issues: parsed.issues, evaluation };
 }
 
@@ -105,21 +105,58 @@ export function renderReplay(rows: ReplayRow[]): string {
   return lines.join("\n");
 }
 
+function isLedgerEntry(value: unknown): value is LedgerEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as Record<string, unknown>;
+  const nullableString = (field: unknown) => field === null || typeof field === "string";
+  const line = entry.line_type;
+  return Number.isSafeInteger(entry.seq) && typeof entry.ts === "string"
+    && typeof entry.kind === "string" && ["pass", "block", "hold", "override", "consent", "seal", "declaration", "reconciliation", "setup"].includes(entry.kind)
+    && (entry.decision === null || (typeof entry.decision === "string" && ["pass", "block", "hold"].includes(entry.decision)))
+    && [entry.call_uuid, entry.property, entry.citation, entry.ncco_hash].every(nullableString)
+    && Array.isArray(entry.witness) && entry.witness.every((item) => typeof item === "string")
+    && (line === null || (typeof line === "object" && !Array.isArray(line) && line !== null
+      && "value" in line && typeof line.value === "string" && "source" in line && typeof line.source === "string"
+      && "conf" in line && typeof line.conf === "string"))
+    && (entry.detail === null || (typeof entry.detail === "object" && !Array.isArray(entry.detail) && entry.detail !== null))
+    && typeof entry.prev_hash === "string" && /^sha256:[0-9a-f]{64}$/.test(entry.prev_hash)
+    && typeof entry.entry_hash === "string" && /^sha256:[0-9a-f]{64}$/.test(entry.entry_hash);
+}
+
 /** Reads every entry from a Preflight host (paged) or from a JSON file (an array, or {entries: [...]}). */
 export async function loadLedger(source: string, fetchImpl: typeof fetch = fetch): Promise<LedgerEntry[]> {
   if (/^https?:\/\//.test(source)) {
     const base = source.replace(/\/+$/, "");
-    const all: LedgerEntry[] = [];
-    let after = 0;
-    for (;;) {
-      const res = await fetchImpl(`${base}/api/ledger/entries?after=${after}&limit=1000`, { headers: { accept: "application/json" } });
+    const getJson = async (route: string): Promise<unknown> => {
+      const res = await fetchImpl(`${base}${route}`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
       if (!res.ok) throw new Error(`${base}: HTTP ${res.status}`);
-      const page = (await res.json()) as { entries?: LedgerEntry[] };
-      const entries = page.entries ?? [];
-      if (entries.length === 0) break;
-      all.push(...entries);
-      after = entries[entries.length - 1]?.seq ?? after;
+      return res.json();
+    };
+    const snapshot = await getJson("/api/ledger/head");
+    if (!snapshot || typeof snapshot !== "object" || !("seq" in snapshot) || !("entry_hash" in snapshot)
+      || typeof snapshot.seq !== "number" || !Number.isSafeInteger(snapshot.seq) || snapshot.seq < 0
+      || typeof snapshot.entry_hash !== "string" || !/^sha256:[0-9a-f]{64}$/.test(snapshot.entry_hash)
+      || (snapshot.seq === 0 && snapshot.entry_hash !== GENESIS_HASH)) throw new Error(`${base}: invalid ledger head`);
+    const all: LedgerEntry[] = [];
+    let previousHash = GENESIS_HASH;
+    let after = 0;
+    while (after < snapshot.seq) {
+      const limit = Math.min(1000, snapshot.seq - after);
+      const page = await getJson(`/api/ledger/entries?after=${after}&limit=${limit}`);
+      if (!page || typeof page !== "object" || !("entries" in page) || !Array.isArray(page.entries)) throw new Error(`${base}: invalid ledger page: entries must be an array`);
+      if (page.entries.length !== limit) throw new Error(`${base}: invalid ledger page: expected ${limit} entries before snapshot head`);
+      if ("after" in page && page.after !== after) throw new Error(`${base}: invalid ledger page: cursor mismatch`);
+      for (const entry of page.entries) {
+        if (!isLedgerEntry(entry)) throw new Error(`${base}: invalid ledger page: malformed entry`);
+        if (entry.seq !== after + 1) throw new Error(`${base}: invalid ledger page: sequence must advance consecutively`);
+        const { entry_hash, ...body } = entry;
+        if (entry.prev_hash !== previousHash || hashBody(body) !== entry_hash) throw new Error(`${base}: invalid ledger page: inconsistent hash or link at seq ${entry.seq}`);
+        all.push(entry);
+        previousHash = entry_hash;
+        after = entry.seq;
+      }
     }
+    if (previousHash !== snapshot.entry_hash) throw new Error(`${base}: ledger does not match snapshot head`);
     return all;
   }
   const parsed = JSON.parse(readFileSync(source, "utf8")) as LedgerEntry[] | { entries: LedgerEntry[] };
