@@ -22,6 +22,9 @@ engine in your browser; every number on the page is read from the host on load),
 [npm](https://www.npmjs.com/package/preflight-interlock), and a
 [verification itinerary](./docs/judges.md), with browser-only checks and terminal prerequisites listed.
 
+**Demo:** [Preflight: See the broken path before dialing](https://www.youtube.com/watch?v=jKxf2M5xBuE).
+The gateway run, silent iPhone footage and separately labelled browser-call audio are distinct evidence.
+
 Built for the DIALED IN Builder Challenge (CreateHER Fest x Vonage, Atlanta cohort). This README
 describes this source revision; deployments and the published CLI may lag it. Dated live evidence
 and remaining limits are listed under [Honest status](#honest-status).

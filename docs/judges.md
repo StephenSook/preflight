@@ -1,5 +1,9 @@
 # A three-minute itinerary for a stranger
 
+Watch the [published demonstration](https://www.youtube.com/watch?v=jKxf2M5xBuE), then use the
+checks below. The gateway run, silent iPhone footage and separately labelled browser-call audio
+are distinct evidence, not one continuous personal-phone call.
+
 The public checks need no account or key. HTTP commands use curl; CLI commands need Node and npm;
 the source checkout also needs Git and pnpm, and the optional seal commands need `rekor-cli`. The
 numbers you see are recomputed by the host when you ask; nothing is a screenshot. The web app is
@@ -24,7 +28,7 @@ percentiles over the last decisions, and the last carrier reconciliation.
 
 ```
 curl -s https://preflight-api-rc34.onrender.com/api/ledger/verify
-npx -y preflight-interlock verify-ledger https://preflight-api-rc34.onrender.com
+npx -y preflight-interlock@0.2.1 verify-ledger https://preflight-api-rc34.onrender.com
 ```
 
 The first is the host checking itself. The second is your machine pulling every entry and
@@ -71,7 +75,7 @@ Or, without cloning:
 
 ```
 printf '[{"action":"talk","text":"Buy now."}]' > flow.json
-npx -y preflight-interlock check flow.json
+npx -y preflight-interlock@0.2.1 check flow.json
 ```
 
 It prints every property's verdict with its citation and, on a false, the action path that

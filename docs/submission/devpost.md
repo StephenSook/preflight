@@ -4,6 +4,8 @@ This is a local draft, not a submitted entry. Confirm organizer eligibility, cit
 
 Revalidate the deployed frontend/API SHAs, actual recording and public links before copying this draft into any external form. Current source may be ahead of deployment. Numbers and dated evidence come from `docs/fact-sheet.md`; refresh counts separately after release. Verify persisted fields by full reload after any authorized submission edit.
 
+The [demonstration is published on YouTube](https://www.youtube.com/watch?v=jKxf2M5xBuE). Its gateway run, silent iPhone footage and separately labelled browser-call audio are distinct evidence. Video publication does not establish submission status or organizer eligibility.
+
 ## Tagline
 
 Inspect a failing call flow before the carrier is asked to dial. Preflight gives Vonage developers structural verdicts and a path to investigate.
@@ -57,7 +59,7 @@ Use the dated records in the fact sheet. Do not present browser-test fixtures as
 - Public summary: `https://preflight-api-rc34.onrender.com/api/summary`.
 - Browser checker: `https://preflight-web-nine.vercel.app/#sandbox`. It checks a pasted object locally, not all of a server's possible branches.
 - Current-source checks and prerequisites: README Quickstart and `docs/judges.md`.
-- Published `preflight-interlock@0.2.0` predates the current source fixes and current corpus changes. Do not claim published/current-source parity before the replacement release and clean-directory checks finish.
+- Published `preflight-interlock@0.2.1` includes the September 8 engine and ledger-verification fixes. The fact sheet records a clean-directory, empty-cache check reproducing all 48 corpus labels and verifying the live ledger. Older 0.2.0 predates those fixes.
 
 Availability must be checked before publication. Operator controls require a token; they are not part of the credential-free path.
 
